@@ -29,19 +29,18 @@ export default function TaskDetailScreen({ route, navigation }) {
   }, [editingTask]);
 
   const onChangeDate = (event, selectedDate) => {
-    // En Android, siempre ocultamos el picker después de seleccionar
+    const currentDate = selectedDate || dueAt;
+    
+    // En Android, el picker se cierra automáticamente
     if (Platform.OS === 'android') {
       setShowPicker(false);
-    }
-    
-    // Verificar que el evento exista y tenga un tipo
-    if (event && event.type === 'set' && selectedDate) {
-      setDueAt(selectedDate);
-    } else if (event && event.type === 'dismissed') {
-      setShowPicker(false);
-    } else if (!event && selectedDate) {
-      // Fallback para iOS
-      setDueAt(selectedDate);
+      // Solo actualizar si se seleccionó una fecha (no se canceló)
+      if (selectedDate) {
+        setDueAt(currentDate);
+      }
+    } else {
+      // En iOS, el picker permanece visible
+      setDueAt(currentDate);
     }
   };
 
@@ -179,9 +178,10 @@ export default function TaskDetailScreen({ route, navigation }) {
         <DateTimePicker
           value={dueAt}
           mode="datetime"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          display="default"
           onChange={onChangeDate}
           minimumDate={new Date()}
+          is24Hour={true}
         />
       )}
 

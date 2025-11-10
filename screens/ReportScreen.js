@@ -2,6 +2,7 @@
 // Reporte para reunión: tarjetas por área con contadores, lista de críticas (alta prioridad) y vencidas.
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { loadTasks } from '../storage';
 
 const AREAS = ['Jurídica', 'Obras', 'Tesorería', 'Administración', 'Recursos Humanos'];
@@ -129,9 +130,14 @@ export default function ReportScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.heading}>Reportes</Text>
-      </View>
+      <LinearGradient colors={['#667eea', '#764ba2']} style={styles.headerGradient}>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.greeting}>Análisis y métricas 📈</Text>
+            <Text style={styles.heading}>Reportes</Text>
+          </View>
+        </View>
+      </LinearGradient>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.subtitle}>{new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</Text>
 
@@ -183,18 +189,34 @@ export default function ReportScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFA' },
+  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  headerGradient: {
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12
+  },
   header: { 
     paddingHorizontal: 24,
     paddingTop: 64,
-    paddingBottom: 20,
-    backgroundColor: '#FAFAFA'
+    paddingBottom: 28
+  },
+  greeting: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    opacity: 0.9,
+    marginBottom: 4,
+    letterSpacing: 0.3
   },
   heading: { 
-    fontSize: 38, 
+    fontSize: 42, 
     fontWeight: '800',
-    color: '#1A1A1A',
-    letterSpacing: -1
+    color: '#FFFFFF',
+    letterSpacing: -1.5
   },
   scrollContent: {
     padding: 20

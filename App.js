@@ -16,6 +16,7 @@ import TaskChatScreen from './screens/TaskChatScreen';
 import MyInboxScreen from './screens/MyInboxScreen';
 import KanbanScreen from './screens/KanbanScreen';
 import ReportScreen from './screens/ReportScreen';
+import AdminScreen from './screens/AdminScreen';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 
@@ -35,8 +36,9 @@ function CustomTabBar({ activeTab, setActiveTab }) {
   const tabs = [
     { name: 'Tareas', icon: '📋', screen: 'Home' },
     { name: 'Kanban', icon: '📊', screen: 'Kanban' },
-    { name: 'Mi Bandeja', icon: '📥', screen: 'MyInbox' },
-    { name: 'Reportes', icon: '📈', screen: 'Report' }
+    { name: 'Bandeja', icon: '📥', screen: 'MyInbox' },
+    { name: 'Reportes', icon: '📈', screen: 'Report' },
+    { name: 'Admin', icon: '⚙️', screen: 'Admin' }
   ];
 
   return (
@@ -81,6 +83,8 @@ function MainNavigator({ navigation }) {
         return <MyInboxScreen {...screenProps} />;
       case 'Report':
         return <ReportScreen {...screenProps} />;
+      case 'Admin':
+        return <AdminScreen {...screenProps} />;
       default:
         return <HomeScreen {...screenProps} />;
     }
@@ -165,38 +169,40 @@ export default function App() {
 const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5EA',
-    height: 88,
-    paddingBottom: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backdropFilter: 'blur(20px)',
+    borderTopWidth: 0.5,
+    borderTopColor: 'rgba(0, 0, 0, 0.1)',
+    height: 85,
+    paddingBottom: 20,
     paddingTop: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 10
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 12
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8
+    paddingVertical: 4
   },
   tabIcon: {
-    fontSize: 24,
-    marginBottom: 4,
-    opacity: 0.6
+    fontSize: 20,
+    marginBottom: 3,
+    opacity: 0.5
   },
   tabIconActive: {
-    fontSize: 28,
-    opacity: 1
+    fontSize: 24,
+    opacity: 1,
+    transform: [{ scale: 1.1 }]
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#8E8E93',
     fontWeight: '600',
-    letterSpacing: 0.3
+    letterSpacing: 0.2
   },
   tabLabelActive: {
     color: '#007AFF',

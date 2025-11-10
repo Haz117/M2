@@ -4,6 +4,7 @@
 // NOTA: Drag-and-drop requiere un build personalizado (Expo Dev Client), por ahora usa botones.
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import FilterBar from '../components/FilterBar';
 import { loadTasks, saveTasks } from '../storage';
 
@@ -100,9 +101,14 @@ export default function KanbanScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.heading}>Kanban</Text>
-      </View>
+      <LinearGradient colors={['#667eea', '#764ba2']} style={styles.headerGradient}>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.greeting}>Vista de tablero 📊</Text>
+            <Text style={styles.heading}>Kanban</Text>
+          </View>
+        </View>
+      </LinearGradient>
       <FilterBar onFilterChange={setFilters} />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.board}>
         {STATUSES.map(renderColumn)}
@@ -112,18 +118,34 @@ export default function KanbanScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFA' },
+  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  headerGradient: {
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12
+  },
   header: {
     paddingHorizontal: 24,
     paddingTop: 64,
-    paddingBottom: 16,
-    backgroundColor: '#FAFAFA'
+    paddingBottom: 28
+  },
+  greeting: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    opacity: 0.9,
+    marginBottom: 4,
+    letterSpacing: 0.3
   },
   heading: { 
-    fontSize: 38, 
+    fontSize: 42, 
     fontWeight: '800',
-    color: '#1A1A1A',
-    letterSpacing: -1
+    color: '#FFFFFF',
+    letterSpacing: -1.5
   },
   board: { paddingHorizontal: 16, paddingVertical: 20 },
   column: { 

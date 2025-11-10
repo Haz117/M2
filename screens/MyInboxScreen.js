@@ -17,9 +17,7 @@ export default function MyInboxScreen({ navigation }) {
   useEffect(() => {
     (async () => {
       const t = await loadTasks();
-      setTasks(t || []);
-      const u = await loadCurrentUser();
-      setCurrentUser(u);
+      setTasks(t || []);git 
       setEditingUser(u);
     })();
   }, []);
@@ -92,12 +90,19 @@ export default function MyInboxScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.heading}>Mi Bandeja</Text>
-        <TouchableOpacity style={styles.addButton} onPress={goToCreate}>
-          <Text style={styles.addButtonText}>+</Text>
-        </TouchableOpacity>
-      </View>
+      <LinearGradient colors={['#667eea', '#764ba2']} style={styles.headerGradient}>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.greeting}>Tus tareas pendientes 📬</Text>
+            <Text style={styles.heading}>Mi Bandeja</Text>
+          </View>
+          <TouchableOpacity style={styles.addButton} onPress={goToCreate}>
+            <LinearGradient colors={['#FFFFFF', '#F8F9FA']} style={styles.addButtonGradient}>
+              <Text style={styles.addButtonText}>+</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
 
       <View style={styles.userSection}>
         <Text style={styles.userLabel}>USUARIO ACTUAL</Text>
@@ -117,8 +122,9 @@ export default function MyInboxScreen({ navigation }) {
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
+            <Text style={styles.emptyIcon}>📭</Text>
             <Text style={styles.emptyText}>Sin tareas</Text>
-            <Text style={styles.emptySubtext}>No hay tareas asignadas</Text>
+            <Text style={styles.emptySubtext}>No tienes tareas asignadas en este momento</Text>
           </View>
         }
       />
@@ -129,41 +135,60 @@ export default function MyInboxScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: '#FAFAFA'
+    backgroundColor: '#F8F9FA'
+  },
+  headerGradient: {
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
     paddingHorizontal: 24,
     paddingTop: 64,
-    paddingBottom: 16,
-    backgroundColor: '#FAFAFA'
+    paddingBottom: 28
+  },
+  greeting: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    opacity: 0.9,
+    marginBottom: 4,
+    letterSpacing: 0.3
   },
   heading: { 
-    fontSize: 38, 
+    fontSize: 42, 
     fontWeight: '800',
-    color: '#1A1A1A',
-    letterSpacing: -1
+    color: '#FFFFFF',
+    letterSpacing: -1.5
   },
   addButton: {
+    borderRadius: 28,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8
+  },
+  addButtonGradient: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#007AFF',
     justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6
+    alignItems: 'center'
   },
   addButtonText: {
-    color: '#fff',
-    fontSize: 28,
+    color: '#667eea',
+    fontSize: 32,
     fontWeight: '300',
-    marginBottom: 2
+    marginTop: -2
   },
   userSection: {
     backgroundColor: '#fff',
@@ -255,20 +280,26 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     alignItems: 'center',
-    marginTop: 120,
+    marginTop: 100,
     paddingHorizontal: 40
   },
+  emptyIcon: {
+    fontSize: 80,
+    marginBottom: 20,
+    opacity: 0.3
+  },
   emptyText: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '700',
     color: '#1A1A1A',
-    marginBottom: 8,
-    letterSpacing: -0.5
+    marginBottom: 12,
+    letterSpacing: -0.8
   },
   emptySubtext: {
     fontSize: 16,
     color: '#8E8E93',
     textAlign: 'center',
-    lineHeight: 22
+    lineHeight: 24,
+    fontWeight: '500'
   }
 });

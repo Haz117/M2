@@ -60,12 +60,27 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.heading}>Tareas</Text>
-        <TouchableOpacity style={styles.addButton} onPress={goToCreate}>
-          <Text style={styles.addButtonText}>+</Text>
-        </TouchableOpacity>
-      </View>
+      <LinearGradient
+        colors={['#667eea', '#764ba2']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerGradient}
+      >
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.greeting}>Hola! 👋</Text>
+            <Text style={styles.heading}>Mis Tareas</Text>
+          </View>
+          <TouchableOpacity style={styles.addButton} onPress={goToCreate}>
+            <LinearGradient
+              colors={['#FFFFFF', '#F0F0F0']}
+              style={styles.addButtonGradient}
+            >
+              <Text style={styles.addButtonText}>+</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
 
       <FilterBar onFilterChange={setFilters} />
 
@@ -76,10 +91,12 @@ export default function HomeScreen({ navigation }) {
           <TaskItem task={item} onPress={() => openDetail(item)} />
         )}
         contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Sin tareas</Text>
-            <Text style={styles.emptySubtext}>Toca + para crear una nueva</Text>
+            <Text style={styles.emptyIcon}>📋</Text>
+            <Text style={styles.emptyText}>Sin tareas pendientes</Text>
+            <Text style={styles.emptySubtext}>Toca el botón + para crear una nueva tarea</Text>
           </View>
         }
       />
@@ -90,62 +107,88 @@ export default function HomeScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: '#FAFAFA'
+    backgroundColor: '#F8F9FA'
+  },
+  headerGradient: {
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
     paddingHorizontal: 24,
     paddingTop: 64,
-    paddingBottom: 16,
-    backgroundColor: '#FAFAFA'
+    paddingBottom: 28
+  },
+  greeting: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    opacity: 0.9,
+    marginBottom: 4,
+    letterSpacing: 0.3
   },
   heading: { 
-    fontSize: 38, 
+    fontSize: 42, 
     fontWeight: '800',
-    color: '#1A1A1A',
-    letterSpacing: -1
+    color: '#FFFFFF',
+    letterSpacing: -1.5
   },
   addButton: {
+    borderRadius: 28,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8
+  },
+  addButtonGradient: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#007AFF',
     justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6
+    alignItems: 'center'
   },
   addButtonText: {
-    color: '#fff',
-    fontSize: 28,
+    color: '#667eea',
+    fontSize: 32,
     fontWeight: '300',
-    marginBottom: 2
+    marginTop: -2
   },
   listContent: {
     padding: 20,
-    paddingTop: 12
+    paddingTop: 12,
+    paddingBottom: 100
   },
   emptyContainer: {
     alignItems: 'center',
-    marginTop: 120,
+    marginTop: 100,
     paddingHorizontal: 40
   },
+  emptyIcon: {
+    fontSize: 80,
+    marginBottom: 20,
+    opacity: 0.3
+  },
   emptyText: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '700',
     color: '#1A1A1A',
-    marginBottom: 8,
-    letterSpacing: -0.5
+    marginBottom: 12,
+    letterSpacing: -0.8
   },
   emptySubtext: {
     fontSize: 16,
     color: '#8E8E93',
     textAlign: 'center',
-    lineHeight: 22
+    lineHeight: 24,
+    fontWeight: '500'
   }
 });
