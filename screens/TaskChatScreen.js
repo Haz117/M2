@@ -5,6 +5,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { collection, addDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db, getServerTimestamp } from '../firebase';
 
@@ -44,13 +45,16 @@ export default function TaskChatScreen({ route, navigation }) {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.select({ios:'padding', android:undefined})}>
-      <View style={styles.headerBar}>
+      <LinearGradient 
+        colors={['#667eea', '#764ba2']} 
+        style={styles.headerBar}
+      >
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
           <Text style={styles.closeButtonText}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{taskTitle || 'Chat'}</Text>
+        <Text style={styles.headerTitle}>💬 {taskTitle || 'Chat'}</Text>
         <View style={{ width: 40 }} />
-      </View>
+      </LinearGradient>
 
       <FlatList
         ref={flatRef}
@@ -85,7 +89,7 @@ export default function TaskChatScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA'
+    backgroundColor: '#F8F9FA'
   },
   headerBar: {
     flexDirection: 'row',
@@ -93,34 +97,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 60,
-    paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 3
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8
   },
   closeButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: 'rgba(255,255,255,0.3)',
     justifyContent: 'center',
     alignItems: 'center'
   },
   closeButtonText: {
     fontSize: 24,
-    color: '#007AFF',
-    fontWeight: '600'
+    color: '#FFFFFF',
+    fontWeight: '700'
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    letterSpacing: -0.3,
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
     flex: 1,
     textAlign: 'center'
   },

@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ensurePermissions, getAllScheduledNotifications, cancelAllNotifications } from '../services/notifications';
+import * as Notifications from 'expo-notifications';
 
 const ROLES = {
   ADMIN: { name: 'Administrador', color: '#FF3B30', icon: '👑' },
@@ -17,14 +19,125 @@ export default function AdminScreen({ navigation }) {
   const [users, setUsers] = useState([]);
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
   const [selectedRole, setSelectedRole] = useState('MEMBER');
   const [showAddModal, setShowAddModal] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
 
   useEffect(() => {
     loadUsers();
-    loadCurrentUser();
+    checkAdminStatus();
   }, []);
+
+  const checkAdminStatus = async () => {
+    try {
+      const userData = await AsyncStorage.getItem('@current_user');
+      if (userData) {
+        const user = JSON.parse(userData);
+        setCurrentUser(user);
+        setIsAdmin(user.role === 'ADMIN');
+      } else {
+        setShowLoginModal(true);
+      }
+    } catch (error) {
+      console.error('Error verificando usuario:', error);
+      setShowLoginModal(true);
+    }
+  };
+
+  const login = async () => {
+    if (!loginEmail.trim() || !loginPassword.trim()) {
+      Alert.alert('Error', 'Por favor completa todos los campos');
+      return;
+    }
+
+    const data = await AsyncStorage.getItem(USERS_KEY);
+    const allUsers = data ? JSON.parse(data) : [];
+    
+    const user = allUsers.find(u => 
+      u.email.toLowerCase() === loginEmail.toLowerCase().trim() && 
+      u.password === loginPassword
+    );
+
+    if (user) {
+      await AsyncStorage.setItem('@current_user', JSON.stringify(user));
+      setCurrentUser(user);
+      setIsAdmin(user.role === 'ADMIN');
+      setShowLoginModal(false);
+      setLoginEmail('');
+      setLoginPassword('');
+      Alert.alert('Bienvenido', `Hola ${user.name}!`);
+    } else {
+      Alert.alert('Error', 'Credenciales incorrectas');
+    }
+  };
+
+  const logout = async () => {
+    await AsyncStorage.removeItem('@current_user');
+    setCurrentUser(null);
+    setIsAdmin(false);
+    setShowLoginModal(true);
+  };
+
+  const testNotification = async () => {
+    try {
+      const granted = await ensurePermissions();
+      if (!granted) {
+        Alert.alert('Permisos Denegados', 'No se pueden enviar notificaciones sin permisos');
+        return;
+      }
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🧪 Notificación de Prueba',
+          body: 'Esta es una notificación de prueba del sistema TODO',
+          data: { type: 'test' },
+          sound: true,
+        },
+        trigger: { seconds: 2 }
+      });
+
+      Alert.alert('✅ Notificación Programada', 'Recibirás una notificación en 2 segundos');
+    } catch (error) {
+      Alert.alert('Error', `No se pudo enviar la notificación: ${error.message}`);
+    }
+  };
+
+  const viewScheduledNotifications = async () => {
+    const notifications = await getAllScheduledNotifications();
+    if (notifications.length === 0) {
+      Alert.alert('Sin Notificaciones', 'No hay notificaciones programadas');
+    } else {
+      Alert.alert(
+        'Notificaciones Programadas',
+        `Total: ${notifications.length}\n\n${notifications.slice(0, 5).map((n, i) => 
+          `${i+1}. ${n.content.title}`
+        ).join('\n')}${notifications.length > 5 ? `\n\n...y ${notifications.length - 5} más` : ''}`
+      );
+    }
+  };
+
+  const clearAllNotifications = async () => {
+    Alert.alert(
+      'Confirmar',
+      '¿Cancelar TODAS las notificaciones programadas?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Sí, cancelar todo',
+          style: 'destructive',
+          onPress: async () => {
+            await cancelAllNotifications();
+            Alert.alert('✅ Listo', 'Todas las notificaciones han sido canceladas');
+          }
+        }
+      ]
+    );
+  };
 
   const loadUsers = async () => {
     try {
@@ -32,25 +145,16 @@ export default function AdminScreen({ navigation }) {
       if (data) {
         setUsers(JSON.parse(data));
       } else {
-        // Usuarios por defecto
+        // Usuarios por defecto con contraseñas
         const defaultUsers = [
-          { id: '1', name: 'Admin Principal', email: 'admin@todo.com', role: 'ADMIN', createdAt: Date.now() },
-          { id: '2', name: 'Usuario Demo', email: 'demo@todo.com', role: 'MEMBER', createdAt: Date.now() }
+          { id: '1', name: 'Admin Principal', email: 'admin@todo.com', password: 'admin123', role: 'ADMIN', createdAt: Date.now() },
+          { id: '2', name: 'Usuario Demo', email: 'demo@todo.com', password: 'demo123', role: 'MEMBER', createdAt: Date.now() }
         ];
         await AsyncStorage.setItem(USERS_KEY, JSON.stringify(defaultUsers));
         setUsers(defaultUsers);
       }
     } catch (error) {
       console.error('Error cargando usuarios:', error);
-    }
-  };
-
-  const loadCurrentUser = async () => {
-    try {
-      const user = await AsyncStorage.getItem('@current_user');
-      setCurrentUser(user || 'Admin Principal');
-    } catch (error) {
-      console.error('Error cargando usuario actual:', error);
     }
   };
 
@@ -64,7 +168,12 @@ export default function AdminScreen({ navigation }) {
   };
 
   const addUser = () => {
-    if (!newUserName.trim() || !newUserEmail.trim()) {
+    if (!isAdmin) {
+      Alert.alert('Acceso Denegado', 'Solo los administradores pueden agregar usuarios');
+      return;
+    }
+
+    if (!newUserName.trim() || !newUserEmail.trim() || !newUserPassword.trim()) {
       Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
@@ -73,6 +182,7 @@ export default function AdminScreen({ navigation }) {
       id: String(Date.now()),
       name: newUserName.trim(),
       email: newUserEmail.trim(),
+      password: newUserPassword,
       role: selectedRole,
       createdAt: Date.now()
     };
@@ -81,12 +191,18 @@ export default function AdminScreen({ navigation }) {
     saveUsers(updatedUsers);
     setNewUserName('');
     setNewUserEmail('');
+    setNewUserPassword('');
     setSelectedRole('MEMBER');
     setShowAddModal(false);
     Alert.alert('Éxito', 'Usuario agregado correctamente');
   };
 
   const changeRole = (userId, newRole) => {
+    if (!isAdmin) {
+      Alert.alert('Acceso Denegado', 'Solo los administradores pueden cambiar roles');
+      return;
+    }
+    
     const updatedUsers = users.map(u => 
       u.id === userId ? { ...u, role: newRole } : u
     );
@@ -95,6 +211,11 @@ export default function AdminScreen({ navigation }) {
   };
 
   const deleteUser = (userId) => {
+    if (!isAdmin) {
+      Alert.alert('Acceso Denegado', 'Solo los administradores pueden eliminar usuarios');
+      return;
+    }
+    
     Alert.alert(
       'Confirmar eliminación',
       '¿Estás seguro de eliminar este usuario?',
@@ -114,7 +235,7 @@ export default function AdminScreen({ navigation }) {
 
   const renderUserCard = (user) => {
     const role = ROLES[user.role];
-    const isCurrentUser = user.name === currentUser;
+    const isCurrentUser = currentUser && user.id === currentUser.id;
 
     return (
       <View key={user.id} style={styles.userCard}>
@@ -182,8 +303,23 @@ export default function AdminScreen({ navigation }) {
         colors={['#667eea', '#764ba2']}
         style={styles.header}
       >
-        <Text style={styles.heading}>Administración</Text>
-        <Text style={styles.subheading}>Gestiona usuarios y permisos</Text>
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.heading}>Administración</Text>
+            <Text style={styles.subheading}>Gestiona usuarios y permisos</Text>
+          </View>
+          <TouchableOpacity style={styles.logoutButton} onPress={logout}>
+            <Text style={styles.logoutText}>🚪 Salir</Text>
+          </TouchableOpacity>
+        </View>
+        
+        {currentUser && (
+          <View style={styles.currentUserBanner}>
+            <Text style={styles.currentUserText}>
+              {ROLES[currentUser.role]?.icon} {currentUser.name} ({ROLES[currentUser.role]?.name})
+            </Text>
+          </View>
+        )}
       </LinearGradient>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -202,14 +338,44 @@ export default function AdminScreen({ navigation }) {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.addButton} onPress={() => setShowAddModal(true)}>
+        <TouchableOpacity 
+          style={styles.addButton} 
+          onPress={() => {
+            if (isAdmin) {
+              setShowAddModal(true);
+            } else {
+              Alert.alert('Acceso Denegado', 'Solo los administradores pueden agregar usuarios');
+            }
+          }}
+        >
           <LinearGradient
-            colors={['#667eea', '#764ba2']}
+            colors={isAdmin ? ['#667eea', '#764ba2'] : ['#8E8E93', '#6E6E73']}
             style={styles.addButtonGradient}
           >
-            <Text style={styles.addButtonText}>+ Agregar Usuario</Text>
+            <Text style={styles.addButtonText}>
+              {isAdmin ? '+ Agregar Usuario' : '🔒 Solo Admin'}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
+
+        {/* Sección de Notificaciones (solo Admin) */}
+        {isAdmin && (
+          <View style={styles.notificationSection}>
+            <Text style={styles.sectionTitle}>🔔 Gestión de Notificaciones</Text>
+            
+            <TouchableOpacity style={styles.notifButton} onPress={testNotification}>
+              <Text style={styles.notifButtonText}>🧪 Probar Notificación</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.notifButton} onPress={viewScheduledNotifications}>
+              <Text style={styles.notifButtonText}>📋 Ver Programadas</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={[styles.notifButton, styles.notifButtonDanger]} onPress={clearAllNotifications}>
+              <Text style={[styles.notifButtonText, styles.notifButtonTextDanger]}>🗑️ Cancelar Todas</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View style={styles.usersList}>
           {users.map(renderUserCard)}
@@ -243,6 +409,15 @@ export default function AdminScreen({ navigation }) {
               onChangeText={setNewUserEmail}
               keyboardType="email-address"
               autoCapitalize="none"
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Contraseña"
+              placeholderTextColor="#C7C7CC"
+              value={newUserPassword}
+              onChangeText={setNewUserPassword}
+              secureTextEntry
             />
 
             <Text style={styles.label}>Rol:</Text>
@@ -285,6 +460,61 @@ export default function AdminScreen({ navigation }) {
           </View>
         </View>
       </Modal>
+
+      {/* Modal de Login */}
+      <Modal
+        visible={showLoginModal}
+        animationType="fade"
+        transparent={true}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <LinearGradient
+              colors={['#667eea', '#764ba2']}
+              style={styles.loginHeader}
+            >
+              <Text style={styles.loginTitle}>🔐 Iniciar Sesión</Text>
+              <Text style={styles.loginSubtitle}>Panel de Administración</Text>
+            </LinearGradient>
+
+            <View style={styles.loginForm}>
+              <TextInput
+                style={styles.input}
+                placeholder="Email"
+                placeholderTextColor="#C7C7CC"
+                value={loginEmail}
+                onChangeText={setLoginEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+
+              <TextInput
+                style={styles.input}
+                placeholder="Contraseña"
+                placeholderTextColor="#C7C7CC"
+                value={loginPassword}
+                onChangeText={setLoginPassword}
+                secureTextEntry
+              />
+
+              <TouchableOpacity style={styles.loginButton} onPress={login}>
+                <LinearGradient
+                  colors={['#667eea', '#764ba2']}
+                  style={styles.confirmButtonGradient}
+                >
+                  <Text style={styles.confirmButtonText}>Entrar</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <View style={styles.credentialsHint}>
+                <Text style={styles.hintTitle}>💡 Credenciales por defecto:</Text>
+                <Text style={styles.hintText}>Admin: admin@todo.com / admin123</Text>
+                <Text style={styles.hintText}>Demo: demo@todo.com / demo123</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -297,9 +527,38 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 24,
     paddingTop: 64,
-    paddingBottom: 32,
+    paddingBottom: 24,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12
+  },
+  logoutButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20
+  },
+  logoutText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600'
+  },
+  currentUserBanner: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginTop: 8
+  },
+  currentUserText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600'
   },
   heading: {
     fontSize: 42,
@@ -367,6 +626,45 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     letterSpacing: 0.5
+  },
+  notificationSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1A1A1A',
+    marginBottom: 16,
+    letterSpacing: -0.5
+  },
+  notifButton: {
+    backgroundColor: '#F8F9FA',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: '#E5E5EA'
+  },
+  notifButtonDanger: {
+    backgroundColor: '#FFEBEE',
+    borderColor: '#FF3B30'
+  },
+  notifButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    textAlign: 'center'
+  },
+  notifButtonTextDanger: {
+    color: '#FF3B30'
   },
   usersList: {
     gap: 16
@@ -592,5 +890,51 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF'
+  },
+  loginHeader: {
+    marginHorizontal: -24,
+    marginTop: -24,
+    paddingVertical: 24,
+    paddingHorizontal: 24,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginBottom: 24,
+    alignItems: 'center'
+  },
+  loginTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 4
+  },
+  loginSubtitle: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    opacity: 0.9
+  },
+  loginForm: {
+    gap: 16
+  },
+  loginButton: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    marginTop: 8
+  },
+  credentialsHint: {
+    backgroundColor: '#F8F9FA',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 8
+  },
+  hintTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 8
+  },
+  hintText: {
+    fontSize: 13,
+    color: '#6E6E73',
+    marginBottom: 4
   }
 });

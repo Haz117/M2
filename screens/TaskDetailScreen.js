@@ -18,7 +18,9 @@ export default function TaskDetailScreen({ route, navigation }) {
   const [priority, setPriority] = useState(editingTask ? editingTask.priority : 'media');
   const [status, setStatus] = useState(editingTask ? editingTask.status : 'pendiente');
   const [dueAt, setDueAt] = useState(editingTask ? new Date(editingTask.dueAt) : new Date(Date.now() + 3600 * 1000));
-  const [showPicker, setShowPicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [tempDate, setTempDate] = useState(dueAt);
 
   const areas = ['Jurídica', 'Obras', 'Tesorería', 'Administración', 'Recursos Humanos'];
   const priorities = ['baja', 'media', 'alta'];
@@ -29,18 +31,37 @@ export default function TaskDetailScreen({ route, navigation }) {
   }, [editingTask]);
 
   const onChangeDate = (event, selectedDate) => {
-    const currentDate = selectedDate || dueAt;
-    
-    // En Android, el picker se cierra automáticamente
     if (Platform.OS === 'android') {
-      setShowPicker(false);
-      // Solo actualizar si se seleccionó una fecha (no se canceló)
+      setShowDatePicker(false);
       if (selectedDate) {
-        setDueAt(currentDate);
+        setTempDate(selectedDate);
+        // Después de seleccionar fecha, mostrar selector de hora
+        setTimeout(() => setShowTimePicker(true), 100);
       }
     } else {
-      // En iOS, el picker permanece visible
-      setDueAt(currentDate);
+      if (selectedDate) {
+        setTempDate(selectedDate);
+      }
+    }
+  };
+
+  const onChangeTime = (event, selectedTime) => {
+    if (Platform.OS === 'android') {
+      setShowTimePicker(false);
+      if (selectedTime) {
+        // Combinar fecha de tempDate con la hora seleccionada
+        const finalDate = new Date(tempDate);
+        finalDate.setHours(selectedTime.getHours());
+        finalDate.setMinutes(selectedTime.getMinutes());
+        setDueAt(finalDate);
+      }
+    } else {
+      if (selectedTime) {
+        const finalDate = new Date(tempDate);
+        finalDate.setHours(selectedTime.getHours());
+        finalDate.setMinutes(selectedTime.getMinutes());
+        setDueAt(finalDate);
+      }
     }
   };
 
@@ -109,13 +130,16 @@ export default function TaskDetailScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerBar}>
+      <LinearGradient 
+        colors={['#667eea', '#764ba2']} 
+        style={styles.headerBar}
+      >
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
           <Text style={styles.closeButtonText}>✕</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{editingTask ? 'Editar Tarea' : 'Nueva Tarea'}</Text>
+        <Text style={styles.headerTitle}>{editingTask ? '✏️ Editar Tarea' : '✨ Nueva Tarea'}</Text>
         <View style={{ width: 40 }} />
-      </View>
+      </LinearGradient>
       
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.label}>TÍTULO</Text>
@@ -171,16 +195,26 @@ export default function TaskDetailScreen({ route, navigation }) {
       </View>
 
       <Text style={styles.label}>FECHA COMPROMISO</Text>
-      <TouchableOpacity style={styles.dateButton} onPress={() => setShowPicker(true)}>
-        <Text style={styles.dateText}>{dueAt.toLocaleString()}</Text>
+      <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}>
+        <Text style={styles.dateText}>📅 {dueAt.toLocaleDateString()} {dueAt.toLocaleTimeString()}</Text>
       </TouchableOpacity>
-      {showPicker && (
+      
+      {showDatePicker && (
         <DateTimePicker
-          value={dueAt}
-          mode="datetime"
+          value={tempDate}
+          mode="date"
           display="default"
           onChange={onChangeDate}
           minimumDate={new Date()}
+        />
+      )}
+      
+      {showTimePicker && (
+        <DateTimePicker
+          value={tempDate}
+          mode="time"
+          display="default"
+          onChange={onChangeTime}
           is24Hour={true}
         />
       )}
@@ -202,7 +236,7 @@ export default function TaskDetailScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: '#FAFAFA'
+    backgroundColor: '#F8F9FA'
   },
   headerBar: {
     flexDirection: 'row',
@@ -210,34 +244,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 60,
-    paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 3
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8
   },
   closeButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: 'rgba(255,255,255,0.3)',
     justifyContent: 'center',
     alignItems: 'center'
   },
   closeButtonText: {
     fontSize: 20,
-    color: '#6E6E73',
-    fontWeight: '600'
+    color: '#FFFFFF',
+    fontWeight: '700'
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    letterSpacing: -0.3
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.5
   },
   scrollContent: {
     padding: 24

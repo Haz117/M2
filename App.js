@@ -5,7 +5,7 @@
 // IMPORTANTE: Este import debe estar PRIMERO antes de cualquier otro
 import 'react-native-gesture-handler';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -32,6 +32,7 @@ Notifications.setNotificationHandler({
 const Stack = createNativeStackNavigator();
 
 // Componente de navegación por tabs personalizado
+
 function CustomTabBar({ activeTab, setActiveTab }) {
   const tabs = [
     { name: 'Tareas', icon: '📋', screen: 'Home' },
@@ -99,6 +100,8 @@ function MainNavigator({ navigation }) {
 }
 
 export default function App() {
+  const navigationRef = useRef();
+  
   useEffect(() => {
     (async () => {
       // Pedir permiso para notificaciones (solo funciona en development build, no en Expo Go)
@@ -112,6 +115,8 @@ export default function App() {
           }
           if (finalStatus !== 'granted') {
             console.log('Permisos de notificación denegados');
+          } else {
+            console.log('✅ Permisos de notificación concedidos');
           }
         } catch (error) {
           // Silenciar error en Expo Go donde push notifications no están disponibles
@@ -120,17 +125,31 @@ export default function App() {
       }
     })();
 
-    // Listener opcional para manejar interacción con notificación
-    const sub = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('Interacted notification', response);
+    // Listener para notificaciones recibidas cuando la app está en foreground
+    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+      console.log('🔔 Notificación recibida:', notification.request.content.title);
     });
 
-    return () => sub.remove();
+    // Listener para cuando el usuario interactúa con una notificación
+    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data;
+      console.log('👆 Usuario interactuó con notificación:', data);
+      
+      // Navegar a la tarea si se proporciona el ID
+      if (data.taskId && navigationRef.current) {
+        navigationRef.current.navigate('TaskDetail', { taskId: data.taskId });
+      }
+    });
+
+    return () => {
+      notificationListener.remove();
+      responseListener.remove();
+    };
   }, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <Stack.Navigator
           screenOptions={{
             headerShown: false,
