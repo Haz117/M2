@@ -33,12 +33,7 @@ export default function ShimmerEffect({ width = '100%', height = 60, borderRadiu
           }
         ]}
       >
-        <LinearGradient
-          colors={['#E0E0E0', '#F5F5F5', '#E0E0E0']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={StyleSheet.absoluteFill}
-        />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#F5F5F5' }]} />
       </Animated.View>
     </View>
   );

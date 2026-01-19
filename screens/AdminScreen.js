@@ -649,10 +649,10 @@ export default function AdminScreen({ navigation, onLogout }) {
               exportReport();
             }}
           >
-            <LinearGradient colors={['#007AFF', '#0051D5']} style={styles.buttonGradient}>
+            <View style={[styles.buttonGradient, { backgroundColor: '#007AFF' }]}>
               <Ionicons name="document-text" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
               <Text style={styles.buttonText}>Exportar Reporte</Text>
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
 
           <Text style={[styles.helpText, { color: theme.textSecondary }]}>

@@ -30,12 +30,7 @@ export default function SkeletonLoader({ type = 'card', count = 3 }) {
         { transform: [{ translateX }] },
       ]}
     >
-      <LinearGradient
-        colors={['transparent', 'rgba(255, 255, 255, 0.5)', 'transparent']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.shimmerGradient}
-      />
+      <View style={[styles.shimmerGradient, { backgroundColor: 'rgba(255, 255, 255, 0.3)' }]} />
     </Animated.View>
   );
 
