@@ -35,3 +35,5 @@ GoogleService-Info.plist
 
 # EAS
 .eas/
+.vercel/
+vercel.json
