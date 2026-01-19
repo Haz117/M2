@@ -1,8 +1,31 @@
-📝 To-Do Avanzado (Expo + Firebase)
+# 📋 TodoApp MORENA
+
+Sistema completo de gestión de tareas con roles, permisos y sincronización en tiempo real.
+
+![Version](https://img.shields.io/badge/version-1.0.0-9F2241) ![React Native](https://img.shields.io/badge/React%20Native-0.76-61DAFB) ![Firebase](https://img.shields.io/badge/Firebase-11.1-FFCA28)
+
+---
+
+## 📱 **DESCARGA LA APP**
+
+### 🌐 **App Web (Disponible ahora)**
+Accede desde cualquier navegador: **https://tu-proyecto.vercel.app**
+
+### 📲 **App Android (APK)**
+Descarga e instala en tu celular: **[Página de Descarga](public/index.html)**
+
+### 🔐 **Credenciales de Prueba:**
+```
+👑 Admin:     admin@todo.com / admin123
+👨‍💼 Jefe:      jefe.juridica@todo.com / jefe123  
+👷 Operativo: operativo.juridica@todo.com / oper123
+```
+
+---
 
 Aplicación de gestión de tareas desarrollada con React Native, Expo y Firebase.
 
-🚀 Características
+## 🚀 Características
 
 ✅ **Gestión de Tareas**
 - Crear, editar y eliminar tareas

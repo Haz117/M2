@@ -2,7 +2,6 @@
 // Skeleton loader animado con shimmer effect profesional
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
 export default function SkeletonLoader({ type = 'card', count = 3 }) {
   const shimmerAnim = useRef(new Animated.Value(0)).current;

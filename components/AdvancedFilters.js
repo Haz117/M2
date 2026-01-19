@@ -1,7 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../contexts/ThemeContext';
 import { hapticMedium, hapticLight } from '../utils/feedback';
 
@@ -94,10 +93,7 @@ const AdvancedFilters = ({ filters, onApplyFilters, areas = [], users = [] }) =>
         onPress={openModal}
         activeOpacity={0.8}
       >
-        <LinearGradient
-          colors={activeCount > 0 ? ['#9F2241', '#7A1A32'] : ['#F3F4F6', '#E5E7EB']}
-          style={styles.filterGradient}
-        >
+        <View style={[styles.filterGradient, { backgroundColor: activeCount > 0 ? '#9F2241' : '#F3F4F6' }]}>
           <Ionicons
             name="filter"
             size={20}
@@ -108,7 +104,7 @@ const AdvancedFilters = ({ filters, onApplyFilters, areas = [], users = [] }) =>
               <Text style={styles.badgeText}>{activeCount}</Text>
             </View>
           )}
-        </LinearGradient>
+        </View>
       </TouchableOpacity>
 
       <Modal
@@ -283,9 +279,9 @@ const AdvancedFilters = ({ filters, onApplyFilters, areas = [], users = [] }) =>
                 onPress={applyFilters}
                 activeOpacity={0.8}
               >
-                <LinearGradient colors={['#9F2241', '#7A1A32']} style={styles.applyGradient}>
+                <View style={[styles.applyGradient, { backgroundColor: '#9F2241' }]}>
                   <Text style={styles.applyButtonText}>Aplicar Filtros</Text>
-                </LinearGradient>
+                </View>
               </TouchableOpacity>
             </View>
           </View>

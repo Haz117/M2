@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, 
-  Platform, ScrollView, Animated, Dimensions
+  Platform, ScrollView, Animated, Dimensions, Linking
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { loginUser } from '../services/authFirestore';
@@ -77,7 +77,13 @@ export default function LoginScreen({ onLogin }) {
         <View style={styles.circle1} />
         <View style={styles.circle2} />
         
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          contentContainerStyle={styles.scroll} 
+          keyboardShouldPersistTaps="handled" 
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          overScrollMode="never"
+        >
           <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
             <View style={styles.logoWrap}>
               <View style={styles.logo}>
@@ -129,6 +135,38 @@ export default function LoginScreen({ onLogin }) {
                   {!loading && <Ionicons name="arrow-forward" size={20} color="#9F2241" />}
                 </View>
               </TouchableOpacity>
+
+              {/* Separador */}
+              <View style={styles.separator}>
+                <View style={styles.separatorLine} />
+                <Text style={styles.separatorText}>o descarga la app</Text>
+                <View style={styles.separatorLine} />
+              </View>
+
+              {/* Botón Ver Opciones de Descarga */}
+              <TouchableOpacity 
+                style={styles.downloadBtn} 
+                onPress={() => {
+                  if (Platform.OS === 'web') {
+                    // En web, abrir en nueva pestaña
+                    window.open('/download.html', '_blank');
+                  } else {
+                    // En móvil, abrir con Linking
+                    Linking.openURL('https://to-do-iota-opal.vercel.app/download.html');
+                  }
+                }}
+                activeOpacity={0.8}
+              >
+                <View style={styles.downloadBtnGrad}>
+                  <Ionicons name="phone-portrait-outline" size={20} color="rgba(255,255,255,0.9)" />
+                  <Text style={styles.downloadBtnText}>Ver Opciones de Descarga</Text>
+                  <Ionicons name="arrow-forward" size={16} color="rgba(255,255,255,0.7)" />
+                </View>
+              </TouchableOpacity>
+
+              <Text style={styles.downloadHint}>
+                Disponible para Android e iOS (PWA)
+              </Text>
             </View>
 
             <View style={styles.features}>
@@ -152,11 +190,24 @@ export default function LoginScreen({ onLogin }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  gradient: { flex: 1, backgroundColor: '#9F2241' },
+  container: { 
+    flex: 1,
+    backgroundColor: '#9F2241' // Fondo de respaldo
+  },
+  gradient: { 
+    flex: 1, 
+    backgroundColor: '#9F2241',
+    minHeight: '100%'
+  },
   circle1: { position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(255,255,255,0.05)', top: -100, left: -100 },
   circle2: { position: 'absolute', width: 400, height: 400, borderRadius: 200, backgroundColor: 'rgba(255,255,255,0.03)', bottom: -150, right: -100 },
-  scroll: { flexGrow: 1, justifyContent: 'center', padding: 24, paddingTop: 60 },
+  scroll: { 
+    flexGrow: 1, 
+    justifyContent: 'center', 
+    padding: 24, 
+    paddingTop: 60,
+    minHeight: '100%'
+  },
   content: { width: '100%', maxWidth: 400, alignSelf: 'center' },
   logoWrap: { alignItems: 'center', marginBottom: 32 },
   logo: { width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: 'rgba(255,255,255,0.25)', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20, elevation: 10 },
@@ -170,6 +221,13 @@ const styles = StyleSheet.create({
   btnDisabled: { opacity: 0.6 },
   btnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, gap: 8, backgroundColor: '#FFF' },
   btnText: { fontSize: 17, fontWeight: '700', color: '#9F2241', letterSpacing: 0.3 },
+  separator: { flexDirection: 'row', alignItems: 'center', marginTop: 24, marginBottom: 8 },
+  separatorLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.2)' },
+  separatorText: { marginHorizontal: 16, fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '500' },
+  downloadBtn: { marginTop: 8, borderRadius: 14, overflow: 'hidden', borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', backgroundColor: 'rgba(255,255,255,0.08)' },
+  downloadBtnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, gap: 8 },
+  downloadBtnText: { fontSize: 15, fontWeight: '600', color: '#FFF', letterSpacing: 0.3 },
+  downloadHint: { fontSize: 12, color: 'rgba(255,255,255,0.5)', textAlign: 'center', marginTop: 8, fontStyle: 'italic' },
   features: { marginTop: 24, gap: 10 },
   feat: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.6)' },

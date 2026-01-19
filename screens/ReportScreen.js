@@ -2,7 +2,6 @@
 // Reporte para reunión: tarjetas por área con contadores, lista de críticas (alta prioridad) y vencidas.
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Modal, Dimensions } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { subscribeToTasks } from '../services/tasks';
 import { PieChart, BarChart } from 'react-native-chart-kit';
@@ -211,7 +210,7 @@ export default function ReportScreen({ navigation }) {
           {/* Fila 1: 3 bloques - Total, Vencidas, Críticas */}
           <View style={styles.bentoRow}>
             <TouchableOpacity style={[styles.bentoCard, styles.bentoThird]} activeOpacity={0.9}>
-              <LinearGradient colors={['#5856D6', '#4842C2']} style={styles.bentoGradient}>
+              <View style={[styles.bentoGradient, { backgroundColor: '#5856D6' }]}>
                 <Ionicons name="document-text" size={28} color="#FFFFFF" style={{ marginBottom: 8 }} />
                 <Text style={styles.bentoNumber}>{tasks.length}</Text>
                 <Text style={styles.bentoLabel}>Total</Text>
@@ -223,23 +222,23 @@ export default function ReportScreen({ navigation }) {
                     ⏱ {tasks.filter(t => t.status !== 'cerrada').length}
                   </Text>
                 </View>
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
 
             <TouchableOpacity style={[styles.bentoCard, styles.bentoThird]} activeOpacity={0.9}>
-              <LinearGradient colors={['#9F2241', '#7A1A32']} style={styles.bentoGradient}>
+              <View style={[styles.bentoGradient, { backgroundColor: '#9F2241' }]}>
                 <Ionicons name="alert-circle" size={28} color="#FFFFFF" style={{ marginBottom: 8 }} />
                 <Text style={styles.bentoNumber}>{overdueTasks.length}</Text>
                 <Text style={styles.bentoLabel}>Vencidas</Text>
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
 
             <TouchableOpacity style={[styles.bentoCard, styles.bentoThird]} activeOpacity={0.9}>
-              <LinearGradient colors={['#FF9500', '#FF6B00']} style={styles.bentoGradient}>
+              <View style={[styles.bentoGradient, { backgroundColor: '#FF9500' }]}>
                 <Ionicons name="warning" size={28} color="#FFFFFF" style={{ marginBottom: 8 }} />
                 <Text style={styles.bentoNumber}>{criticalTasks.length}</Text>
                 <Text style={styles.bentoLabel}>Críticas</Text>
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
           </View>
 
@@ -272,7 +271,7 @@ export default function ReportScreen({ navigation }) {
             </TouchableOpacity>
 
             <TouchableOpacity style={[styles.bentoCard, styles.bentoHalf]} activeOpacity={0.9}>
-              <LinearGradient colors={['#34C759', '#28A745']} style={styles.bentoGradient}>
+              <View style={[styles.bentoGradient, { backgroundColor: '#34C759' }]}>
                 <Ionicons name="trending-up" size={24} color="#FFFFFF" style={{ marginBottom: 8 }} />
                 <Text style={styles.bentoNumber}>
                   {tasks.length > 0 
@@ -280,7 +279,7 @@ export default function ReportScreen({ navigation }) {
                     : 0}%
                 </Text>
                 <Text style={styles.bentoLabel}>Completitud</Text>
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
           </View>
 

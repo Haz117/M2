@@ -105,12 +105,12 @@ const TaskItem = memo(function TaskItem({
     const scale = dragX.interpolate({ inputRange: [-100, 0], outputRange: [1, 0], extrapolate: 'clamp' });
     return (
       <TouchableOpacity style={styles.completeAction} onPress={() => onToggleComplete && onToggleComplete()} activeOpacity={0.9}>
-        <LinearGradient colors={task.status === 'cerrada' ? [theme.info, theme.infoDark] : theme.gradientSuccess} style={styles.actionGradient}>
+        <View style={[styles.actionGradient, { backgroundColor: task.status === 'cerrada' ? theme.info : '#34C759' }]}>
           <Animated.View style={[styles.actionContent, { transform: [{ scale }] }]}>
             <Ionicons name={task.status === 'cerrada' ? 'refresh' : 'checkmark-circle'} size={28} color="#FFF" />
             <Text style={styles.actionText}>{task.status === 'cerrada' ? 'Reabrir' : 'Completar'}</Text>
           </Animated.View>
-        </LinearGradient>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -119,12 +119,12 @@ const TaskItem = memo(function TaskItem({
     const scale = dragX.interpolate({ inputRange: [0, 100], outputRange: [0, 1], extrapolate: 'clamp' });
     return (
       <TouchableOpacity style={styles.deleteAction} onPress={() => onDelete && onDelete()} activeOpacity={0.9}>
-        <LinearGradient colors={theme.gradientError} style={styles.actionGradient}>
+        <View style={[styles.actionGradient, { backgroundColor: '#FF3B30' }]}>
           <Animated.View style={[styles.actionContent, { transform: [{ scale }] }]}>
             <Ionicons name="trash" size={28} color="#FFF" />
             <Text style={styles.actionText}>Eliminar</Text>
           </Animated.View>
-        </LinearGradient>
+        </View>
       </TouchableOpacity>
     );
   };

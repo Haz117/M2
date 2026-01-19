@@ -114,13 +114,13 @@ export default function Button({
           style,
         ]}
       >
-        <LinearGradient
-          colors={variantStyles.background}
+        <View
           style={[
             styles.gradient,
             {
               paddingVertical: sizeStyles.paddingVertical,
               paddingHorizontal: sizeStyles.paddingHorizontal,
+              backgroundColor: Array.isArray(variantStyles.background) ? variantStyles.background[0] : variantStyles.background,
             },
             variantStyles.border && { backgroundColor: 'transparent' },
           ]}
@@ -157,7 +157,7 @@ export default function Button({
               style={{ marginLeft: 8 }} 
             />
           )}
-        </LinearGradient>
+        </View>
       </TouchableOpacity>
     </Animated.View>
   );

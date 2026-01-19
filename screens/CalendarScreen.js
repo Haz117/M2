@@ -2,7 +2,6 @@
 // Vista de calendario mensual con tareas por día
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Animated } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import EmptyState from '../components/EmptyState';
 import SpringCard from '../components/SpringCard';

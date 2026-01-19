@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generar Iconos PWA - TodoApp MORENA</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 40px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 40px;
+        }
+        
+        .instructions {
+            max-width: 800px;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #9F2241;
+            margin-bottom: 20px;
+        }
+        
+        .icon-container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            display: inline-block;
+        }
+        
+        .icon-192, .icon-512 {
+            border: 2px dashed #ccc;
+            display: block;
+            margin-bottom: 20px;
+        }
+        
+        h3 {
+            color: #9F2241;
+            margin-bottom: 10px;
+        }
+        
+        ol {
+            line-height: 1.8;
+            padding-left: 20px;
+        }
+        
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .download-btn {
+            background: #9F2241;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        .download-btn:hover {
+            background: #7A1A32;
+        }
+    </style>
+</head>
+<body>
+    <div class="instructions">
+        <h1>📱 Generador de Iconos PWA</h1>
+        <p>Sigue estos pasos para crear los iconos necesarios para tu PWA:</p>
+        
+        <h3>Método 1: Captura de pantalla (Recomendado)</h3>
+        <ol>
+            <li>Haz clic derecho sobre cada icono abajo</li>
+            <li>Selecciona "Guardar imagen como..."</li>
+            <li>Guarda con los nombres:
+                <ul>
+                    <li><code>icon-192.png</code> (192x192 píxeles)</li>
+                    <li><code>icon-512.png</code> (512x512 píxeles)</li>
+                </ul>
+            </li>
+            <li>Mueve los archivos a <code>public/</code></li>
+        </ol>
+        
+        <h3>Método 2: Usar una herramienta online</h3>
+        <ol>
+            <li>Ve a <a href="https://realfavicongenerator.net/" target="_blank">realfavicongenerator.net</a></li>
+            <li>Sube tu logo o usa el icono de abajo</li>
+            <li>Selecciona las opciones para PWA/Android</li>
+            <li>Descarga el paquete y extrae los iconos necesarios</li>
+        </ol>
+    </div>
+
+    <div class="icon-container">
+        <h3>Icon 192x192</h3>
+        <svg class="icon-192" width="192" height="192" viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg" id="icon192">
+            <defs>
+                <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#9F2241;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#7A1A32;stop-opacity:1" />
+                </linearGradient>
+            </defs>
+            <!-- Background -->
+            <rect width="192" height="192" rx="40" fill="url(#grad1)"/>
+            
+            <!-- Checkmark Icon -->
+            <g transform="translate(96, 96)">
+                <!-- Circle background -->
+                <circle cx="0" cy="0" r="50" fill="rgba(255,255,255,0.2)" stroke="rgba(255,255,255,0.4)" stroke-width="3"/>
+                
+                <!-- Checkmark -->
+                <path d="M -20,-5 L -10,10 L 25,-25" 
+                      fill="none" 
+                      stroke="#FFFFFF" 
+                      stroke-width="8" 
+                      stroke-linecap="round" 
+                      stroke-linejoin="round"/>
+            </g>
+            
+            <!-- Text "TODO" -->
+            <text x="96" y="155" 
+                  font-family="Arial, sans-serif" 
+                  font-size="24" 
+                  font-weight="bold" 
+                  fill="#FFFFFF" 
+                  text-anchor="middle">TODO</text>
+        </svg>
+        <button class="download-btn" onclick="downloadSVG('icon192', 'icon-192.png', 192)">Descargar 192x192</button>
+    </div>
+
+    <div class="icon-container">
+        <h3>Icon 512x512</h3>
+        <svg class="icon-512" width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" id="icon512">
+            <defs>
+                <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#9F2241;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#7A1A32;stop-opacity:1" />
+                </linearGradient>
+            </defs>
+            <!-- Background -->
+            <rect width="512" height="512" rx="100" fill="url(#grad2)"/>
+            
+            <!-- Checkmark Icon -->
+            <g transform="translate(256, 256)">
+                <!-- Circle background -->
+                <circle cx="0" cy="0" r="130" fill="rgba(255,255,255,0.2)" stroke="rgba(255,255,255,0.4)" stroke-width="8"/>
+                
+                <!-- Checkmark -->
+                <path d="M -50,-15 L -25,25 L 65,-65" 
+                      fill="none" 
+                      stroke="#FFFFFF" 
+                      stroke-width="20" 
+                      stroke-linecap="round" 
+                      stroke-linejoin="round"/>
+            </g>
+            
+            <!-- Text "TODO" -->
+            <text x="256" y="410" 
+                  font-family="Arial, sans-serif" 
+                  font-size="64" 
+                  font-weight="bold" 
+                  fill="#FFFFFF" 
+                  text-anchor="middle">TODO</text>
+        </svg>
+        <button class="download-btn" onclick="downloadSVG('icon512', 'icon-512.png', 512)">Descargar 512x512</button>
+    </div>
+
+    <script>
+        function downloadSVG(svgId, filename, size) {
+            const svg = document.getElementById(svgId);
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            const img = new Image();
+            const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            
+            img.onload = function() {
+                ctx.drawImage(img, 0, 0);
+                URL.revokeObjectURL(url);
+                
+                canvas.toBlob(function(blob) {
+                    const link = document.createElement('a');
+                    link.download = filename;
+                    link.href = URL.createObjectURL(blob);
+                    link.click();
+                    URL.revokeObjectURL(link.href);
+                }, 'image/png');
+            };
+            
+            img.src = url;
+        }
+    </script>
+</body>
+</html>

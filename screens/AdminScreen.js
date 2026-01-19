@@ -2,7 +2,6 @@
 // Pantalla de configuración y administración
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, Animated } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { ensurePermissions, getAllScheduledNotifications, cancelAllNotifications } from '../services/notifications';
 import { generateTaskReport, generateMonthlyReport } from '../services/reports';
@@ -350,12 +349,9 @@ export default function AdminScreen({ navigation, onLogout }) {
         {/* Crear Usuario */}
         <SpringCard style={[styles.sectionCard, { backgroundColor: theme.cardBackground }]}>
           <View style={styles.sectionHeader}>
-            <LinearGradient
-              colors={isDark ? ['#7C3AED', '#5B21B6'] : ['#8B4789', '#6B3587']}
-              style={styles.iconCircle}
-            >
+            <View style={[styles.iconCircle, { backgroundColor: '#8B4789' }]}>
               <Ionicons name="person-add" size={24} color="#FFFFFF" />
-            </LinearGradient>
+            </View>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Crear Usuario</Text>
           </View>
           
@@ -445,22 +441,19 @@ export default function AdminScreen({ navigation, onLogout }) {
               createUser();
             }}
           >
-            <LinearGradient colors={['#34C759', '#28A745']} style={styles.buttonGradient}>
+            <View style={[styles.buttonGradient, { backgroundColor: '#34C759' }]}>
               <Ionicons name="add-circle" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
               <Text style={styles.buttonText}>Crear Usuario</Text>
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
         </SpringCard>
 
         {/* Lista de Usuarios */}
         <SpringCard style={[styles.sectionCard, { backgroundColor: theme.cardBackground }]}>
           <View style={styles.sectionHeader}>
-            <LinearGradient
-              colors={isDark ? ['#1E40AF', '#1E3A8A'] : ['#3B82F6', '#2563EB']}
-              style={styles.iconCircle}
-            >
+            <View style={[styles.iconCircle, { backgroundColor: '#3B82F6' }]}>
               <Ionicons name="people" size={24} color="#FFFFFF" />
-            </LinearGradient>
+            </View>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Usuarios ({allUsers.length})</Text>
           </View>
 
@@ -545,12 +538,9 @@ export default function AdminScreen({ navigation, onLogout }) {
         {/* Recuperación de Contraseña */}
         <SpringCard style={[styles.sectionCard, { backgroundColor: theme.cardBackground }]}>
           <View style={styles.sectionHeader}>
-            <LinearGradient
-              colors={isDark ? ['#B45309', '#92400E'] : ['#F59E0B', '#D97706']}
-              style={styles.iconCircle}
-            >
+            <View style={[styles.iconCircle, { backgroundColor: '#F59E0B' }]}>
               <Ionicons name="key" size={24} color="#FFFFFF" />
-            </LinearGradient>
+            </View>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Resetear Contraseña</Text>
           </View>
 
@@ -587,10 +577,10 @@ export default function AdminScreen({ navigation, onLogout }) {
               resetUserPassword();
             }}
           >
-            <LinearGradient colors={['#FF9500', '#FF8000']} style={styles.buttonGradient}>
+            <View style={[styles.buttonGradient, { backgroundColor: '#FF9500' }]}>
               <Ionicons name="refresh" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
               <Text style={styles.buttonText}>Resetear Contraseña</Text>
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
 
           <Text style={[styles.helpText, { color: theme.textSecondary }]}>
@@ -601,12 +591,9 @@ export default function AdminScreen({ navigation, onLogout }) {
         {/* Notificaciones */}
         <SpringCard style={[styles.sectionCard, { backgroundColor: theme.cardBackground }]}>
           <View style={styles.sectionHeader}>
-            <LinearGradient
-              colors={isDark ? ['#0891B2', '#0E7490'] : ['#06B6D4', '#0891B2']}
-              style={styles.iconCircle}
-            >
+            <View style={[styles.iconCircle, { backgroundColor: '#06B6D4' }]}>
               <Ionicons name="notifications" size={24} color="#FFFFFF" />
-            </LinearGradient>
+            </View>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Notificaciones</Text>
           </View>
 
@@ -617,10 +604,10 @@ export default function AdminScreen({ navigation, onLogout }) {
               testNotification();
             }}
           >
-            <LinearGradient colors={['#34C759', '#28A745']} style={styles.buttonGradient}>
+            <View style={[styles.buttonGradient, { backgroundColor: '#34C759' }]}>
               <Ionicons name="flask" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
               <Text style={styles.buttonText}>Enviar Notificación de Prueba</Text>
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -649,12 +636,9 @@ export default function AdminScreen({ navigation, onLogout }) {
         {/* Reportes */}
         <SpringCard style={[styles.sectionCard, { backgroundColor: theme.cardBackground }]}>
           <View style={styles.sectionHeader}>
-            <LinearGradient
-              colors={isDark ? ['#4C1D95', '#5B21B6'] : ['#8B5CF6', '#7C3AED']}
-              style={styles.iconCircle}
-            >
+            <View style={[styles.iconCircle, { backgroundColor: '#8B5CF6' }]}>
               <Ionicons name="bar-chart" size={24} color="#FFFFFF" />
-            </LinearGradient>
+            </View>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Reportes</Text>
           </View>
 
@@ -679,12 +663,9 @@ export default function AdminScreen({ navigation, onLogout }) {
         {/* Información de la App */}
         <SpringCard style={[styles.sectionCard, { backgroundColor: theme.cardBackground }]}>
           <View style={styles.sectionHeader}>
-            <LinearGradient
-              colors={isDark ? ['#374151', '#1F2937'] : ['#6B7280', '#4B5563']}
-              style={styles.iconCircle}
-            >
+            <View style={[styles.iconCircle, { backgroundColor: '#6B7280' }]}>
               <Ionicons name="information-circle" size={24} color="#FFFFFF" />
-            </LinearGradient>
+            </View>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Información</Text>
           </View>
           

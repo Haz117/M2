@@ -2,7 +2,6 @@
 // Card moderno con glassmorphism y animaciones
 import React, { useRef } from 'react';
 import { View, StyleSheet, Animated, Pressable } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../contexts/ThemeContext';
 
 export default function Card({ 

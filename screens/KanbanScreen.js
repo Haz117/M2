@@ -3,7 +3,6 @@
 // Estados: pendiente, en_proceso, en_revision, cerrada - Compatible con web
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, RefreshControl, Animated } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { getGestureHandlerRootView } from '../utils/platformComponents';
 // Temporarily disabled Animated imports that may cause issues
@@ -226,10 +225,7 @@ export default function KanbanScreen({ navigation }) {
 
     return (
       <View key={status.key} style={[styles.column, { backgroundColor: theme.surface }]}>
-        <LinearGradient
-          colors={isDark ? [status.color + '30', status.color + '15'] : [status.color + '20', status.color + '10']}
-          style={styles.columnHeader}
-        >
+        <View style={[styles.columnHeader, { backgroundColor: status.color + '20' }]}>
           <View style={styles.columnTitleContainer}>
             <View style={[styles.columnIconCircle, { backgroundColor: status.color }]}>
               <Ionicons name={status.icon} size={18} color="#FFFFFF" />
@@ -239,7 +235,7 @@ export default function KanbanScreen({ navigation }) {
           <View style={[styles.columnCount, { backgroundColor: status.color }]}>
             <Text style={styles.columnCountText}>{filtered.length}</Text>
           </View>
-        </LinearGradient>
+        </View>
 
         <FlatList
           data={filtered}

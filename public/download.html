@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="TodoApp">
+    <meta name="theme-color" content="#9F2241">
+    <meta name="description" content="Sistema de gestión de tareas y proyectos MORENA">
+    
+    <!-- iOS Icons -->
+    <link rel="apple-touch-icon" href="/icon-192.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icon-192.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="/icon-192.png">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Standard Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
+    
+    <title>TodoApp MORENA - Descarga la App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #9F2241 0%, #7A1A32 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .header h1 {
+            color: #FFFFFF;
+            font-size: 2.5rem;
+            font-weight: 900;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: rgba(255,255,255,0.9);
+            font-size: 1.2rem;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        .hero {
+            background: white;
+            border-radius: 20px;
+            padding: 60px 40px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            margin-bottom: 40px;
+        }
+        
+        .hero h2 {
+            font-size: 2.5rem;
+            color: #9F2241;
+            margin-bottom: 20px;
+        }
+        
+        .hero p {
+            font-size: 1.3rem;
+            color: #666;
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+        
+        .download-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            padding: 18px 40px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-size: 1.1rem;
+            font-weight: 700;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn-primary {
+            background: #9F2241;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #7A1A32;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(159,34,65,0.4);
+        }
+        
+        .btn-secondary {
+            background: #FFFFFF;
+            color: #9F2241;
+            border: 2px solid #9F2241;
+        }
+        
+        .btn-secondary:hover {
+            background: #9F2241;
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        .feature-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #9F2241, #B8314F);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            margin-bottom: 20px;
+        }
+        
+        .feature-card h3 {
+            color: #9F2241;
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+        }
+        
+        .feature-card p {
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        .credentials {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 40px;
+        }
+        
+        .credentials h3 {
+            color: #9F2241;
+            font-size: 2rem;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .credential-box {
+            background: #F9F9F9;
+            border-left: 4px solid #9F2241;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+        
+        .credential-box h4 {
+            color: #9F2241;
+            margin-bottom: 10px;
+            font-size: 1.3rem;
+        }
+        
+        .credential-box code {
+            display: block;
+            background: #FFFFFF;
+            padding: 8px 15px;
+            border-radius: 5px;
+            margin: 5px 0;
+            font-family: 'Courier New', monospace;
+            color: #333;
+            border: 1px solid #E0E0E0;
+        }
+        
+        .instructions {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .instructions h3 {
+            color: #9F2241;
+            font-size: 2rem;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .step {
+            display: flex;
+            align-items: start;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .step-number {
+            min-width: 40px;
+            height: 40px;
+            background: #9F2241;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+        
+        .step-content h4 {
+            color: #333;
+            font-size: 1.2rem;
+            margin-bottom: 8px;
+        }
+        
+        .step-content p {
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 40px 20px;
+            color: rgba(255,255,255,0.8);
+        }
+        
+        @media (max-width: 768px) {
+            .hero h2 {
+                font-size: 2rem;
+            }
+            
+            .hero p {
+                font-size: 1.1rem;
+            }
+            
+            .download-buttons {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📋 TodoApp MORENA</h1>
+        <p>Gestiona tus tareas con estilo</p>
+    </div>
+    
+    <div class="container">
+        <div class="hero">
+            <h2>Descarga la App Oficial</h2>
+            <p>Sistema completo de gestión de tareas con roles y permisos.<br>Sincronización en tiempo real con Firebase.</p>
+            
+            <div class="download-buttons">
+                <a href="#" class="btn btn-primary" id="downloadApk">
+                    <span>📱</span>
+                    Descargar APK (Android)
+                </a>
+                <a href="#" class="btn btn-secondary" id="addToHomeIOS">
+                    <span>🍎</span>
+                    Instalar en iPhone
+                </a>
+                <a href="/" class="btn btn-secondary" id="openWebApp">
+                    <span>🌐</span>
+                    Abrir App Web
+                </a>
+            </div>
+            
+            <p style="font-size: 0.9rem; color: #999; margin-top: 20px;">
+                Versión 1.0.0 • Compatible con Android 8.0+ e iOS Safari
+            </p>
+        </div>
+        
+        <div class="features">
+            <div class="feature-card">
+                <div class="feature-icon">👥</div>
+                <h3>Sistema de Roles</h3>
+                <p>Admin, Jefe y Operativo. Cada rol con permisos específicos para mejor organización.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">🔄</div>
+                <h3>Sincronización Real</h3>
+                <p>Todos los cambios se sincronizan instantáneamente entre dispositivos.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3>Tablero Kanban</h3>
+                <p>Visualiza tus tareas en formato Kanban: Pendiente, En Proceso, En Revisión, Cerrada.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">💬</div>
+                <h3>Chat por Tarea</h3>
+                <p>Comunícate con tu equipo directamente en cada tarea.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">📅</div>
+                <h3>Calendario</h3>
+                <p>Vista mensual de todas las tareas con fechas de compromiso.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">📈</div>
+                <h3>Reportes</h3>
+                <p>Estadísticas y análisis de productividad por área y usuario.</p>
+            </div>
+        </div>
+        
+        <div class="credentials">
+            <h3>🔐 Credenciales de Prueba</h3>
+            
+            <div class="credential-box">
+                <h4>👑 Administrador (acceso completo)</h4>
+                <code>Email: admin@todo.com</code>
+                <code>Password: admin123</code>
+            </div>
+            
+            <div class="credential-box">
+                <h4>👨‍💼 Jefe de Área Jurídica</h4>
+                <code>Email: jefe.juridica@todo.com</code>
+                <code>Password: jefe123</code>
+            </div>
+            
+            <div class="credential-box">
+                <h4>👨‍💼 Jefe de Área Obras</h4>
+                <code>Email: jefe.obras@todo.com</code>
+                <code>Password: jefe123</code>
+            </div>
+            
+            <div class="credential-box">
+                <h4>👷 Operativo</h4>
+                <code>Email: operativo.juridica@todo.com</code>
+                <code>Password: oper123</code>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h3>📲 Instrucciones de Instalación</h3>
+            
+            <div style="background: rgba(159,34,65,0.1); padding: 20px; border-radius: 15px; margin-bottom: 30px; border-left: 4px solid #9F2241;">
+                <h4 style="color: #9F2241; margin-bottom: 10px;">🍎 Para usuarios de iPhone/iPad:</h4>
+                <ol style="line-height: 1.8; padding-left: 20px;">
+                    <li>Abre <strong>Safari</strong> en tu iPhone</li>
+                    <li>Visita esta página web</li>
+                    <li>Toca el botón de <strong>Compartir</strong> (⬆️) en la parte inferior</li>
+                    <li>Selecciona <strong>"Agregar a pantalla de inicio"</strong></li>
+                    <li>Toca <strong>"Agregar"</strong></li>
+                    <li>¡Listo! Verás el ícono en tu pantalla como una app normal</li>
+                </ol>
+            </div>
+            
+            <div style="background: rgba(159,34,65,0.1); padding: 20px; border-radius: 15px; margin-bottom: 30px; border-left: 4px solid #9F2241;">
+                <h4 style="color: #9F2241; margin-bottom: 10px;">📱 Para usuarios de Android:</h4>
+            
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h4>Descarga el APK</h4>
+                    <p>Haz clic en el botón "Descargar APK" y espera a que se complete la descarga.</p>
+                </div>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h4>Permitir instalación de fuentes desconocidas</h4>
+                    <p>Ve a Configuración → Seguridad → Habilita "Fuentes desconocidas" o "Instalar aplicaciones desconocidas".</p>
+                </div>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h4>Instalar la app</h4>
+                    <p>Abre el archivo APK descargado y sigue las instrucciones para instalar.</p>
+                </div>
+            </div>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <h4>Iniciar sesión</h4>
+                    <p>Abre la app e inicia sesión con una de las credenciales de prueba.</p>
+                </div>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">5</div>
+                <div class="step-content">
+                    <h4>¡Listo!</h4>
+                    <p>Ya puedes empezar a gestionar tus tareas con TodoApp MORENA.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>TodoApp MORENA © 2026</p>
+        <p style="margin-top: 10px; font-size: 0.9rem;">Desarrollado con React Native, Expo y Firebase</p>
+    </div>
+    
+    <script>
+        // Detectar si es iOS
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isInStandaloneMode = ('standalone' in window.navigator) && (window.navigator.standalone);
+        
+        // Botón iOS
+        const iosBtn = document.getElementById('addToHomeIOS');
+        if (iosBtn) {
+            iosBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (isIOS && !isInStandaloneMode) {
+                    alert('📱 Para instalar en iPhone:\n\n1. Abre esta página en Safari\n2. Toca el botón de Compartir (⬆️)\n3. Selecciona "Agregar a pantalla de inicio"\n4. Confirma\n\n¡La app aparecerá en tu iPhone como una app normal!');
+                } else if (isInStandaloneMode) {
+                    alert('✅ Ya tienes la app instalada en tu iPhone');
+                } else {
+                    window.open('https://to-do-iota-opal.vercel.app', '_blank');
+                }
+            });
+        }
+        
+        // Botón Android APK
+        document.getElementById('downloadApk').addEventListener('click', function(e) {
+            e.preventDefault();
+            alert('Para generar el APK ejecuta:\n\neas build -p android --profile preview\n\nLuego actualiza el link en este archivo HTML.');
+        });
+        
+        // Botón Abrir App Web
+        document.getElementById('openWebApp').addEventListener('click', function(e) {
+            e.preventDefault();
+            window.open('https://to-do-iota-opal.vercel.app/', '_self');
+        });
+    </script>
+</body>
+</html>

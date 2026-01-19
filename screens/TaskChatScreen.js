@@ -120,10 +120,7 @@ export default function TaskChatScreen({ route, navigation }) {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.select({ios:'padding', android:undefined})}>
-      <LinearGradient 
-        colors={['#9F2241', '#7A1A32']} 
-        style={styles.headerBar}
-      >
+      <View style={[styles.headerBar, { backgroundColor: '#9F2241' }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
@@ -132,7 +129,7 @@ export default function TaskChatScreen({ route, navigation }) {
           <Text style={styles.headerTitle}>{taskTitle || 'Chat'}</Text>
         </View>
         <View style={{ width: 40 }} />
-      </LinearGradient>
+      </View>
 
       {!hasAccess ? (
         <View style={styles.noAccessContainer}>

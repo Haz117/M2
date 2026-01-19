@@ -3,7 +3,6 @@
 // Acciones rápidas: marcar cerrada y posponer 1 día. Abre detalle y chat.
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, RefreshControl } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import TaskItem from '../components/TaskItem';
 import EmptyState from '../components/EmptyState';
@@ -181,7 +180,7 @@ export default function MyInboxScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#9F2241', '#7A1A32']} style={styles.headerGradient}>
+      <View style={[styles.headerGradient, { backgroundColor: '#9F2241' }]}>
         <View style={styles.header}>
           <View>
             <View style={styles.greetingContainer}>
@@ -191,12 +190,12 @@ export default function MyInboxScreen({ navigation }) {
             <Text style={styles.heading}>Mi Bandeja</Text>
           </View>
           <TouchableOpacity style={styles.addButton} onPress={goToCreate}>
-            <LinearGradient colors={['#FFFFFF', '#F8F9FA']} style={styles.addButtonGradient}>
+            <View style={[styles.addButtonGradient, { backgroundColor: '#FFFFFF' }]}>
               <Ionicons name="add" size={32} color="#9F2241" />
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
         </View>
-      </LinearGradient>
+      </View>
 
       <View style={styles.userSection}>
         <View style={styles.userLabelContainer}>

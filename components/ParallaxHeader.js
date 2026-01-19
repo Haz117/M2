@@ -2,7 +2,6 @@
 // Header con efecto parallax en scroll
 import React from 'react';
 import { View, StyleSheet, Animated } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
 const HEADER_MAX_HEIGHT = 200;
 const HEADER_MIN_HEIGHT = 80;
@@ -48,12 +47,9 @@ const ParallaxHeader = ({
           { opacity: imageOpacity },
         ]}
       >
-        <LinearGradient
-          colors={colors}
-          style={StyleSheet.absoluteFillObject}
-        >
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: colors[0] || '#9F2241' }]}>
           {backgroundComponent}
-        </LinearGradient>
+        </View>
       </Animated.View>
       
       <View style={styles.contentContainer}>

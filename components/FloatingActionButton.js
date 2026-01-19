@@ -3,7 +3,6 @@
 import React, { useRef, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { hapticMedium, hapticLight } from '../utils/haptics';
 
 const FloatingActionButton = ({ 
@@ -89,12 +88,9 @@ const FloatingActionButton = ({
               onPress={() => handleActionPress(action)}
               style={[styles.actionTouchable, { width: size * 0.75, height: size * 0.75 }]}
             >
-              <LinearGradient
-                colors={action.color || ['#6366F1', '#8B5CF6']}
-                style={styles.actionGradient}
-              >
+              <View style={[styles.actionGradient, { backgroundColor: (action.color && action.color[0]) || '#6366F1' }]}>
                 <Ionicons name={action.icon} size={size * 0.35} color="#FFFFFF" />
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
           </Animated.View>
         );
@@ -111,14 +107,11 @@ const FloatingActionButton = ({
           style={[styles.mainButton, { width: size, height: size }]}
           activeOpacity={0.9}
         >
-          <LinearGradient
-            colors={mainColor}
-            style={styles.mainGradient}
-          >
+          <View style={[styles.mainGradient, { backgroundColor: mainColor[0] || '#9F2241' }]}>
             <Animated.View style={{ transform: [{ rotate: rotation }] }}>
               <Ionicons name={mainIcon} size={size * 0.5} color="#FFFFFF" />
             </Animated.View>
-          </LinearGradient>
+          </View>
         </TouchableOpacity>
       </Animated.View>
 

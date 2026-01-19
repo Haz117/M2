@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { View, Text, FlatList, StyleSheet, Alert, TouchableOpacity, RefreshControl, Animated, Platform, StatusBar } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import TaskItem from '../components/TaskItem';
 import SearchBar from '../components/SearchBar';
@@ -339,7 +338,7 @@ export default function HomeScreen({ navigation }) {
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <LinearGradient colors={theme.gradientHeader} style={styles.headerGradient}>
+        <View style={[styles.headerGradient, { backgroundColor: theme.primary }]}>
           <View style={styles.header}>
             <View>
               <ShimmerEffect width={150} height={20} borderRadius={10} style={{ marginBottom: 8 }} />
@@ -347,7 +346,7 @@ export default function HomeScreen({ navigation }) {
             </View>
             <ShimmerEffect width={56} height={56} borderRadius={28} />
           </View>
-        </LinearGradient>
+        </View>
         
         <View style={{ padding: 20, gap: 16 }}>
           <SkeletonLoader type="card" count={5} />
@@ -360,12 +359,7 @@ export default function HomeScreen({ navigation }) {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ConnectionIndicator />
       
-      <LinearGradient
-        colors={theme.gradientHeader}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.headerGradient}
-      >
+      <View style={[styles.headerGradient, { backgroundColor: theme.primary }]}>
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
             <View style={styles.greetingContainer}>
@@ -384,7 +378,7 @@ export default function HomeScreen({ navigation }) {
             <ThemeToggle size={22} />
           </View>
         </View>
-      </LinearGradient>
+      </View>
 
       {/* Search Bar */}
       <SearchBar onSearch={handleSearch} placeholder="Buscar tareas..." />
@@ -426,7 +420,7 @@ export default function HomeScreen({ navigation }) {
             {/* Fila 1: Estadísticas principales */}
             <View style={styles.bentoRow}>
               <View style={[styles.bentoCard, styles.bentoLarge]}>
-                <LinearGradient colors={theme.gradientSecondary} style={styles.bentoGradient}>
+                <View style={[styles.bentoGradient, { backgroundColor: theme.primary }]}>
                   <View style={styles.bentoContent}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       <Text style={styles.bentoTitleLarge}>Tareas Activas</Text>
@@ -450,7 +444,7 @@ export default function HomeScreen({ navigation }) {
                       </View>
                     </View>
                   </View>
-                </LinearGradient>
+                </View>
               </View>
             </View>
 
@@ -505,12 +499,9 @@ export default function HomeScreen({ navigation }) {
           onPress={() => navigation.navigate('TaskDetail')}
           activeOpacity={0.8}
         >
-          <LinearGradient
-            colors={['#FF6B6B', '#FF8E53']}
-            style={styles.fabGradient}
-          >
+          <View style={[styles.fabGradient, { backgroundColor: '#9F2241' }]}>
             <Ionicons name="add" size={28} color="#FFFFFF" />
-          </LinearGradient>
+          </View>
         </TouchableOpacity>
       )}
       

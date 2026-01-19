@@ -2,7 +2,6 @@
 // Efecto shimmer para loaders más atractivos
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
 export default function ShimmerEffect({ width = '100%', height = 60, borderRadius = 12, style = {} }) {
   const translateX = useRef(new Animated.Value(0)).current;
