@@ -224,7 +224,7 @@ ISC License
 
 👥 Autor
 
-Tu nombre aquí
+Hazel Jared Almaraz
 
 ⚡ Instrucciones Rápidas
 
@@ -264,9 +264,3 @@ npm install dotenv --save-dev
 
 
 firebase.js lee la configuración desde Constants.manifest.extra (inyectado por Expo) o process.env como respaldo.
-
-🔒 Seguridad
-
-Estas claves permiten acceder a tu proyecto Firebase.
-Evita compartir el archivo .env en público.
-Para producción, usa secrets del servidor o mecanismos seguros de configuración.git pus
