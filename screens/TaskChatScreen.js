@@ -11,6 +11,7 @@ import { collection, addDoc, onSnapshot, query, orderBy, doc, getDoc, updateDoc 
 import { db, getServerTimestamp } from '../firebase';
 import { getCurrentSession } from '../services/authFirestore';
 import { notifyNewComment } from '../services/fcm';
+import { notifyNewChatMessage } from '../services/emailNotifications';
 
 export default function TaskChatScreen({ route, navigation }) {
   const { taskId, taskTitle } = route.params;
@@ -95,10 +96,27 @@ export default function TaskChatScreen({ route, navigation }) {
       try {
         await updateDoc(doc(db, 'tasks', taskId), {
           lastMessageAt: getServerTimestamp(),
-          lastMessageBy: currentUser || 'Usuario'
+          lastMessageBy: currentUser || 'Usuario',
+          hasUnreadMessages: true
         });
       } catch (updateError) {
         console.warn('Error actualizando timestamp del mensaje:', updateError);
+      }
+      
+      // 3. Notificar a otros usuarios de la tarea
+      try {
+        await notifyNewComment(taskId, currentUser || 'Usuario', text.trim());
+        
+        // Enviar email si el asignado es diferente al que escribe
+        if (taskData && taskData.assignedTo && taskData.assignedTo !== currentUserId) {
+          await notifyNewChatMessage(
+            { id: taskId, title: taskTitle || taskData.title },
+            { author: currentUser, text: text.trim() },
+            taskData.assignedTo
+          );
+        }
+      } catch (notifyError) {
+        console.warn('Error enviando notificación:', notifyError);
       }
       
       setText('');

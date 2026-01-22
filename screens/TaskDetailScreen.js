@@ -31,6 +31,8 @@ export default function TaskDetailScreen({ route, navigation }) {
   const [priority, setPriority] = useState(editingTask ? editingTask.priority : 'media');
   const [status, setStatus] = useState(editingTask ? editingTask.status : 'pendiente');
   const [dueAt, setDueAt] = useState(editingTask ? new Date(editingTask.dueAt) : new Date(Date.now() + 3600 * 1000));
+  const [isRecurring, setIsRecurring] = useState(editingTask ? editingTask.isRecurring || false : false);
+  const [recurrencePattern, setRecurrencePattern] = useState(editingTask ? editingTask.recurrencePattern || 'daily' : 'daily');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [tempDate, setTempDate] = useState(dueAt);
@@ -295,7 +297,10 @@ export default function TaskDetailScreen({ route, navigation }) {
         area,
         priority,
         status,
-        dueAt: dueAt.getTime()
+        dueAt: dueAt.getTime(),
+        isRecurring,
+        recurrencePattern: isRecurring ? recurrencePattern : null,
+        lastRecurrenceCreated: isRecurring ? dueAt.getTime() : null
       };
 
       let taskId;
@@ -576,6 +581,54 @@ export default function TaskDetailScreen({ route, navigation }) {
             </>
           )}
           
+          {/* Sección de Recurrencia */}
+          <View style={[styles.formSection, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="repeat" size={20} color={theme.primary} />
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>Repetir Tarea</Text>
+            </View>
+            
+            <View style={styles.toggleRow}>
+              <Text style={[styles.toggleLabel, { color: theme.textSecondary }]}>Tarea recurrente</Text>
+              <TouchableOpacity
+                onPress={() => setIsRecurring(!isRecurring)}
+                style={[styles.toggle, isRecurring && styles.toggleActive, { backgroundColor: isRecurring ? theme.primary : theme.border }]}
+                disabled={!canEdit}
+              >
+                <View style={[styles.toggleThumb, isRecurring && styles.toggleThumbActive]} />
+              </TouchableOpacity>
+            </View>
+            
+            {isRecurring && (
+              <View style={styles.recurrenceOptions}>
+                {['daily', 'weekly', 'monthly'].map((pattern) => (
+                  <TouchableOpacity
+                    key={pattern}
+                    onPress={() => setRecurrencePattern(pattern)}
+                    style={[
+                      styles.recurrenceOption,
+                      { backgroundColor: theme.surface, borderColor: theme.border },
+                      recurrencePattern === pattern && { borderColor: theme.primary, backgroundColor: theme.primary + '15' }
+                    ]}
+                    disabled={!canEdit}
+                  >
+                    <Ionicons 
+                      name={pattern === 'daily' ? 'today' : pattern === 'weekly' ? 'calendar' : 'calendar-number'} 
+                      size={20} 
+                      color={recurrencePattern === pattern ? theme.primary : theme.textSecondary} 
+                    />
+                    <Text style={[
+                      styles.recurrenceOptionText,
+                      { color: recurrencePattern === pattern ? theme.primary : theme.text }
+                    ]}>
+                      {pattern === 'daily' ? 'Diaria' : pattern === 'weekly' ? 'Semanal' : 'Mensual'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+          
           {Platform.OS !== 'web' && (
             <>
               {showDatePicker && DateTimePicker && (
@@ -831,6 +884,60 @@ const createStyles = (theme, isDark) => StyleSheet.create({
   optionTextActive: { 
     color: '#FFFFFF', 
     fontWeight: '800'
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  toggleLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  toggle: {
+    width: 50,
+    height: 28,
+    borderRadius: 14,
+    padding: 2,
+    justifyContent: 'center',
+  },
+  toggleActive: {
+    justifyContent: 'flex-end',
+  },
+  toggleThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  toggleThumbActive: {
+    alignSelf: 'flex-end',
+  },
+  recurrenceOptions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+  },
+  recurrenceOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    borderWidth: 2,
+  },
+  recurrenceOptionText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   saveButton: {
     backgroundColor: '#9F2241',

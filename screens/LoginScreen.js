@@ -44,18 +44,17 @@ export default function LoginScreen({ onLogin }) {
       showToast('Por favor completa todos los campos', 'error');
       return;
     }
-    if (!validateEmail(email.trim())) {
-      showToast('El email ingresado no es válido', 'error');
-      return;
-    }
-    if (password.length < 6) {
-      showToast('La contraseña debe tener al menos 6 caracteres', 'error');
-      return;
-    }
+    
+    // Normalizar email a minúsculas
+    const normalizedEmail = email.trim().toLowerCase();
 
     setLoading(true);
+    console.log('🔐 LOGIN: Intentando con email:', normalizedEmail);
+    
     try {
-      const result = await loginUser(email.trim(), password);
+      const result = await loginUser(normalizedEmail, password);
+      console.log('🔐 LOGIN: Resultado:', result.success ? 'ÉXITO' : 'FALLO', result.error || '');
+      
       if (result.success) {
         showToast('¡Bienvenido! Iniciando sesión...', 'success');
         setTimeout(() => {
@@ -65,6 +64,7 @@ export default function LoginScreen({ onLogin }) {
         showToast(result.error || 'Usuario o contraseña incorrectos', 'error');
       }
     } catch (error) {
+      console.error('🔐 LOGIN ERROR:', error);
       showToast('Error de conexión. Verifica tu internet', 'error');
     } finally {
       setLoading(false);
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   logoWrap: { alignItems: 'center', marginBottom: 32 },
   logo: { width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: 'rgba(255,255,255,0.25)', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20, elevation: 10 },
   title: { fontSize: 48, fontWeight: '900', color: '#FFF', textAlign: 'center', marginBottom: 8, letterSpacing: -1, textShadowColor: 'rgba(0,0,0,0.2)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 },
-  subtitle: { fontSize: 16, color: 'rgba(255,255,255,0.85)', textAlign: 'center', marginBottom: 40, fontWeight: '500' },
+  subtitle: { fontSize: 16, color: 'rgba(255,255,255,0.85)', textAlign: 'center', marginBottom: 32, fontWeight: '500' },
   form: { width: '100%', marginBottom: 32 },
   input: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 14, marginBottom: 16, paddingHorizontal: 16, height: 54, borderWidth: 2, borderColor: 'rgba(255,255,255,0.1)' },
   inputFocused: { backgroundColor: 'rgba(255,255,255,0.18)', borderColor: 'rgba(255,255,255,0.3)' },

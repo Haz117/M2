@@ -52,13 +52,15 @@ export const registerUser = async (email, password, displayName, role = 'operati
 // Iniciar sesión
 export const loginUser = async (email, password) => {
   try {
-    console.log('🔐 Intentando login con:', email);
+    const normalizedEmail = email.toLowerCase();
+    console.log('🔐 Intentando login con:', normalizedEmail);
+    
     const usersRef = collection(db, 'users');
-    const q = query(usersRef, where('email', '==', email.toLowerCase()));
+    const q = query(usersRef, where('email', '==', normalizedEmail));
     const querySnapshot = await getDocs(q);
     
     if (querySnapshot.empty) {
-      console.log('❌ Usuario no encontrado:', email);
+      console.log('❌ Usuario no encontrado:', normalizedEmail);
       return { success: false, error: 'Usuario no encontrado' };
     }
     
@@ -66,8 +68,8 @@ export const loginUser = async (email, password) => {
     const userData = userDoc.data();
     console.log('✅ Usuario encontrado:', userData.email, '- Rol:', userData.role);
     
-    // Verificar contraseña
-    const hashedPassword = simpleHash(password + email);
+    // Verificar contraseña - El hash debe usar el email normalizado
+    const hashedPassword = simpleHash(password + normalizedEmail);
     console.log('🔑 Hash calculado:', hashedPassword);
     console.log('🔑 Hash en BD:', userData.password);
     

@@ -23,8 +23,10 @@ import CircularProgress from '../components/CircularProgress';
 import PulsingDot from '../components/PulsingDot';
 import RippleButton from '../components/RippleButton';
 import { subscribeToTasks, updateTask } from '../services/tasks';
+import { getCurrentSession } from '../services/authFirestore';
 import { hapticMedium, hapticHeavy, hapticLight } from '../utils/haptics';
 import Toast from '../components/Toast';
+import TaskStatusButtons from '../components/TaskStatusButtons';
 import { useTheme } from '../contexts/ThemeContext';
 
 const STATUSES = [
@@ -37,6 +39,7 @@ const STATUSES = [
 export default function KanbanScreen({ navigation }) {
   const { theme, isDark } = useTheme();
   const [tasks, setTasks] = useState([]);
+  const [currentUserRole, setCurrentUserRole] = useState(null);
   const [filters, setFilters] = useState({ searchText: '', area: '', responsible: '', priority: '', overdue: false });
   const [refreshing, setRefreshing] = useState(false);
   const [draggingTask, setDraggingTask] = useState(null);
@@ -85,6 +88,15 @@ export default function KanbanScreen({ navigation }) {
 
   const columnWidth = getColumnWidth();
 
+  // Obtener rol del usuario
+  useEffect(() => {
+    getCurrentSession().then(result => {
+      if (result.success) {
+        setCurrentUserRole(result.session.role);
+      }
+    });
+  }, []);
+
   // Animación de entrada
   useEffect(() => {
     Animated.parallel([
@@ -109,6 +121,7 @@ export default function KanbanScreen({ navigation }) {
     let unsubscribe;
     
     subscribeToTasks((updatedTasks) => {
+      console.log('[Kanban] Tareas recibidas:', updatedTasks.length, updatedTasks);
       setTasks(updatedTasks);
     }).then((unsub) => {
       unsubscribe = unsub;
@@ -143,6 +156,10 @@ export default function KanbanScreen({ navigation }) {
       console.error('Error updating task status:', error);
     }
   }, []);
+
+  const handleStatusChange = useCallback(async (taskId, newStatus) => {
+    await changeStatus(taskId, newStatus);
+  }, [changeStatus]);
 
   const openDetail = useCallback((task) => navigation.navigate('TaskDetail', { task }), [navigation]);
 
@@ -253,6 +270,15 @@ export default function KanbanScreen({ navigation }) {
             </View>
           </View>
         )}
+        
+        {/* Botones de cambio de estado */}
+        {currentUserRole === 'operativo' && !compactView && (
+          <TaskStatusButtons
+            currentStatus={item.status}
+            taskId={item.id}
+            onStatusChange={handleStatusChange}
+          />
+        )}
       </SpringCard>
     );
   };
@@ -312,7 +338,12 @@ export default function KanbanScreen({ navigation }) {
   };
 
   const renderColumn = (status) => {
-    const byStatus = tasks.filter(t => (t.status || 'pendiente') === status.key);
+    const byStatus = tasks.filter(t => {
+      const taskStatus = t.status || 'pendiente';
+      console.log(`[Kanban] Tarea "${t.title}" - status en BD: "${t.status}", status normalizado: "${taskStatus}", comparando con "${status.key}": ${taskStatus === status.key}`);
+      return taskStatus === status.key;
+    });
+    console.log(`[Kanban] Columna ${status.key}: ${byStatus.length} tareas`, byStatus.map(t => ({ id: t.id, title: t.title, status: t.status })));
     const filtered = applyFilters(byStatus);
     const sorted = sortTasks(filtered);
     const completionRate = byStatus.length > 0 ? (filtered.length / byStatus.length) * 100 : 0;

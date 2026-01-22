@@ -1,9 +1,12 @@
 // screens/ReportScreen.js
 // Reporte para reunión: tarjetas por área con contadores, lista de críticas (alta prioridad) y vencidas.
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Modal, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Modal, Dimensions, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { subscribeToTasks } from '../services/tasks';
+import { exportTasksToCSV, exportStatsToCSV } from '../services/export';
+import { calculateProductivityStreak, calculateAverageCompletionTime, formatAverageTime } from '../services/productivity';
+import { getCurrentSession } from '../services/authFirestore';
 import { PieChart, BarChart } from 'react-native-chart-kit';
 import { useTheme } from '../contexts/ThemeContext';
 import { hapticMedium } from '../utils/haptics';
@@ -26,6 +29,9 @@ export default function ReportScreen({ navigation }) {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('success');
+  const [productivity, setProductivity] = useState({ currentStreak: 0, longestStreak: 0, averageTime: 0 });
+  const [isExporting, setIsExporting] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
 
   // Suscribirse a cambios en tiempo real de Firebase
   useEffect(() => {

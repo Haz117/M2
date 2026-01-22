@@ -10,6 +10,7 @@ import { getSwipeable } from '../utils/platformComponents';
 import ContextMenu from './ContextMenu';
 import Avatar from './Avatar';
 import PulsingDot from './PulsingDot';
+import TaskStatusButtons from './TaskStatusButtons';
 
 const Swipeable = getSwipeable();
 const { width } = Dimensions.get('window');
@@ -32,6 +33,8 @@ const TaskItem = memo(function TaskItem({
   onToggleComplete, 
   onDuplicate,
   onShare,
+  onChangeStatus,
+  currentUserRole = 'operativo',
   index = 0 
 }) {
   const { theme } = useTheme();
@@ -163,6 +166,11 @@ const TaskItem = memo(function TaskItem({
                 {task.title}
               </Text>
               <View style={styles.badgeContainer}>
+                {task.hasUnreadMessages && (
+                  <View style={[styles.unreadBadge, { backgroundColor: theme.primary }]}>
+                    <Ionicons name="chatbubble" size={10} color="#FFF" />
+                  </View>
+                )}
                 {remaining <= 0 && task.status !== 'cerrada' && <PulsingDot size={8} color={theme.error} />}
                 <Text style={[styles.badge, { backgroundColor: remaining <= 0 ? theme.error : theme.info, color: '#FFF' }]}>
                   {formatRemaining(remaining)}
@@ -181,9 +189,17 @@ const TaskItem = memo(function TaskItem({
                   {task.priority.toUpperCase()}
                 </Text>
                 <Text style={[styles.statusText, { color: theme.textTertiary }]} numberOfLines={1}>
-                  {task.status === 'en_proceso' ? 'En proceso' : task.status === 'en_revision' ? 'En revisión' : task.status === 'cerrada' ? 'Completada' : 'Pendiente'}
+                  {task.status === 'en_progreso' ? 'En progreso' : task.status === 'en_revision' ? 'En revisión' : task.status === 'cerrada' ? 'Completada' : 'Pendiente'}
                 </Text>
               </View>
+            )}
+            
+            {/* Botones de cambio de estado solo para operativos */}
+            {currentUserRole === 'operativo' && onChangeStatus && (
+              <TaskStatusButtons 
+                currentStatus={task.status} 
+                onChangeStatus={onChangeStatus}
+              />
             )}
           </TouchableOpacity>
         </Animated.View>
@@ -317,5 +333,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textTransform: 'uppercase',
     letterSpacing: 0.5
+  },
+  unreadBadge: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 4,
   },
 });

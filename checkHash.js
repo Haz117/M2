@@ -1,4 +1,4 @@
-// Verificar hash del admin
+// checkHash.js - Verifica hash de contraseñas
 const simpleHash = (text) => {
   let hash = 0;
   for (let i = 0; i < text.length; i++) {
@@ -9,12 +9,34 @@ const simpleHash = (text) => {
   return Math.abs(hash).toString(16);
 };
 
-const email = 'admin@todo.com';
-const password = 'admin123';
+console.log('\n=== HASHES DE USUARIOS DE PRUEBA ===\n');
 
-console.log('\n=== VERIFICACIÓN DE HASH ===\n');
-console.log('Email:', email);
-console.log('Password:', password);
-console.log('\nHash calculado:', simpleHash(password + email));
-console.log('\nEste hash debe estar en Firestore en el campo "password"');
-console.log('Si pusiste otro hash, cámbialo por este.\n');
+// USUARIOS DE PRUEBA
+const users = [
+  { email: 'admin@todo.com', password: 'admin123', displayName: 'Administrador', role: 'admin', department: null },
+  { email: 'operativo.juridica@todo.com', password: 'oper123', displayName: 'Juan Pérez', role: 'operativo', department: 'juridica' }
+];
+
+users.forEach(user => {
+  const hash = simpleHash(user.password + user.email);
+  console.log(`👤 ${user.displayName} (${user.role})`);
+  console.log(`   Email: ${user.email}`);
+  console.log(`   Password: ${user.password}`);
+  console.log(`   Hash: ${hash}`);
+  console.log('');
+});
+
+console.log('=== DATOS PARA FIRESTORE ===\n');
+users.forEach((user, i) => {
+  const hash = simpleHash(user.password + user.email);
+  console.log(`Documento ${i + 1}:`);
+  console.log(JSON.stringify({
+    email: user.email,
+    password: hash,
+    displayName: user.displayName,
+    role: user.role,
+    department: user.department,
+    active: true
+  }, null, 2));
+  console.log('');
+});

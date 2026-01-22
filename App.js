@@ -1,5 +1,7 @@
 // App.js - VERSIÓN COMPLETA CON TABS - Compatible con web
+import './polyfills'; // Debe ser lo primero
 import 'react-native-gesture-handler';
+
 import React, { useEffect, useState, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';

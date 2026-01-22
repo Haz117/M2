@@ -15,13 +15,13 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { getCurrentSession } from './authFirestore';
+import { notifyTaskAssigned } from './emailNotifications';
 
 const COLLECTION_NAME = 'tasks';
 
-// Cache en memoria para reducir lecturas
-let cachedTasks = [];
-let lastFetchTime = 0;
-const CACHE_DURATION = 30000; // 30 segundos
+// Cache eliminado para tiempo real verdadero
+let activeSubscriptions = 0;
+const MAX_SUBSCRIPTIONS = 3; // Aumentar suscripciones permitidas
 
 /**
  * Suscribirse a cambios en tiempo real de las tareas del usuario autenticado
@@ -30,10 +30,14 @@ const CACHE_DURATION = 30000; // 30 segundos
  */
 export async function subscribeToTasks(callback) {
   try {
+    activeSubscriptions++;
+    console.log('📊 Suscripciones activas:', activeSubscriptions);
+
     // Obtener sesión del usuario actual
     const sessionResult = await getCurrentSession();
     if (!sessionResult.success) {
       console.warn('Usuario no autenticado, no se pueden cargar tareas');
+      activeSubscriptions--;
       callback([]);
       return () => {};
     }
@@ -42,22 +46,14 @@ export async function subscribeToTasks(callback) {
     const userEmail = sessionResult.session.email;
     const userDepartment = sessionResult.session.department;
 
-    console.log('\ud83d\udd11 PERMISOS DE USUARIO:');
-    console.log('  - Email:', userEmail);
-    console.log('  - Rol:', userRole);
-    console.log('  - Departamento:', userDepartment);
-
-    // Enviar cache inmediatamente para UX rápido
-    if (cachedTasks.length > 0 && Date.now() - lastFetchTime < CACHE_DURATION) {
-      callback(cachedTasks);
-    }
+    console.log('🔑 Usuario:', userEmail, '| Rol:', userRole);
 
     let tasksQuery;
 
     // Construir query según el rol del usuario
     if (userRole === 'admin') {
       // Admin: Ver todas las tareas
-      console.log('\u2705 ADMIN - Mostrando todas las tareas');
+      console.log('✅ ADMIN - Mostrando todas las tareas');
       tasksQuery = query(
         collection(db, COLLECTION_NAME),
         orderBy('createdAt', 'desc')
@@ -102,41 +98,26 @@ export async function subscribeToTasks(callback) {
         });
         
         console.log(`📋 Tareas cargadas para ${userRole}:`, tasks.length);
-        if (userRole === 'operativo') {
-          console.log('🔍 Tareas del operativo:', tasks.map(t => ({
-            title: t.title,
-            assignedTo: t.assignedTo
-          })));
-        }
-        
-        // Actualizar cache
-        cachedTasks = tasks;
-        lastFetchTime = Date.now();
-        
-        // Guardar copia local como backup (sin bloquear)
-        saveLocal(tasks).catch(err => console.warn('Error guardando backup local:', err));
-        
+        console.log(`📥 Recibidas ${tasks.length} tareas en tiempo real`);
         callback(tasks);
       },
       (error) => {
-        console.error('Error en subscripción de Firebase:', error);
-        // Fallback: cargar desde AsyncStorage si Firebase falla
-        loadLocal().then(tasks => {
-          cachedTasks = tasks;
-          callback(tasks);
-        });
+        console.error('❌ Error en suscripción:', error);
+        callback([]);
       }
     );
 
-    return unsubscribe;
+    // Retornar función de limpieza mejorada
+    return () => {
+      console.log('🧹 Limpiando suscripción');
+      activeSubscriptions--;
+      if (unsubscribe) unsubscribe();
+    };
   } catch (error) {
-    console.error('Error configurando subscripción:', error);
-    // Fallback: cargar desde AsyncStorage
-    loadLocal().then(tasks => {
-      cachedTasks = tasks;
-      callback(tasks);
-    });
-    return () => {}; // Retornar función vacía
+    console.error('❌ Error configurando subscripción:', error);
+    activeSubscriptions--;
+    callback([]);
+    return () => {};
   }
 }
 
@@ -185,6 +166,12 @@ export async function createTask(task) {
     // Reemplazar tarea optimista con la real
     cachedTasks = cachedTasks.filter(t => t.id !== tempId);
     
+    // Enviar notificación por email al asignado
+    if (task.assignedTo) {
+      notifyTaskAssigned({...task, id: docRef.id}, task.assignedTo)
+        .catch(err => console.warn('Error enviando email:', err));
+    }
+    
     return docRef.id;
   } catch (error) {
     console.error('[Firebase] Error creando tarea:', error);
@@ -211,19 +198,6 @@ export async function createTask(task) {
  * @returns {Promise<void>}
  */
 export async function updateTask(taskId, updates) {
-  // OPTIMISTIC UPDATE: Actualizar cache inmediatamente
-  const taskIndex = cachedTasks.findIndex(t => t.id === taskId);
-  const previousTask = taskIndex >= 0 ? { ...cachedTasks[taskIndex] } : null;
-  
-  if (taskIndex >= 0) {
-    cachedTasks[taskIndex] = {
-      ...cachedTasks[taskIndex],
-      ...updates,
-      updatedAt: Date.now(),
-      _optimistic: true
-    };
-  }
-  
   try {
     const taskRef = doc(db, COLLECTION_NAME, taskId);
     const updateData = {
@@ -238,18 +212,8 @@ export async function updateTask(taskId, updates) {
 
     await updateDoc(taskRef, updateData);
     console.log('[Firebase] Tarea actualizada:', taskId);
-    
-    // Remover flag optimista
-    if (taskIndex >= 0) {
-      delete cachedTasks[taskIndex]._optimistic;
-    }
   } catch (error) {
     console.error('[Firebase] Error actualizando tarea:', error);
-    
-    // ROLLBACK: Restaurar estado anterior
-    if (previousTask && taskIndex >= 0) {
-      cachedTasks[taskIndex] = previousTask;
-    }
     
     // Lanzar error con mensaje específico
     if (error.code === 'permission-denied') {
@@ -295,5 +259,6 @@ export async function deleteTask(taskId) {
  * @returns {Promise<Array>} Array de tareas
  */
 export async function loadTasks() {
-  return await loadLocal();
+  console.warn('loadTasks: Usa subscribeToTasks para tiempo real');
+  return [];
 }

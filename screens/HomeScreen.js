@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { View, Text, FlatList, StyleSheet, Alert, TouchableOpacity, RefreshControl, Animated, Platform, StatusBar } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
+import { getSwipeable } from '../utils/platformComponents';
 import TaskItem from '../components/TaskItem';
 import SearchBar from '../components/SearchBar';
 import AdvancedFilters from '../components/AdvancedFilters';
@@ -21,6 +22,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { subscribeToTasks, deleteTask as deleteTaskFirebase, updateTask, createTask } from '../services/tasks';
 import { hapticLight, hapticMedium, hapticHeavy } from '../utils/haptics';
 import { getCurrentSession, refreshSession } from '../services/authFirestore';
+
+const Swipeable = getSwipeable();
 
 export default function HomeScreen({ navigation }) {
   const { theme } = useTheme();
@@ -81,30 +84,49 @@ export default function HomeScreen({ navigation }) {
     }, 1000);
   }, []);
 
-  // Suscribirse a cambios en tiempo real de Firebase
+  // Suscribirse a cambios en tiempo real de Firebase (optimizado)
   useEffect(() => {
-    console.log('🔄 HomeScreen: Suscribiéndose a tareas...');
-    const unsubscribe = subscribeToTasks((updatedTasks) => {
-      console.log('📦 Tareas recibidas:', updatedTasks.length);
-      setTasks(updatedTasks);
-      setIsLoading(false);
-      
-      // Animar entrada de la lista
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }).start();
-    });
+    let mounted = true;
+    let unsubscribe = null;
+    
+    console.log('🔄 HomeScreen: Iniciando suscripción...');
+    
+    // Función async para manejar la suscripción
+    const setupSubscription = async () => {
+      try {
+        unsubscribe = await subscribeToTasks((updatedTasks) => {
+          if (!mounted) return;
+          
+          console.log('📦 Tareas recibidas:', updatedTasks.length);
+          setTasks(updatedTasks);
+          setIsLoading(false);
+          
+          // Animar entrada de la lista solo la primera vez
+          if (fadeAnim._value !== 1) {
+            Animated.timing(fadeAnim, {
+              toValue: 1,
+              duration: 400,
+              useNativeDriver: true,
+            }).start();
+          }
+        });
+      } catch (error) {
+        console.error('❌ Error en suscripción:', error);
+        setIsLoading(false);
+      }
+    };
+    
+    setupSubscription();
 
     // Limpiar suscripción al desmontar
     return () => {
+      mounted = false;
       console.log('🧹 HomeScreen: Limpiando suscripción');
       if (unsubscribe && typeof unsubscribe === 'function') {
         unsubscribe();
       }
     };
-  }, []);
+  }, []); // Solo ejecutar una vez al montar
 
   // Navegar a pantalla para crear nueva tarea (solo admin y jefe)
   const goToCreate = useCallback(() => {
@@ -116,14 +138,21 @@ export default function HomeScreen({ navigation }) {
   }, [currentUser, navigation]);
 
   const openDetail = useCallback((task) => {
-    navigation.navigate('TaskDetail', { task });
-  }, [navigation]);
+    // Solo admin y jefe pueden editar tareas
+    if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'jefe')) {
+      navigation.navigate('TaskDetail', { task });
+    } else {
+      setToastMessage('Solo administradores y jefes pueden editar tareas');
+      setToastType('info');
+      setToastVisible(true);
+    }
+  }, [currentUser, navigation]);
 
   const openChat = useCallback((task) => {
     navigation.navigate('TaskChat', { taskId: task.id, taskTitle: task.title });
   }, [navigation]);
 
-  const deleteTask = useCallback(async (taskId) => {
+  const deleteTask = useCallback(async (taskId, skipConfirm = false) => {
     // Solo admin puede eliminar tareas
     if (!currentUser || currentUser.role !== 'admin') {
       setToastMessage('Solo los administradores pueden eliminar tareas');
@@ -135,42 +164,48 @@ export default function HomeScreen({ navigation }) {
     // Guardar tarea antes de eliminar para undo
     const taskToDelete = tasks.find(t => t.id === taskId);
 
-    Alert.alert(
-      'Eliminar tarea',
-      '¿Estás seguro de que quieres eliminar esta tarea?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
+    const performDelete = async () => {
+      try {
+        hapticHeavy();
+        await deleteTaskFirebase(taskId);
+        setToastMessage('Tarea eliminada');
+        setToastType('success');
+        setToastAction({
+          label: 'Deshacer',
           onPress: async () => {
-            try {
-              hapticHeavy();
-              await deleteTaskFirebase(taskId);
-              setToastMessage('Tarea eliminada');
-              setToastType('success');
-              setToastAction({
-                label: 'Deshacer',
-                onPress: async () => {
-                  // Recrear la tarea
-                  if (taskToDelete) {
-                    await createTask(taskToDelete);
-                    setToastMessage('Tarea restaurada');
-                    setToastType('info');
-                    setToastVisible(true);
-                  }
-                }
-              });
-              setToastVisible(true);
-            } catch (error) {
-              setToastMessage(`Error al eliminar: ${error.message}`);
-              setToastType('error');
+            // Recrear la tarea
+            if (taskToDelete) {
+              await createTask(taskToDelete);
+              setToastMessage('Tarea restaurada');
+              setToastType('info');
               setToastVisible(true);
             }
           }
-        }
-      ]
-    );
+        });
+        setToastVisible(true);
+      } catch (error) {
+        setToastMessage(`Error al eliminar: ${error.message}`);
+        setToastType('error');
+        setToastVisible(true);
+      }
+    };
+
+    if (skipConfirm) {
+      performDelete();
+    } else {
+      Alert.alert(
+        'Eliminar tarea',
+        '¿Estás seguro de que quieres eliminar esta tarea?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Eliminar',
+            style: 'destructive',
+            onPress: performDelete
+          }
+        ]
+      );
+    }
   }, [currentUser, tasks]);
 
   const toggleComplete = useCallback(async (task) => {
@@ -201,6 +236,35 @@ export default function HomeScreen({ navigation }) {
       setToastVisible(true);
     }
     // La actualización del estado se hace automáticamente por el listener
+  }, []);
+
+  const changeTaskStatus = useCallback(async (taskId, newStatus) => {
+    try {
+      hapticMedium();
+      await updateTask(taskId, { status: newStatus });
+      
+      const statusLabels = {
+        'pendiente': 'Pendiente',
+        'en_proceso': 'En Proceso', 
+        'en_revision': 'En Revisión',
+        'cerrada': 'Completada'
+      };
+      
+      setToastMessage(`Estado cambiado a: ${statusLabels[newStatus]}`);
+      setToastType('success');
+      setToastVisible(true);
+      
+      // Confetti si se completa
+      if (newStatus === 'cerrada') {
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 2500);
+        hapticHeavy();
+      }
+    } catch (error) {
+      setToastMessage(`Error: ${error.message}`);
+      setToastType('error');
+      setToastVisible(true);
+    }
   }, []);
 
   const duplicateTask = useCallback((task) => {
@@ -240,6 +304,51 @@ export default function HomeScreen({ navigation }) {
       setToastVisible(true);
     }
   }, []);
+
+  // Renderizar acción de deslizar para eliminar
+  const renderRightActions = useCallback((progress, dragX, task) => {
+    const trans = dragX.interpolate({
+      inputRange: [-100, 0],
+      outputRange: [0, 100],
+      extrapolate: 'clamp',
+    });
+
+    return (
+      <Animated.View
+        style={{
+          transform: [{ translateX: trans }],
+          flexDirection: 'row',
+          alignItems: 'center',
+        }}
+      >
+        <TouchableOpacity
+          onPress={() => deleteTask(task.id, true)}
+          style={{
+            backgroundColor: '#FF3B30',
+            justifyContent: 'center',
+            alignItems: 'center',
+            width: 80,
+            height: '100%',
+          }}
+        >
+          <Ionicons name="trash-outline" size={24} color="#FFFFFF" />
+          <Text style={{ color: '#FFFFFF', fontSize: 12, marginTop: 4 }}>Eliminar</Text>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  }, [deleteTask]);
+
+  // Calcular tareas urgentes (vencen en menos de 48 horas)
+  const urgentTasks = useMemo(() => {
+    const now = Date.now();
+    const fortyEightHours = 48 * 60 * 60 * 1000;
+    return tasks.filter(task => {
+      if (task.status === 'cerrada') return false;
+      const dueDate = task.dueAt;
+      const timeUntilDue = dueDate - now;
+      return timeUntilDue > 0 && timeUntilDue <= fortyEightHours;
+    });
+  }, [tasks]);
 
   // Aplicar filtros con memoización
   const filteredTasks = useMemo(() => {
@@ -373,6 +482,12 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.heading}>Mis Tareas</Text>
           </View>
           <View style={styles.headerActions}>
+            {urgentTasks.length > 0 && (
+              <View style={styles.urgentBadge}>
+                <Ionicons name="alarm" size={16} color="#FFF" />
+                <Text style={styles.urgentBadgeText}>{urgentTasks.length}</Text>
+              </View>
+            )}
             <AdvancedFilters
               filters={advancedFilters}
               onApplyFilters={handleApplyFilters}
@@ -421,6 +536,34 @@ export default function HomeScreen({ navigation }) {
             <SkeletonLoader type="bento" />
           ) : (
           <View style={styles.bentoGrid}>
+            {/* Alerta de tareas urgentes */}
+            {urgentTasks.length > 0 && (
+              <TouchableOpacity 
+                style={[styles.urgentAlert, { backgroundColor: theme.error + '15', borderColor: theme.error }]}
+                onPress={() => {
+                  hapticMedium();
+                  // Scroll a la primera tarea urgente
+                  const firstUrgentIndex = filteredTasks.findIndex(t => urgentTasks.some(ut => ut.id === t.id));
+                  if (firstUrgentIndex >= 0) {
+                    flatListRef.current?.scrollToIndex({ index: firstUrgentIndex, animated: true });
+                  }
+                }}
+              >
+                <View style={styles.urgentAlertContent}>
+                  <Ionicons name="warning" size={24} color={theme.error} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.urgentAlertTitle, { color: theme.error }]}>
+                      {urgentTasks.length} {urgentTasks.length === 1 ? 'tarea vence' : 'tareas vencen'} pronto
+                    </Text>
+                    <Text style={[styles.urgentAlertText, { color: theme.textSecondary }]}>
+                      Tareas que vencen en las próximas 48 horas
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={theme.error} />
+                </View>
+              </TouchableOpacity>
+            )}
+            
             {/* Fila 1: Estadísticas principales */}
             <View style={styles.bentoRow}>
               <View style={[styles.bentoCard, styles.bentoLarge]}>
@@ -456,17 +599,37 @@ export default function HomeScreen({ navigation }) {
           </View>
           )
         }
-        renderItem={({ item, index }) => (
-          <TaskItem 
-            task={item}
-            index={index}
-            onPress={() => openDetail(item)}
-            onDelete={() => deleteTask(item.id)}
-            onToggleComplete={() => toggleComplete(item)}
-            onDuplicate={() => duplicateTask(item)}
-            onShare={() => shareTask(item)}
-          />
-        )}
+        renderItem={({ item, index }) => {
+          const content = (
+            <TaskItem 
+              task={item}
+              index={index}
+              onPress={() => openDetail(item)}
+              onDelete={() => deleteTask(item.id)}
+              onToggleComplete={() => toggleComplete(item)}
+              onDuplicate={() => duplicateTask(item)}
+              onShare={() => shareTask(item)}
+              onChangeStatus={(newStatus) => changeTaskStatus(item.id, newStatus)}
+              currentUserRole={currentUser?.role || 'operativo'}
+            />
+          );
+
+          // En web, no usar swipe
+          if (Platform.OS === 'web' || !currentUser || currentUser.role !== 'admin') {
+            return content;
+          }
+
+          // En móvil con admin, usar swipe
+          return (
+            <Swipeable
+              renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, item)}
+              friction={2}
+              overshootRight={false}
+            >
+              {content}
+            </Swipeable>
+          );
+        }}
         ListEmptyComponent={
           <EmptyState
             icon="checkbox-outline"
@@ -581,6 +744,53 @@ const createStyles = (theme) => StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: -1.5
+  },
+  urgentBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 59, 48, 0.9)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+    marginRight: 8,
+    shadowColor: '#FF3B30',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  urgentBadgeText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  urgentAlert: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  urgentAlertContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  urgentAlertTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  urgentAlertText: {
+    fontSize: 13,
+    fontWeight: '500',
   },
   addButton: {
     borderRadius: 30,

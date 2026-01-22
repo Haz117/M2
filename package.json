@@ -2,7 +2,7 @@
   "name": "todo",
   "version": "1.0.0",
   "description": "App de tareas con Expo, React Native y Firebase",
-  "main": "node_modules/expo/AppEntry.js",
+  "main": "index.js",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
@@ -42,6 +42,7 @@
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-svg": "15.12.1",
+    "react-native-swipeable-item": "^2.0.9",
     "react-native-toast-message": "^2.3.3",
     "react-native-web": "^0.21.0",
     "react-native-worklets": "0.5.1"
