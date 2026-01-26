@@ -3,7 +3,6 @@
 import React, { useEffect, useState, memo, useRef } from 'react';
 import { TouchableOpacity, View, Text, StyleSheet, Animated, Dimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../contexts/ThemeContext';
 import { hapticMedium } from '../utils/haptics';
 import { getSwipeable } from '../utils/platformComponents';

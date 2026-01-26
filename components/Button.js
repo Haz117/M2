@@ -2,7 +2,6 @@
 // Botón moderno reutilizable con variantes y animaciones
 import React, { useRef } from 'react';
 import { TouchableOpacity, Text, StyleSheet, Animated } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 

@@ -3,7 +3,6 @@
 import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../contexts/ThemeContext';
 
 const statusFlow = {
@@ -48,20 +47,15 @@ export default function TaskStatusButtons({ currentStatus, taskId, onStatusChang
       <TouchableOpacity 
         onPress={() => onStatusChange(taskId, nextState.next)}
         activeOpacity={0.7}
-        style={styles.buttonWrapper}
+        style={[styles.buttonWrapper, { backgroundColor: nextState.gradient[0] }]}
       >
-        <LinearGradient
-          colors={nextState.gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.button}
-        >
+        <View style={styles.button}>
           <View style={[styles.iconCircle, { backgroundColor: nextState.iconBg }]}>
             <Ionicons name={nextState.icon} size={18} color={nextState.gradient[0]} />
           </View>
           <Text style={styles.buttonText}>{nextState.label}</Text>
           <Ionicons name="arrow-forward" size={16} color="#FFF" style={styles.arrowIcon} />
-        </LinearGradient>
+        </View>
       </TouchableOpacity>
     </View>
   );
