@@ -178,14 +178,24 @@ const TaskItem = memo(function TaskItem({
               task.status === 'cerrada' && { opacity: 0.7, backgroundColor: theme.backgroundTertiary }
             ]}
           >
-            {/* Indicador de vencimiento - pequeño punto en esquina superior derecha */}
+            {/* Indicador de vencimiento - badge de alerta */}
             {dueStatus.status !== 'normal' && (
               <View 
                 style={[
-                  styles.dueIndicator,
+                  styles.dueAlert,
                   { backgroundColor: dueStatus.topBorderColor }
                 ]}
-              />
+              >
+                <Ionicons 
+                  name={dueStatus.status === 'vencida' ? 'alert-circle' : 'time'} 
+                  size={14} 
+                  color="#FFF" 
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={styles.dueAlertText}>
+                  {dueStatus.status === 'vencida' ? 'VENCIDA' : 'POR VENCER'}
+                </Text>
+              </View>
             )}
             <View style={styles.contentRow}>
               <TouchableOpacity 
@@ -280,12 +290,15 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
-  dueIndicator: {
+  dueAlert: {
     position: 'absolute',
-    top: -1,
-    right: -1,
-    width: 12,
-    height: 12,
+    top: 6,
+    right: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 6,
     zIndex: 10,
     shadowColor: '#000',
@@ -293,6 +306,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: 3,
+  },
+  dueAlertText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   row: { 
     flexDirection: 'row', 
