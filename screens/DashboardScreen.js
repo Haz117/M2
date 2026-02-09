@@ -39,6 +39,7 @@ export default function DashboardScreen({ navigation }) {
   const [performers, setPerformers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [selectedPeriod, setSelectedPeriod] = useState('week');
+  const [expandAreas, setExpandAreas] = useState(false);
   
   // Estados adicionales del Report
   const [tasks, setTasks] = useState([]);
@@ -665,130 +666,175 @@ export default function DashboardScreen({ navigation }) {
           </View>
         )}
 
-        {/* Información de Áreas (Admin) */}
+        {/* Información de Áreas (Admin) - Colapsable */}
         {currentUser?.role === 'admin' && (
           <>
             {console.log('[DashboardScreen] Renderizando "Tareas por Área" - Admin detectado')}
             <View style={[styles.chartCard, { backgroundColor: theme.background }]}>
-            <View style={styles.chartHeader}>
-              <Ionicons name="layers" size={20} color={theme.text} />
-              <Text style={[styles.chartTitle, { color: theme.text }]}>Tareas por Área</Text>
-            </View>
-            <View style={styles.areaGridContainer}>
-              {AREAS.map((area) => {
-                const stats = areaStats[area] || { total: 0, completed: 0, pending: 0 };
-                const areaColors = {
-                  'Jurídica': '#8B5CF6',
-                  'Obras': '#F59E0B',
-                  'Tesorería': '#10B981',
-                  'Administración': '#3B82F6',
-                  'Recursos Humanos': '#EC4899'
-                };
-                const color = areaColors[area] || '#9F2241';
-                const completionRate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
-
-                // Determinar estado de progreso
-                const isComplete = completionRate === 100 && stats.total > 0;
-                const isEmpty = stats.total === 0;
-                const statusIcon = isComplete ? 'checkmark-circle' : isEmpty ? 'ellipsis-horizontal' : 'time';
-                const statusColor = isComplete ? '#10B981' : isEmpty ? theme.textSecondary : '#FF9500';
-                const statusLabel = isComplete ? 'Completado' : isEmpty ? 'Sin tareas' : 'En progreso';
-
-                return (
-                  <TouchableOpacity 
-                    key={area} 
-                    style={[
-                      styles.areaGridCard,
-                      { 
-                        backgroundColor: isDark ? `${color}12` : `${color}08`,
-                        borderColor: isDark ? `${color}40` : `${color}25`,
-                        borderWidth: 2,
-                      }
-                    ]}
-                    activeOpacity={0.7}
-                  >
-                    {/* Header con color dot y status badge */}
-                    <View style={styles.areaCardHeader}>
-                      <View style={[styles.areaColorDot, { backgroundColor: color }]} />
-                      <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-                        <Ionicons name={statusIcon} size={12} color="#FFF" />
-                        <Text style={styles.statusBadgeText}>{statusLabel}</Text>
-                      </View>
-                    </View>
-                    
-                    {/* Título del área */}
-                    <Text style={[styles.areaGridCardTitle, { color: theme.text }]} numberOfLines={2}>
-                      {area}
-                    </Text>
-
-                    {/* Stats row con iconos */}
-                    <View style={styles.areaGridStats}>
-                      <View style={styles.areaGridStatItem}>
-                        <View style={[styles.statIcon, { backgroundColor: `${color}25` }]}>
-                          <Ionicons name="list" size={16} color={color} />
-                        </View>
-                        <Text style={[styles.areaGridStatValue, { color }]}>
-                          {stats.total}
-                        </Text>
-                        <Text style={[styles.areaGridStatLabel, { color: theme.textSecondary }]}>
-                          Total
-                        </Text>
-                      </View>
-                      
-                      <View style={[styles.gridDivider, { backgroundColor: `${color}25` }]} />
-                      
-                      <View style={styles.areaGridStatItem}>
-                        <View style={[styles.statIcon, { backgroundColor: '#10B98125' }]}>
-                          <Ionicons name="checkmark" size={16} color="#10B981" />
-                        </View>
-                        <Text style={[styles.areaGridStatValue, { color: '#10B981' }]}>
-                          {stats.completed}
-                        </Text>
-                        <Text style={[styles.areaGridStatLabel, { color: theme.textSecondary }]}>
-                          Hechas
-                        </Text>
-                      </View>
-
-                      <View style={[styles.gridDivider, { backgroundColor: `${color}25` }]} />
-
-                      <View style={styles.areaGridStatItem}>
-                        <View style={[styles.statIcon, { backgroundColor: '#FF950025' }]}>
-                          <Ionicons name="trending-up" size={16} color="#FF9500" />
-                        </View>
-                        <Text style={[styles.areaGridStatValue, { color: '#FF9500' }]}>
-                          {completionRate}%
-                        </Text>
-                        <Text style={[styles.areaGridStatLabel, { color: theme.textSecondary }]}>
-                          Avance
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Progress bar mejorada */}
-                    <View style={styles.progressBarContainer}>
-                      <View style={[
-                        styles.progressBar,
-                        { backgroundColor: isDark ? `${color}20` : `${color}12` }
-                      ]}>
-                        <View 
-                          style={[
-                            styles.progressFill,
-                            { 
-                              width: `${completionRate}%`,
-                              backgroundColor: isComplete ? '#10B981' : color
-                            }
-                          ]}
-                        />
-                      </View>
-                      <Text style={[styles.progressLabel, { color: theme.textSecondary }]}>
-                        {completionRate}%
+              
+              {/* Header Colapsable */}
+              <TouchableOpacity 
+                onPress={() => setExpandAreas(!expandAreas)}
+                activeOpacity={0.7}
+                style={styles.chartHeaderCollapsible}
+              >
+                <View style={styles.chartHeaderLeft}>
+                  <Ionicons name="layers" size={20} color={theme.text} />
+                  <Text style={[styles.chartTitle, { color: theme.text }]}>Tareas por Área</Text>
+                </View>
+                
+                {/* Resumen compacto cuando colapsado */}
+                {!expandAreas && (
+                  <View style={styles.areasSummary}>
+                    <View style={styles.areaSummaryItem}>
+                      <Text style={[styles.areaSummaryLabel, { color: theme.textSecondary }]}>Áreas</Text>
+                      <Text style={[styles.areaSummaryValue, { color: theme.primary }]}>
+                        {Object.values(areaStats).filter(s => s.total > 0).length}
                       </Text>
                     </View>
-                  </TouchableOpacity>
-                );
-              })}
+                    <View style={[styles.areaSummarySeparator, { backgroundColor: theme.border }]} />
+                    <View style={styles.areaSummaryItem}>
+                      <Text style={[styles.areaSummaryLabel, { color: theme.textSecondary }]}>Total</Text>
+                      <Text style={[styles.areaSummaryValue, { color: '#10B981' }]}>
+                        {Object.values(areaStats).reduce((sum, s) => sum + s.total, 0)}
+                      </Text>
+                    </View>
+                    <View style={[styles.areaSummarySeparator, { backgroundColor: theme.border }]} />
+                    <View style={styles.areaSummaryItem}>
+                      <Text style={[styles.areaSummaryLabel, { color: theme.textSecondary }]}>Hechas</Text>
+                      <Text style={[styles.areaSummaryValue, { color: '#FF9500' }]}>
+                        {Object.values(areaStats).reduce((sum, s) => sum + s.completed, 0)}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+                
+                <Ionicons 
+                  name={expandAreas ? "chevron-up" : "chevron-down"} 
+                  size={24} 
+                  color={theme.primary}
+                  style={{ marginLeft: 8 }}
+                />
+              </TouchableOpacity>
+              
+              {/* Grid de áreas - Visible cuando expandido */}
+              {expandAreas && (
+                <View style={styles.areaGridContainer}>
+                  {AREAS.map((area) => {
+                    const stats = areaStats[area] || { total: 0, completed: 0, pending: 0 };
+                    const areaColors = {
+                      'Jurídica': '#8B5CF6',
+                      'Obras': '#F59E0B',
+                      'Tesorería': '#10B981',
+                      'Administración': '#3B82F6',
+                      'Recursos Humanos': '#EC4899'
+                    };
+                    const color = areaColors[area] || '#9F2241';
+                    const completionRate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+
+                    // Determinar estado de progreso
+                    const isComplete = completionRate === 100 && stats.total > 0;
+                    const isEmpty = stats.total === 0;
+                    const statusIcon = isComplete ? 'checkmark-circle' : isEmpty ? 'ellipsis-horizontal' : 'time';
+                    const statusColor = isComplete ? '#10B981' : isEmpty ? theme.textSecondary : '#FF9500';
+                    const statusLabel = isComplete ? 'Completado' : isEmpty ? 'Sin tareas' : 'En progreso';
+
+                    return (
+                      <TouchableOpacity 
+                        key={area} 
+                        style={[
+                          styles.areaGridCard,
+                          { 
+                            backgroundColor: isDark ? `${color}12` : `${color}08`,
+                            borderColor: isDark ? `${color}40` : `${color}25`,
+                            borderWidth: 2,
+                          }
+                        ]}
+                        activeOpacity={0.7}
+                      >
+                        {/* Header con color dot y status badge */}
+                        <View style={styles.areaCardHeader}>
+                          <View style={[styles.areaColorDot, { backgroundColor: color }]} />
+                          <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
+                            <Ionicons name={statusIcon} size={12} color="#FFF" />
+                            <Text style={styles.statusBadgeText}>{statusLabel}</Text>
+                          </View>
+                        </View>
+                        
+                        {/* Título del área */}
+                        <Text style={[styles.areaGridCardTitle, { color: theme.text }]} numberOfLines={2}>
+                          {area}
+                        </Text>
+
+                        {/* Stats row con iconos */}
+                        <View style={styles.areaGridStats}>
+                          <View style={styles.areaGridStatItem}>
+                            <View style={[styles.statIcon, { backgroundColor: `${color}25` }]}>
+                              <Ionicons name="list" size={16} color={color} />
+                            </View>
+                            <Text style={[styles.areaGridStatValue, { color }]}>
+                              {stats.total}
+                            </Text>
+                            <Text style={[styles.areaGridStatLabel, { color: theme.textSecondary }]}>
+                              Total
+                            </Text>
+                          </View>
+                          
+                          <View style={[styles.gridDivider, { backgroundColor: `${color}25` }]} />
+                          
+                          <View style={styles.areaGridStatItem}>
+                            <View style={[styles.statIcon, { backgroundColor: '#10B98125' }]}>
+                              <Ionicons name="checkmark" size={16} color="#10B981" />
+                            </View>
+                            <Text style={[styles.areaGridStatValue, { color: '#10B981' }]}>
+                              {stats.completed}
+                            </Text>
+                            <Text style={[styles.areaGridStatLabel, { color: theme.textSecondary }]}>
+                              Hechas
+                            </Text>
+                          </View>
+
+                          <View style={[styles.gridDivider, { backgroundColor: `${color}25` }]} />
+
+                          <View style={styles.areaGridStatItem}>
+                            <View style={[styles.statIcon, { backgroundColor: '#FF950025' }]}>
+                              <Ionicons name="trending-up" size={16} color="#FF9500" />
+                            </View>
+                            <Text style={[styles.areaGridStatValue, { color: '#FF9500' }]}>
+                              {completionRate}%
+                            </Text>
+                            <Text style={[styles.areaGridStatLabel, { color: theme.textSecondary }]}>
+                              Avance
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Progress bar mejorada */}
+                        <View style={styles.progressBarContainer}>
+                          <View style={[
+                            styles.progressBar,
+                            { backgroundColor: isDark ? `${color}20` : `${color}12` }
+                          ]}>
+                            <View 
+                              style={[
+                                styles.progressFill,
+                                { 
+                                  width: `${completionRate}%`,
+                                  backgroundColor: isComplete ? '#10B981' : color
+                                }
+                              ]}
+                            />
+                          </View>
+                          <Text style={[styles.progressLabel, { color: theme.textSecondary }]}>
+                            {completionRate}%
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
             </View>
-          </View>
             </>
         )}
 
@@ -1521,6 +1567,46 @@ const createStyles = (theme, isDark, isDesktop, isTablet, isDesktopLarge, screen
       fontWeight: '700',
       minWidth: 28,
       textAlign: 'right',
+    },
+    // Estilos para header colapsable
+    chartHeaderCollapsible: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderBottomWidth: 1.5,
+    },
+    chartHeaderLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      flex: 1,
+    },
+    areasSummary: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingHorizontal: 12,
+    },
+    areaSummaryItem: {
+      alignItems: 'center',
+      minWidth: 40,
+    },
+    areaSummaryLabel: {
+      fontSize: 9,
+      fontWeight: '600',
+      textTransform: 'uppercase',
+      letterSpacing: 0.2,
+      marginBottom: 2,
+    },
+    areaSummaryValue: {
+      fontSize: 16,
+      fontWeight: '800',
+    },
+    areaSummarySeparator: {
+      width: 1,
+      height: 24,
     },
   });
 };
