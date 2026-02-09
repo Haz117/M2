@@ -687,6 +687,13 @@ export default function DashboardScreen({ navigation }) {
                 const color = areaColors[area] || '#9F2241';
                 const completionRate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
 
+                // Determinar estado de progreso
+                const isComplete = completionRate === 100 && stats.total > 0;
+                const isEmpty = stats.total === 0;
+                const statusIcon = isComplete ? 'checkmark-circle' : isEmpty ? 'ellipsis-horizontal' : 'time';
+                const statusColor = isComplete ? '#10B981' : isEmpty ? theme.textSecondary : '#FF9500';
+                const statusLabel = isComplete ? 'Completado' : isEmpty ? 'Sin tareas' : 'En progreso';
+
                 return (
                   <TouchableOpacity 
                     key={area} 
@@ -695,22 +702,31 @@ export default function DashboardScreen({ navigation }) {
                       { 
                         backgroundColor: isDark ? `${color}12` : `${color}08`,
                         borderColor: isDark ? `${color}40` : `${color}25`,
-                        borderWidth: 1.5,
+                        borderWidth: 2,
                       }
                     ]}
                     activeOpacity={0.7}
                   >
-                    {/* Color indicator dot */}
-                    <View style={[styles.areaColorDot, { backgroundColor: color }]} />
+                    {/* Header con color dot y status badge */}
+                    <View style={styles.areaCardHeader}>
+                      <View style={[styles.areaColorDot, { backgroundColor: color }]} />
+                      <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
+                        <Ionicons name={statusIcon} size={12} color="#FFF" />
+                        <Text style={styles.statusBadgeText}>{statusLabel}</Text>
+                      </View>
+                    </View>
                     
                     {/* Título del área */}
-                    <Text style={[styles.areaGridCardTitle, { color: theme.text }]}>
+                    <Text style={[styles.areaGridCardTitle, { color: theme.text }]} numberOfLines={2}>
                       {area}
                     </Text>
 
-                    {/* Stats row con progreso visual */}
+                    {/* Stats row con iconos */}
                     <View style={styles.areaGridStats}>
                       <View style={styles.areaGridStatItem}>
+                        <View style={[styles.statIcon, { backgroundColor: `${color}25` }]}>
+                          <Ionicons name="list" size={16} color={color} />
+                        </View>
                         <Text style={[styles.areaGridStatValue, { color }]}>
                           {stats.total}
                         </Text>
@@ -722,6 +738,9 @@ export default function DashboardScreen({ navigation }) {
                       <View style={[styles.gridDivider, { backgroundColor: `${color}25` }]} />
                       
                       <View style={styles.areaGridStatItem}>
+                        <View style={[styles.statIcon, { backgroundColor: '#10B98125' }]}>
+                          <Ionicons name="checkmark" size={16} color="#10B981" />
+                        </View>
                         <Text style={[styles.areaGridStatValue, { color: '#10B981' }]}>
                           {stats.completed}
                         </Text>
@@ -733,29 +752,37 @@ export default function DashboardScreen({ navigation }) {
                       <View style={[styles.gridDivider, { backgroundColor: `${color}25` }]} />
 
                       <View style={styles.areaGridStatItem}>
+                        <View style={[styles.statIcon, { backgroundColor: '#FF950025' }]}>
+                          <Ionicons name="trending-up" size={16} color="#FF9500" />
+                        </View>
                         <Text style={[styles.areaGridStatValue, { color: '#FF9500' }]}>
                           {completionRate}%
                         </Text>
                         <Text style={[styles.areaGridStatLabel, { color: theme.textSecondary }]}>
-                          Progreso
+                          Avance
                         </Text>
                       </View>
                     </View>
 
-                    {/* Progress bar */}
-                    <View style={[
-                      styles.progressBar,
-                      { backgroundColor: isDark ? `${color}20` : `${color}12` }
-                    ]}>
-                      <View 
-                        style={[
-                          styles.progressFill,
-                          { 
-                            width: `${completionRate}%`,
-                            backgroundColor: color
-                          }
-                        ]}
-                      />
+                    {/* Progress bar mejorada */}
+                    <View style={styles.progressBarContainer}>
+                      <View style={[
+                        styles.progressBar,
+                        { backgroundColor: isDark ? `${color}20` : `${color}12` }
+                      ]}>
+                        <View 
+                          style={[
+                            styles.progressFill,
+                            { 
+                              width: `${completionRate}%`,
+                              backgroundColor: isComplete ? '#10B981' : color
+                            }
+                          ]}
+                        />
+                      </View>
+                      <Text style={[styles.progressLabel, { color: theme.textSecondary }]}>
+                        {completionRate}%
+                      </Text>
                     </View>
                   </TouchableOpacity>
                 );
@@ -1388,48 +1415,52 @@ const createStyles = (theme, isDark, isDesktop, isTablet, isDesktopLarge, screen
     areaGridContainer: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 12,
+      gap: 14,
     },
     areaGridCard: {
       flex: 1,
       minWidth: '47%',
-      borderRadius: 16,
-      paddingHorizontal: 14,
-      paddingVertical: 16,
-      alignItems: 'center',
+      borderRadius: 18,
+      paddingHorizontal: 16,
+      paddingVertical: 18,
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.12,
-      shadowRadius: 10,
-      elevation: 3,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 12,
+      elevation: 5,
       borderWidth: 2,
     },
-    areaColorDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      marginBottom: 8,
-    },
-    areaGridCardTitle: {
-      fontSize: 13,
-      fontWeight: '700',
-      marginBottom: 10,
-      textAlign: 'center',
-    },
-    areaGridStats: {
+    areaCardHeader: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 10,
       width: '100%',
-      gap: 8,
     },
-    areaGridStatItem: {
-      flex: 1,
+    areaColorDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+    },
+    statusBadge: {
+      flexDirection: 'row',
       alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
+    },
+    statusBadgeText: {
+      fontSize: 9,
+      fontWeight: '700',
+      color: '#FFF',
+      textTransform: 'uppercase',
+      letterSpacing: 0.3,
     },
     areaGridCardTitle: {
-      fontSize: 13,
+      fontSize: 15,
       fontWeight: '700',
-      marginBottom: 10,
+      marginBottom: 12,
       textAlign: 'center',
     },
     areaGridStats: {
@@ -1437,37 +1468,59 @@ const createStyles = (theme, isDark, isDesktop, isTablet, isDesktopLarge, screen
       alignItems: 'center',
       width: '100%',
       gap: 0,
+      marginBottom: 12,
     },
     areaGridStatItem: {
       flex: 1,
       alignItems: 'center',
       paddingHorizontal: 4,
     },
+    statIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 6,
+    },
     areaGridStatValue: {
-      fontSize: 16,
-      fontWeight: '700',
+      fontSize: 18,
+      fontWeight: '800',
     },
     areaGridStatLabel: {
-      fontSize: 10,
-      fontWeight: '500',
-      marginTop: 2,
+      fontSize: 11,
+      fontWeight: '600',
+      marginTop: 4,
+      textTransform: 'uppercase',
+      letterSpacing: 0.3,
     },
     gridDivider: {
       width: 1,
-      height: 30,
-      marginHorizontal: 2,
+      height: 40,
+      marginHorizontal: 4,
+    },
+    progressBarContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      width: '100%',
     },
     progressBar: {
-      width: '100%',
-      height: 6,
-      borderRadius: 3,
-      marginTop: 8,
+      flex: 1,
+      height: 8,
+      borderRadius: 4,
       overflow: 'hidden',
     },
     progressFill: {
       height: '100%',
-      borderRadius: 3,
+      borderRadius: 4,
       minWidth: 2,
+    },
+    progressLabel: {
+      fontSize: 11,
+      fontWeight: '700',
+      minWidth: 28,
+      textAlign: 'right',
     },
   });
 };
