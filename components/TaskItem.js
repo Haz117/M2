@@ -153,9 +153,9 @@ const TaskItem = memo(function TaskItem({
     const oneDayMs = 24 * 60 * 60 * 1000;
 
     if (remaining <= 0) {
-      return { topBorderColor: '#E53935', status: 'vencida' }; // Rojo suave - Vencida
+      return { topBorderColor: '#FF3B30', status: 'vencida' }; // Rojo - Vencida
     } else if (remaining <= oneDayMs) {
-      return { topBorderColor: '#F57C00', status: 'proxima' }; // Naranja suave - Próxima a vencer
+      return { topBorderColor: '#FF9500', status: 'proxima' }; // Naranja - Próxima a vencer
     }
     return { topBorderColor: 'transparent', status: 'normal' };
   };
@@ -173,13 +173,20 @@ const TaskItem = memo(function TaskItem({
               { 
                 backgroundColor: theme.card, 
                 borderColor: theme.borderLight, 
-                shadowColor: theme.shadow,
-                borderTopColor: dueStatus.topBorderColor,
-                borderTopWidth: 2
+                shadowColor: theme.shadow
               },
               task.status === 'cerrada' && { opacity: 0.7, backgroundColor: theme.backgroundTertiary }
             ]}
           >
+            {/* Indicador de vencimiento - pequeño punto en esquina superior derecha */}
+            {dueStatus.status !== 'normal' && (
+              <View 
+                style={[
+                  styles.dueIndicator,
+                  { backgroundColor: dueStatus.topBorderColor }
+                ]}
+              />
+            )}
             <View style={styles.contentRow}>
               <TouchableOpacity 
                 onPress={() => { hapticMedium(); onPress && onPress(task); }} 
@@ -272,6 +279,22 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 2,
     borderWidth: 1,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  dueIndicator: {
+    position: 'absolute',
+    top: -1,
+    right: -1,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
   },
   row: { 
     flexDirection: 'row', 
