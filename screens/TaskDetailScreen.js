@@ -13,6 +13,7 @@ import LoadingIndicator from '../components/LoadingIndicator';
 import PressableButton from '../components/PressableButton';
 import PomodoroTimer from '../components/PomodoroTimer';
 import TagInput from '../components/TagInput';
+import TaskStatusButtons from '../components/TaskStatusButtons';
 import { useTheme } from '../contexts/ThemeContext';
 import { savePomodoroSession } from '../services/pomodoro';
 import { AREAS } from '../config/areas';
@@ -497,13 +498,14 @@ export default function TaskDetailScreen({ route, navigation }) {
     if (canEdit) setPriority(p);
   }, [canEdit]);
 
-  const handleStatusChange = useCallback((s) => {
-    setStatus(s);
+  const handleStatusChange = useCallback((taskId, newStatus) => {
+    setStatus(newStatus);
+    updateTask(taskId, { status: newStatus });
   }, []);
 
   return (
     <View style={styles.container}>
-      {/* Modal de solo lectura para operativos */}
+      {/* Modal de detalles para operativos */}
       {isReadOnly && editingTask && (
         <Modal
           visible={true}
@@ -544,6 +546,16 @@ export default function TaskDetailScreen({ route, navigation }) {
                       {editingTask.description || 'Sin descripción'}
                     </Text>
                   </View>
+                </View>
+
+                {/* Botones de cambio de estado */}
+                <View style={styles.readOnlySection}>
+                  <Text style={[styles.readOnlyLabel, { color: theme.textSecondary }]}>Cambiar Estado</Text>
+                  <TaskStatusButtons 
+                    currentStatus={editingTask.status || 'pendiente'}
+                    taskId={editingTask.id}
+                    onStatusChange={handleStatusChange}
+                  />
                 </View>
               </ScrollView>
 

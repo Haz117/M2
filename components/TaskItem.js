@@ -12,7 +12,6 @@ import ContextMenu from './ContextMenu';
 import ConfirmDialog from './ConfirmDialog';
 import Avatar from './Avatar';
 import PulsingDot from './PulsingDot';
-import TaskStatusButtons from './TaskStatusButtons';
 
 const Swipeable = getSwipeable();
 
@@ -209,15 +208,6 @@ const TaskItem = memo(function TaskItem({
                       {task.status === 'en_progreso' ? 'En progreso' : task.status === 'en_revision' ? 'En revisión' : task.status === 'cerrada' ? 'Completada' : 'Pendiente'}
                     </Text>
                   </View>
-                )}
-              
-                {/* Botones de cambio de estado solo para operativos */}
-                {currentUserRole === 'operativo' && onChangeStatus && (
-                  <TaskStatusButtons 
-                    currentStatus={task.status}
-                    taskId={task.id}
-                    onStatusChange={onChangeStatus}
-                  />
                 )}
               </TouchableOpacity>
               
