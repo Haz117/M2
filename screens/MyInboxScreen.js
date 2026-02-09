@@ -611,15 +611,20 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     marginTop: -2
   },
   userSection: {
-    backgroundColor: isDark ? 'rgba(159, 34, 65, 0.15)' : 'rgba(159, 34, 65, 0.08)',
+    backgroundColor: isDark ? 'rgba(159, 34, 65, 0.2)' : 'rgba(159, 34, 65, 0.1)',
     marginHorizontal: padding,
-    marginTop: SPACING.md,
-    marginBottom: SPACING.lg,
-    padding: isDesktop ? SPACING.lg : isTablet ? SPACING.md : SPACING.lg,
-    borderRadius: RADIUS.lg,
-    ...SHADOWS.md,
-    borderWidth: 2,
-    borderColor: isDark ? 'rgba(159, 34, 65, 0.4)' : '#9F2241'
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.xl,
+    padding: isDesktop ? SPACING.xl : isTablet ? SPACING.lg : SPACING.xl,
+    borderRadius: RADIUS.xl,
+    ...SHADOWS.lg,
+    borderWidth: 2.5,
+    borderColor: isDark ? 'rgba(159, 34, 65, 0.6)' : '#9F2241',
+    shadowColor: '#9F2241',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 5
   },
   userLabelContainer: {
     flexDirection: 'row',
@@ -634,19 +639,22 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     letterSpacing: 1.2
   },
   currentUserName: {
-    fontSize: isDesktop ? 18 : isTablet ? 17 : 18,
-    fontWeight: '800',
+    fontSize: isDesktop ? 22 : isTablet ? 20 : 22,
+    fontWeight: '900',
     color: theme.text,
-    marginBottom: 6,
+    marginBottom: 8,
     flexShrink: 1,
-    letterSpacing: -0.3
+    letterSpacing: -0.5,
+    textShadowColor: 'rgba(0,0,0,0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2
   },
   currentUserHint: {
-    fontSize: isDesktop ? 13 : 14,
+    fontSize: isDesktop ? 14 : 15,
     color: theme.textSecondary,
-    fontWeight: '600',
+    fontWeight: '700',
     flexShrink: 1,
-    letterSpacing: 0.2
+    letterSpacing: 0.1
   },
   listContent: {
     padding: isDesktop ? 20 : isTablet ? 16 : 16,
@@ -654,17 +662,17 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
   },
   messagesSection: {
     marginHorizontal: isDesktop ? 20 : isTablet ? 16 : 16,
-    marginBottom: 16,
-    padding: 14,
-    borderRadius: 14,
+    marginBottom: 20,
+    padding: 16,
+    borderRadius: 18,
     borderWidth: 2,
-    borderColor: 'rgba(218, 165, 32, 0.4)',
-    backgroundColor: isDark ? 'rgba(218, 165, 32, 0.1)' : 'rgba(218, 165, 32, 0.08)',
+    borderColor: 'rgba(218, 165, 32, 0.5)',
+    backgroundColor: isDark ? 'rgba(218, 165, 32, 0.15)' : 'rgba(218, 165, 32, 0.1)',
     shadowColor: '#DAA520',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 2
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 3
   },
   messagesSectionHeader: {
     flexDirection: 'row',
@@ -672,24 +680,27 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     marginBottom: 12,
   },
   messagesSectionTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '900',
     textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    color: '#DAA520'
+    letterSpacing: 0.8,
+    color: '#DAA520',
+    textShadowColor: 'rgba(0,0,0,0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2
   },
   messageCard: {
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 10,
-    borderWidth: 1.5,
-    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#FFFFFF',
-    borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#E5E7EB',
+    padding: 14,
+    borderRadius: 16,
+    marginBottom: 12,
+    borderWidth: 2,
+    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#FFFFFF',
+    borderColor: isDark ? 'rgba(255,255,255,0.15)' : '#E9D5FF',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 3
   },
   messageHeader: {
     flexDirection: 'row',
@@ -697,25 +708,33 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     marginBottom: 6,
   },
   messageTaskTitle: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
     flex: 1,
     color: theme.text,
-    letterSpacing: -0.2
+    letterSpacing: -0.3,
+    textShadowColor: 'rgba(0,0,0,0.08)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1
   },
   messageAuthor: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '800',
-    marginBottom: 6,
+    marginBottom: 8,
     color: '#9F2241',
     textTransform: 'uppercase',
-    letterSpacing: 0.3
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0,0,0,0.08)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1
   },
   messageText: {
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 6,
-    color: theme.textSecondary
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 8,
+    color: theme.textSecondary,
+    fontWeight: '600',
+    letterSpacing: -0.2
   },
   messageTime: {
     fontSize: 11,
@@ -729,28 +748,36 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     justifyContent: 'flex-end'
   },
   modalContent: {
-    borderTopLeftRadius: RADIUS.xxl || 28,
-    borderTopRightRadius: RADIUS.xxl || 28,
+    borderTopLeftRadius: RADIUS.xxl || 32,
+    borderTopRightRadius: RADIUS.xxl || 32,
     maxHeight: '85%',
     padding: 0,
     paddingBottom: 32,
     ...SHADOWS.xl,
-    backgroundColor: theme.surface
+    backgroundColor: theme.surface,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: isDesktop ? SPACING.xl : SPACING.lg,
-    paddingBottom: SPACING.lg,
+    paddingBottom: SPACING.xl,
     borderBottomWidth: 2,
-    borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : '#E5E7EB'
+    borderBottomColor: isDark ? 'rgba(255,255,255,0.15)' : '#F3E5F5'
   },
   modalTitle: {
-    fontSize: isDesktop ? 20 : 22,
+    fontSize: isDesktop ? 24 : 26,
     fontWeight: '900',
     color: theme.text,
-    letterSpacing: -0.5
+    letterSpacing: -0.6,
+    textShadowColor: 'rgba(0,0,0,0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2
   },
   modalScroll: {
     padding: isDesktop ? SPACING.xl : SPACING.lg
@@ -758,28 +785,28 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
   actionsRow: { 
     flexDirection: 'row', 
     flexWrap: isTablet ? 'nowrap' : 'wrap',
-    marginTop: 14,
-    gap: isDesktop ? 12 : isTablet ? 10 : 8,
+    marginTop: 18,
+    gap: isDesktop ? 14 : isTablet ? 12 : 10,
     justifyContent: 'space-between'
   },
   actionBtn: {
     flex: isTablet ? 1 : 0.48,
     backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#FFFAF0',
-    paddingVertical: isDesktop ? SPACING.md : isTablet ? 12 : 14,
-    paddingHorizontal: isDesktop ? SPACING.md : isTablet ? SPACING.sm : SPACING.xs,
-    borderRadius: RADIUS.md,
+    paddingVertical: isDesktop ? SPACING.lg : isTablet ? 14 : 16,
+    paddingHorizontal: isDesktop ? SPACING.lg : isTablet ? SPACING.md : SPACING.md,
+    borderRadius: RADIUS.lg,
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: isDark ? 'rgba(255,255,255,0.2)' : '#F5DEB3',
+    borderWidth: 2,
+    borderColor: isDark ? 'rgba(255,255,255,0.3)' : '#F5DEB3',
     flexDirection: 'row',
     justifyContent: 'center',
-    minHeight: isDesktop ? 44 : isTablet ? 42 : 44,
+    minHeight: isDesktop ? 52 : isTablet ? 48 : 52,
     marginBottom: isTablet ? 0 : 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 2
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4
   },
   actionBtnPrimary: {
     backgroundColor: '#9F2241',
@@ -790,32 +817,35 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     borderColor: '#EF4444'
   },
   actionText: {
-    fontSize: isDesktop ? 13 : isTablet ? 12 : 13,
-    fontWeight: '700',
+    fontSize: isDesktop ? 14 : isTablet ? 13 : 14,
+    fontWeight: '900',
     color: theme.text,
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
     flexShrink: 1,
     textAlign: 'center',
     textTransform: 'uppercase'
   },
   emptyContainer: {
     alignItems: 'center',
-    marginTop: isDesktop ? 120 : 100,
-    paddingHorizontal: isDesktop ? 60 : 40
+    marginTop: isDesktop ? 140 : 120,
+    paddingHorizontal: isDesktop ? 80 : 60
   },
   emptyText: {
-    fontSize: isDesktop ? 28 : 26,
+    fontSize: isDesktop ? 32 : 30,
     fontWeight: '900',
     color: theme.text,
-    marginBottom: 16,
-    letterSpacing: -0.8
+    marginBottom: 18,
+    letterSpacing: -1,
+    textShadowColor: 'rgba(0,0,0,0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2
   },
   emptySubtext: {
-    fontSize: isDesktop ? 16 : 16,
+    fontSize: isDesktop ? 17 : 16,
     color: theme.textSecondary,
     textAlign: 'center',
-    lineHeight: 24,
-    fontWeight: '600',
-    letterSpacing: -0.2
+    lineHeight: 26,
+    fontWeight: '700',
+    letterSpacing: -0.3
   }
 });
