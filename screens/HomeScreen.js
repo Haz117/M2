@@ -633,6 +633,30 @@ export default function HomeScreen({ navigation }) {
           ) : (
           <View style={styles.bentoGrid}>
             
+            {/* Alerta de información important con mejor diseño */}
+            {urgentTasks.length > 0 && (
+              <TouchableOpacity
+                style={[styles.infoAlert, { backgroundColor: theme.primary + '95', borderColor: theme.primary }]}
+                onPress={() => setShowUrgentModal(false)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.infoAlertContent}>
+                  <View style={[styles.infoAlertIcon, { backgroundColor: 'rgba(255,255,255,0.3)' }]}>
+                    <Ionicons name="information-circle" size={20} color="#FFFFFF" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.infoAlertTitle}>Solo administradores y jefes pueden editar tareas</Text>
+                  </View>
+                  <TouchableOpacity 
+                    onPress={() => setShowUrgentModal(false)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons name="close" size={20} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
+            )}
+
             {/* Fila 1: Estadísticas principales - REMOVIDA para reducir alertas
             <View style={styles.bentoRow}>
               <View style={[styles.bentoCard, styles.bentoLarge]}>
@@ -1147,6 +1171,43 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding, 
     fontSize: 13,
     fontWeight: '900',
     color: '#FFFFFF'
+  },
+  // Estilos para la alerta información
+  infoAlert: {
+    borderRadius: RADIUS.lg,
+    padding: 14,
+    marginBottom: 20,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    ...SHADOWS.md,
+    shadowColor: theme.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4
+  },
+  infoAlertContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12
+  },
+  infoAlertIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0
+  },
+  infoAlertTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    lineHeight: 20,
+    letterSpacing: -0.3
   },
   sectionTitle: {
     fontSize: 28,
