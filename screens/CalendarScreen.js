@@ -482,19 +482,24 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     letterSpacing: -1.2
   },
   todayButton: {
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    paddingHorizontal: isDesktop ? 16 : isTablet ? 14 : 18,
+    paddingVertical: isDesktop ? 10 : isTablet ? 10 : 12,
+    borderRadius: 22,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.4)'
+    borderColor: 'rgba(255,255,255,0.5)',
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2
   },
   todayButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
+    fontSize: isDesktop ? 13 : 14,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase'
   },
   scrollContent: {
     padding: padding
@@ -510,9 +515,9 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     ...SHADOWS.sm
   },
   monthButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: isDesktop ? 48 : isTablet ? 46 : 50,
+    height: isDesktop ? 48 : isTablet ? 46 : 50,
+    borderRadius: isDesktop ? 24 : isTablet ? 23 : 25,
     backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
@@ -531,23 +536,24 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
   },
   weekHeader: {
     flexDirection: 'row',
-    marginBottom: 12,
-    backgroundColor: '#F3F4F6',
+    marginBottom: 16,
+    backgroundColor: isDark ? 'rgba(159, 34, 65, 0.15)' : 'rgba(159, 34, 65, 0.08)',
     borderRadius: 12,
-    padding: 8,
-    borderWidth: 1.5,
+    padding: isDesktop ? 8 : isTablet ? 10 : 12,
+    borderWidth: 2,
     borderColor: '#9F2241'
   },
   weekDay: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 8
+    paddingVertical: isDesktop ? 6 : isTablet ? 8 : 10
   },
   weekDayText: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: isDesktop ? 12 : isTablet ? 13 : 14,
+    fontWeight: '800',
     color: '#9F2241',
-    letterSpacing: 0.3
+    letterSpacing: 0.4,
+    textTransform: 'uppercase'
   },
   calendar: {
     flexDirection: 'row',
@@ -569,18 +575,31 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
   day: {
     width: `${100 / 7}%`,
     aspectRatio: 1,
-    padding: 4
+    padding: isDesktop ? 4 : isTablet ? 6 : 8,
+    minHeight: isDesktop ? 50 : isTablet ? 55 : 60
   },
   dayToday: {
     backgroundColor: '#9F2241',
     borderRadius: 12,
-    margin: 2
+    margin: 2,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: '#9F2241',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 5
   },
   dayHighPriority: {
-    borderWidth: 2,
-    borderColor: '#FF3B30',
+    borderWidth: 3,
+    borderColor: '#EF4444',
     borderRadius: 12,
-    margin: 2
+    margin: 2,
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4
   },
   dayOverdue: {
     backgroundColor: '#FFE4E1',
@@ -588,7 +607,7 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     margin: 2
   },
   dayNumber: {
-    fontSize: 15,
+    fontSize: isDesktop ? 15 : isTablet ? 14 : 16,
     fontWeight: '700',
     color: '#1A1A1A',
     textAlign: 'center',
@@ -609,19 +628,19 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     gap: 3
   },
   taskDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: '#34C759'
+    width: isDesktop ? 5 : isTablet ? 6 : 7,
+    height: isDesktop ? 5 : isTablet ? 6 : 7,
+    borderRadius: isDesktop ? 2.5 : isTablet ? 3 : 3.5,
+    backgroundColor: '#22C55E'
   },
   taskDotHigh: {
-    backgroundColor: '#FF3B30'
+    backgroundColor: '#EF4444'
   },
   taskDotMedium: {
-    backgroundColor: '#FF9500'
+    backgroundColor: '#F97316'
   },
   taskDotLow: {
-    backgroundColor: '#34C759'
+    backgroundColor: '#22C55E'
   },
   moreTasks: {
     fontSize: 8,
@@ -630,33 +649,44 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     marginLeft: 2
   },
   legend: {
-    marginTop: 16,
-    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#F3F4F6',
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: isDark ? 'rgba(255,255,255,0.15)' : '#9F2241'
+    marginTop: 20,
+    backgroundColor: isDark ? 'rgba(159, 34, 65, 0.15)' : 'rgba(159, 34, 65, 0.08)',
+    padding: isDesktop ? 14 : isTablet ? 12 : 14,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: isDark ? 'rgba(159, 34, 65, 0.4)' : '#9F2241',
+    shadowColor: '#9F2241',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3
   },
   legendTitle: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: isDesktop ? 13 : 14,
+    fontWeight: '900',
     color: theme.text,
-    marginBottom: 12,
-    letterSpacing: 0.3
+    marginBottom: isDesktop ? 10 : 12,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase'
   },
   legendItems: {
     flexDirection: 'row',
-    gap: 20
+    gap: isDesktop ? 16 : isTablet ? 18 : 20,
+    justifyContent: 'space-around'
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8
+    gap: isDesktop ? 6 : 8,
+    flex: 1,
+    justifyContent: 'center'
   },
   legendText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: theme.textSecondary
+    fontSize: isDesktop ? 12 : 13,
+    fontWeight: '700',
+    color: theme.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3
   },
   // Modal styles
   modalOverlay: {
@@ -666,54 +696,55 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
   },
   modalContent: {
     backgroundColor: theme.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 12,
-    maxHeight: '80%',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: isDesktop ? 24 : isTablet ? 18 : 20,
+    maxHeight: '85%',
     paddingBottom: 32,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 16
+    shadowOffset: { width: 0, height: -5 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 20
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
-    paddingBottom: 12,
+    marginBottom: 20,
+    paddingBottom: 16,
     borderBottomWidth: 2,
-    borderBottomColor: '#F0F0F0'
+    borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : '#F0F0F0'
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: isDesktop ? 18 : 20,
     fontWeight: '900',
     color: theme.text,
     letterSpacing: -0.5,
     textTransform: 'capitalize',
-    marginBottom: 4
+    marginBottom: 6
   },
   modalSubtitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: theme.textSecondary
+    fontSize: isDesktop ? 13 : 14,
+    fontWeight: '700',
+    color: theme.primary,
+    letterSpacing: 0.2
   },
   modalScroll: {
     maxHeight: 500
   },
   modalTaskCard: {
-    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#FFFAF0',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 10,
+    backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#FFFAF0',
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 12,
     borderWidth: 1.5,
     borderColor: isDark ? 'rgba(255,255,255,0.15)' : '#F5DEB3',
     shadowColor: '#9F2241',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 3
   },
   modalTaskHeader: {
     flexDirection: 'row',
@@ -722,19 +753,20 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     gap: 10
   },
   modalTaskPriority: {
-    width: 4,
+    width: 5,
     height: '100%',
-    borderRadius: 2,
+    minHeight: 50,
+    borderRadius: 3,
     backgroundColor: '#34C759'
   },
   modalTaskPriorityHigh: {
-    backgroundColor: '#FF3B30'
+    backgroundColor: '#EF4444'
   },
   modalTaskPriorityMedium: {
-    backgroundColor: '#FF9500'
+    backgroundColor: '#F97316'
   },
   modalTaskPriorityLow: {
-    backgroundColor: '#34C759'
+    backgroundColor: '#22C55E'
   },
   modalTaskTitle: {
     fontSize: 16,
@@ -745,18 +777,19 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     lineHeight: 22
   },
   modalTaskMeta: {
-    gap: 8,
+    gap: 10,
     marginBottom: 12
   },
   modalTaskMetaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6
+    gap: 8
   },
   modalTaskMetaText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: theme.textSecondary
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.textSecondary,
+    letterSpacing: 0.2
   },
   modalTaskStatus: {
     alignSelf: 'flex-start'

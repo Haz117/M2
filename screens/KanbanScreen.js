@@ -220,9 +220,10 @@ export default function KanbanScreen({ navigation }) {
 
   // Función para detectar en qué columna se soltó la tarjeta
   const getColumnAtPosition = (x) => {
-    // Aproximación: cada columna tiene 300px de ancho + 16px de margen
-    const columnWidth = 316;
-    const columnIndex = Math.floor((x + 16) / columnWidth);
+    // Usar columnWidth dinámico en lugar de valores hardcodeados
+    const gap = 16;
+    const actualColumnWidth = columnWidth + gap;
+    const columnIndex = Math.floor((x + gap) / actualColumnWidth);
     if (columnIndex >= 0 && columnIndex < STATUSES.length) {
       return STATUSES[columnIndex].key;
     }

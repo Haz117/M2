@@ -103,11 +103,21 @@ export const TOUCH_TARGET = {
   large: 56,
 };
 
+// Ancho máximo para contenedores
 export const MAX_WIDTHS = {
-  content: 1200,
-  form: 600,
-  card: 800,
+  content: 1280,    // Ancho máximo para contenido principal
+  contentPadded: 1120, // Con padding incluido
+  narrow: 800,      // Para forms y contenido estrecho
+  card: 600,        // Para cards individuales
   modal: 500,
+};
+
+// Padding responsivo por pantalla
+export const RESPONSIVE_PADDING = {
+  mobile: { horizontal: 12, vertical: 16 },
+  tablet: { horizontal: 20, vertical: 24 },
+  desktop: { horizontal: 32, vertical: 32 },
+  desktopLarge: { horizontal: 48, vertical: 40 },
 };
 
 // Helper para obtener responsive values
@@ -127,9 +137,16 @@ export const getColumnCount = (screenWidth) => {
   return 1;
 };
 
-// Helper para padding responsive
+// Helper para padding responsive basado en ancho
 export const getResponsivePadding = (screenWidth) => {
-  if (screenWidth >= BREAKPOINTS.desktop) return SPACING.xl;
-  if (screenWidth >= BREAKPOINTS.tablet) return SPACING.lg;
-  return SPACING.md;
+  if (screenWidth >= BREAKPOINTS.desktopLarge) return RESPONSIVE_PADDING.desktopLarge.horizontal;
+  if (screenWidth >= BREAKPOINTS.desktop) return RESPONSIVE_PADDING.desktop.horizontal;
+  if (screenWidth >= BREAKPOINTS.tablet) return RESPONSIVE_PADDING.tablet.horizontal;
+  return RESPONSIVE_PADDING.mobile.horizontal;
+};
+
+// Helper para obtener ancho máximo del contenedor
+export const getMaxWidth = (screenWidth) => {
+  if (screenWidth >= BREAKPOINTS.desktopLarge) return MAX_WIDTHS.contentPadded;
+  return screenWidth;
 };

@@ -53,6 +53,10 @@ export default function TaskDetailScreen({ route, navigation }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [canEdit, setCanEdit] = useState(false);
   
+  // Modal de selección de usuario
+  const [showAssigneeModal, setShowAssigneeModal] = useState(false);
+  const [assigneeSearchQuery, setAssigneeSearchQuery] = useState('');
+  
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -100,6 +104,16 @@ export default function TaskDetailScreen({ route, navigation }) {
     'administracion': 'Administración',
     'rrhh': 'Recursos Humanos'
   }), []);
+
+  // Filtrar usuarios según búsqueda
+  const filteredPeople = useMemo(() => {
+    if (!assigneeSearchQuery.trim()) return peopleNames;
+    const query = assigneeSearchQuery.toLowerCase();
+    return peopleNames.filter(person => 
+      person.toLowerCase().includes(query) || 
+      person.split('@')[0].toLowerCase().includes(query)
+    );
+  }, [peopleNames, assigneeSearchQuery]);
 
   useEffect(() => {
     navigation.setOptions({ 
@@ -538,42 +552,162 @@ export default function TaskDetailScreen({ route, navigation }) {
               <Text style={[styles.sectionTitleSimple, { color: theme.text }]}>Asignación y Área</Text>
             </View>
             
-            <Text style={styles.label}>ASIGNADO A *</Text>
-            <View style={styles.pickerRow}>
-              {peopleNames.map(name => (
-                <TouchableOpacity
-                  key={name}
-                  onPress={() => handleAssignedToChange(name)}
-                  style={[styles.optionBtn, assignedTo === name && styles.optionBtnActive, !canEdit && styles.optionBtnDisabled]}
-                  disabled={!canEdit}
-                >
-                  <Text style={[styles.optionText, assignedTo === name && styles.optionTextActive]} numberOfLines={1} ellipsizeMode="tail">{name}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {/* Selector de Asignado */}
+            <Text style={[styles.label, { marginTop: 16, marginBottom: 12 }]}>ASIGNADO A *</Text>
+            <TouchableOpacity
+              onPress={() => setShowAssigneeModal(true)}
+              style={[styles.assigneeSelector, { backgroundColor: theme.background, borderColor: theme.border }]}
+              disabled={!canEdit}
+            >
+              <View style={styles.assigneeSelectorContent}>
+                <View style={styles.assigneeSelectorAvatar}>
+                  <Text style={styles.assigneeSelectorInitial}>
+                    {assignedTo ? assignedTo.charAt(0).toUpperCase() : '?'}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.assigneeSelectorLabel, { color: theme.textSecondary }]}>
+                    Persona asignada
+                  </Text>
+                  <Text style={[styles.assigneeSelectorValue, { color: theme.text }]} numberOfLines={1}>
+                    {assignedTo || 'Seleccionar usuario'}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+              </View>
+            </TouchableOpacity>
 
-            <Text style={styles.label}>ÁREA *</Text>
-            <View style={styles.pickerRow}>
+            {/* Selector de Área */}
+            <Text style={[styles.label, { marginTop: 24, marginBottom: 12 }]}>ÁREA *</Text>
+            <View style={styles.areaGrid}>
               {areas.map(a => {
                 const areaDep = areaToDepMap[a] || a.toLowerCase();
                 const canSelectArea = canEdit && (currentUser?.role === 'admin' || areaDep === currentUser?.department);
+                const areaColors = {
+                  'Jurídica': '#8B5CF6',
+                  'Obras': '#F59E0B',
+                  'Tesorería': '#10B981',
+                  'Administración': '#3B82F6',
+                  'Recursos Humanos': '#EC4899'
+                };
+                const areaIcons = {
+                  'Jurídica': 'scale',
+                  'Obras': 'construct',
+                  'Tesorería': 'calculator',
+                  'Administración': 'briefcase',
+                  'Recursos Humanos': 'people'
+                };
+                const color = areaColors[a] || '#9F2241';
+                const icon = areaIcons[a] || 'folder';
+                
                 return (
                   <TouchableOpacity
                     key={a}
                     onPress={() => handleAreaChange(a)}
                     style={[
-                      styles.optionBtn, 
-                      area === a && styles.optionBtnActive, 
+                      styles.areaCard, 
+                      area === a && [styles.areaCardActive, { borderColor: color, backgroundColor: `${color}15` }],
                       !canSelectArea && styles.optionBtnDisabled
                     ]}
                     disabled={!canSelectArea}
                   >
-                    <Text style={[styles.optionText, area === a && styles.optionTextActive]} numberOfLines={1} ellipsizeMode="tail">{a}</Text>
+                    <View style={[styles.areaIconBg, { backgroundColor: `${color}25` }]}>
+                      <Ionicons name={icon} size={24} color={color} />
+                    </View>
+                    <Text style={[styles.areaName, area === a && { color: color, fontWeight: '700' }]}>
+                      {a}
+                    </Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
           </View>
+
+          {/* Modal de Selección de Usuario */}
+          <Modal
+            visible={showAssigneeModal}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setShowAssigneeModal(false)}
+          >
+            <View style={[styles.modalContainer, { backgroundColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)' }]}>
+              <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
+                {/* Modal Header */}
+                <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+                  <Text style={[styles.modalTitle, { color: theme.text }]}>Seleccionar usuario</Text>
+                  <TouchableOpacity onPress={() => setShowAssigneeModal(false)}>
+                    <Ionicons name="close" size={24} color={theme.text} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Search Box */}
+                <View style={[styles.searchBox, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+                  <Ionicons name="search" size={18} color={theme.textSecondary} />
+                  <TextInput
+                    placeholder="Buscar por email o nombre..."
+                    placeholderTextColor={theme.textSecondary}
+                    style={[styles.searchInput, { color: theme.text }]}
+                    value={assigneeSearchQuery}
+                    onChangeText={setAssigneeSearchQuery}
+                    autoFocus
+                  />
+                  {assigneeSearchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setAssigneeSearchQuery('')}>
+                      <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* User List */}
+                <ScrollView style={styles.userList} showsVerticalScrollIndicator={false}>
+                  {filteredPeople.length > 0 ? (
+                    filteredPeople.map((person) => (
+                      <TouchableOpacity
+                        key={person}
+                        onPress={() => {
+                          handleAssignedToChange(person);
+                          setShowAssigneeModal(false);
+                          setAssigneeSearchQuery('');
+                        }}
+                        style={[
+                          styles.userListItem,
+                          assignedTo === person && [
+                            styles.userListItemActive,
+                            { backgroundColor: `${theme.primary}15`, borderColor: theme.primary }
+                          ],
+                          { borderBottomColor: theme.border }
+                        ]}
+                      >
+                        <View style={[styles.userAvatar, assignedTo === person && { backgroundColor: theme.primary }]}>
+                          <Text style={[styles.userAvatarText, assignedTo === person && { color: '#FFFFFF' }]}>
+                            {person.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.userName, { color: theme.text }]}>
+                            {person.split('@')[0]}
+                          </Text>
+                          <Text style={[styles.userEmail, { color: theme.textSecondary }]}>
+                            {person}
+                          </Text>
+                        </View>
+                        {assignedTo === person && (
+                          <Ionicons name="checkmark-circle" size={24} color={theme.primary} />
+                        )}
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    <View style={styles.emptyState}>
+                      <Ionicons name="search" size={40} color={theme.textSecondary} style={{ marginBottom: 12 }} />
+                      <Text style={[styles.emptyStateText, { color: theme.textSecondary }]}>
+                        No se encontraron usuarios
+                      </Text>
+                    </View>
+                  )}
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
 
           {/* SECCIÓN PRIORIDAD Y FECHA */}
           <View style={[styles.section, { backgroundColor: theme.cardBackground }]}>
@@ -599,52 +733,32 @@ export default function TaskDetailScreen({ route, navigation }) {
             </View>
 
             <Text style={styles.label}>FECHA COMPROMISO *</Text>
-            {Platform.OS === 'web' ? (
-              <View style={styles.webDateContainer}>
-                <input
-                  type="datetime-local"
-                  value={dueAt.toISOString().slice(0, 16)}
-                  onChange={(e) => {
-                    const newDate = new Date(e.target.value);
-                    if (!isNaN(newDate.getTime())) {
-                      setDueAt(newDate);
-                    }
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: 15,
-                    fontSize: 16,
-                    borderRadius: 12,
-                    border: '2px solid #9F2241',
-                    backgroundColor: '#FFFFFF',
-                    color: '#000000',
-                    fontFamily: 'system-ui'
-                  }}
-                />
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingHorizontal: 4 }}>
-                  <Ionicons name="calendar" size={16} color="#9F2241" style={{ marginRight: 8 }} />
-                  <Text style={{ fontSize: 14, color: '#666' }}>
-                    {dueAt.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
-                    {' a las '}
-                    {dueAt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+            <TouchableOpacity 
+              style={[styles.datePickerButton, { borderColor: theme.primary, backgroundColor: isDark ? `${theme.primary}15` : `${theme.primary}10` }]}
+              onPress={() => setShowDatePicker(true)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.datePickerContent}>
+                <View style={[styles.datePickerIcon, { backgroundColor: theme.primary }]}>
+                  <Ionicons name="calendar" size={24} color="#FFFFFF" />
+                </View>
+                <View style={styles.datePickerInfo}>
+                  <Text style={[styles.datePickerLabel, { color: theme.textSecondary }]}>
+                    Fecha y hora
                   </Text>
+                  <Text style={[styles.datePickerValue, { color: theme.text }]}>
+                    {dueAt.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}
+                  </Text>
+                  <View style={styles.datePickerTime}>
+                    <Ionicons name="time" size={14} color={theme.primary} />
+                    <Text style={[styles.datePickerTimeText, { color: theme.textSecondary }]}>
+                      {dueAt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </View>
                 </View>
+                <Ionicons name="chevron-forward" size={22} color={theme.primary} />
               </View>
-            ) : (
-              <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}>
-                <View style={[styles.dateButtonGradient, { backgroundColor: '#9F2241' }]}>
-                  <View style={styles.dateIconContainer}>
-                    <Ionicons name="calendar" size={24} color="#FFFFFF" />
-                  </View>
-                  <View style={styles.dateTextContainer}>
-                    <Text style={styles.dateLabelSmall}>Fecha seleccionada</Text>
-                    <Text style={styles.dateText}>{dueAt.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</Text>
-                    <Text style={styles.timeText}>{dueAt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
-                </View>
-              </TouchableOpacity>
-            )}
+            </TouchableOpacity>
           </View>
 
           {/* SECCIÓN ESTADO (solo al editar) */}
@@ -829,6 +943,152 @@ export default function TaskDetailScreen({ route, navigation }) {
                 />
               )}
             </>
+          )}
+
+          {/* Modal de fecha y hora personalizado para web */}
+          {Platform.OS === 'web' && (
+            <Modal
+              visible={showDatePicker}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setShowDatePicker(false)}
+            >
+              <View style={styles.dateModalOverlay}>
+                <View style={[styles.dateModalContent, { backgroundColor: theme.card }]}>
+                  {/* Header */}
+                  <View style={[styles.dateModalHeader, { borderBottomColor: theme.border }]}>
+                    <Text style={[styles.dateModalTitle, { color: theme.text }]}>
+                      Seleccionar fecha y hora
+                    </Text>
+                    <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                      <Ionicons name="close" size={28} color={theme.text} />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Body */}
+                  <View style={styles.dateModalBody}>
+                    {/* Selector de Fecha */}
+                    <View style={styles.datePickerSection}>
+                      <Text style={[styles.datePickerSectionTitle, { color: theme.text }]}>
+                        📅 Fecha
+                      </Text>
+                      <input
+                        type="date"
+                        value={tempDate.toISOString().split('T')[0]}
+                        onChange={(e) => {
+                          const [year, month, day] = e.target.value.split('-');
+                          const newDate = new Date(tempDate);
+                          newDate.setFullYear(parseInt(year), parseInt(month) - 1, parseInt(day));
+                          setTempDate(newDate);
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '14px 12px',
+                          fontSize: '15px',
+                          borderRadius: '10px',
+                          border: `2px solid ${theme.primary}`,
+                          backgroundColor: theme.background,
+                          color: theme.text,
+                          fontFamily: 'system-ui',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                        }}
+                      />
+                      <Text style={[styles.datePreviewText, { color: theme.textSecondary, marginTop: 8 }]}>
+                        {tempDate.toLocaleDateString('es-ES', { 
+                          weekday: 'long', 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                      </Text>
+                    </View>
+
+                    {/* Selector de Hora */}
+                    <View style={styles.datePickerSection}>
+                      <Text style={[styles.datePickerSectionTitle, { color: theme.text }]}>
+                        ⏰ Hora
+                      </Text>
+                      <View style={styles.timeInputContainer}>
+                        <input
+                          type="time"
+                          value={`${String(tempDate.getHours()).padStart(2, '0')}:${String(tempDate.getMinutes()).padStart(2, '0')}`}
+                          onChange={(e) => {
+                            const [hours, minutes] = e.target.value.split(':');
+                            const newDate = new Date(tempDate);
+                            newDate.setHours(parseInt(hours), parseInt(minutes), 0);
+                            setTempDate(newDate);
+                          }}
+                          style={{
+                            flex: 1,
+                            padding: '14px 12px',
+                            fontSize: '15px',
+                            borderRadius: '10px',
+                            border: `2px solid ${theme.primary}`,
+                            backgroundColor: theme.background,
+                            color: theme.text,
+                            fontFamily: 'system-ui',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                          }}
+                        />
+                      </View>
+                      <Text style={[styles.datePreviewText, { color: theme.textSecondary, marginTop: 8 }]}>
+                        {tempDate.toLocaleTimeString('es-ES', { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </Text>
+                    </View>
+
+                    {/* Vista previa */}
+                    <View style={[styles.datePreviewCard, { backgroundColor: `${theme.primary}15`, borderColor: theme.primary }]}>
+                      <Ionicons name="calendar" size={20} color={theme.primary} />
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={[styles.datePreviewCardDate, { color: theme.textSecondary }]}>
+                          Fecha y hora seleccionada
+                        </Text>
+                        <Text style={[styles.datePreviewCardValue, { color: theme.text }]}>
+                          {tempDate.toLocaleDateString('es-ES', { 
+                            weekday: 'short', 
+                            day: 'numeric', 
+                            month: 'short', 
+                            year: 'numeric' 
+                          })} a las {tempDate.toLocaleTimeString('es-ES', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Footer */}
+                  <View style={[styles.dateModalFooter, { borderTopColor: theme.border }]}>
+                    <TouchableOpacity
+                      style={[styles.dateModalButton, { backgroundColor: `${theme.textSecondary}20` }]}
+                      onPress={() => setShowDatePicker(false)}
+                    >
+                      <Text style={[styles.dateModalButtonText, { color: theme.textSecondary }]}>
+                        Cancelar
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.dateModalButton, { backgroundColor: theme.primary }]}
+                      onPress={() => {
+                        setDueAt(tempDate);
+                        setShowDatePicker(false);
+                      }}
+                    >
+                      <Ionicons name="checkmark" size={22} color="#FFFFFF" style={{ marginRight: 8 }} />
+                      <Text style={[styles.dateModalButtonText, { color: '#FFFFFF' }]}>
+                        Confirmar
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </Modal>
           )}
 
           <PressableButton 
@@ -1325,5 +1585,327 @@ const createStyles = (theme, isDark) => StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center'
-  }
+  },
+  // Nuevos estilos para Asignación y Área
+  areaGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 8,
+  },
+  areaCard: {
+    flex: 1,
+    minWidth: '45%',
+    flexBasis: '45%',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(159, 34, 65, 0.05)',
+    borderWidth: 2.5,
+    borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(159, 34, 65, 0.15)',
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+    transition: 'all 0.2s ease',
+  },
+  areaCardActive: {
+    borderWidth: 2.5,
+    shadowColor: '#9F2241',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+    transform: [{ scale: 1.02 }],
+  },
+  areaIconBg: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  areaName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.text,
+    textAlign: 'center',
+  },
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '85%',
+    paddingTop: 0,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 16,
+    marginVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  userList: {
+    flex: 1,
+    paddingHorizontal: 8,
+    paddingBottom: 20,
+  },
+  userListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderRadius: 10,
+    marginHorizontal: 8,
+    marginVertical: 4,
+  },
+  userListItemActive: {
+    borderWidth: 1.5,
+  },
+  userAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(159, 34, 65, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(159, 34, 65, 0.4)',
+  },
+  userAvatarText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#9F2241',
+  },
+  userName: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  userEmail: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  assigneeSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  assigneeSelectorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  assigneeSelectorAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(159, 34, 65, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2.5,
+    borderColor: 'rgba(159, 34, 65, 0.4)',
+  },
+  assigneeSelectorInitial: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#9F2241',
+  },
+  assigneeSelectorLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  assigneeSelectorValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  // Estilos para el botón de fecha
+  datePickerButton: {
+    borderRadius: 14,
+    borderWidth: 2,
+    padding: 14,
+    justifyContent: 'center',
+  },
+  datePickerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  datePickerIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  datePickerInfo: {
+    flex: 1,
+  },
+  datePickerLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  datePickerValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  datePickerTime: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  datePickerTimeText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  // Estilos del modal de fecha
+  dateModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  dateModalContent: {
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 600,
+    maxHeight: '90%',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  dateModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  dateModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+    flex: 1,
+  },
+  dateModalBody: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    gap: 20,
+  },
+  datePickerSection: {
+    gap: 10,
+  },
+  datePickerSectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  timeInputContainer: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  datePreviewText: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  datePreviewCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+    marginTop: 8,
+  },
+  datePreviewCardDate: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  datePreviewCardValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  dateModalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+  },
+  dateModalButton: {
+    flex: 1,
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dateModalButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
 });

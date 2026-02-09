@@ -510,6 +510,9 @@ export default function HomeScreen({ navigation }) {
           tasks={tasks} 
           currentUserEmail={currentUser?.email}
           role={currentUser?.role}
+          onTaskPress={(task) => {
+            navigation.navigate('TaskDetail', { task });
+          }}
         />
 
         {/* Modal de Tareas Urgentes */}
@@ -821,39 +824,39 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding, 
     width: '100%'
   },
   headerGradient: {
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
     shadowColor: theme.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 12
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 14,
+    paddingHorizontal: padding,
+    paddingTop: isDesktop ? SPACING.xxxl : 48,
+    paddingBottom: 24
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    paddingHorizontal: padding,
-    paddingTop: isDesktop ? SPACING.xxxl : 48,
-    paddingBottom: SPACING.md
   },
   greetingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4
+    marginBottom: 12
   },
   greeting: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#FFFFFF',
-    opacity: 0.9,
+    opacity: 0.95,
     letterSpacing: 0.3
   },
   heading: { 
-    fontSize: 32, 
-    fontWeight: '800',
+    fontSize: 36, 
+    fontWeight: '900',
     color: '#FFFFFF',
-    letterSpacing: -1.2
+    letterSpacing: -2
   },
   urgentBadge: {
     flexDirection: 'row',

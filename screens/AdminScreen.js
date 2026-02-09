@@ -883,16 +883,17 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#FFFFFF',
-    opacity: 0.9,
-    letterSpacing: 0.3
+    opacity: 0.95,
+    letterSpacing: 0.4
   },
   heading: { 
-    fontSize: 32, 
-    fontWeight: '800',
+    fontSize: 36, 
+    fontWeight: '900',
     color: '#FFFFFF',
-    letterSpacing: -1.2
+    letterSpacing: -1,
+    marginTop: 4
   },
   headerActions: {
     flexDirection: 'row',
@@ -918,36 +919,41 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    padding: 14,
-    borderRadius: 18,
+    padding: 16,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 100,
+    minHeight: 110,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 3
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)'
   },
   statNumber: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '900',
     color: '#FFFFFF',
-    marginTop: 6,
-    marginBottom: 2
+    marginTop: 8,
+    marginBottom: 4,
+    letterSpacing: -0.5
   },
   statLabel: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '800',
     color: '#FFFFFF',
-    opacity: 0.9,
+    opacity: 0.95,
     textTransform: 'uppercase',
-    letterSpacing: 0.5
+    letterSpacing: 0.6
   },
   sectionCard: {
-    padding: 14,
+    padding: 16,
     borderRadius: 20,
-    marginBottom: 12,
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(0,0,0,0.08)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
@@ -957,48 +963,51 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
-    gap: 10
+    marginBottom: 16,
+    gap: 12
   },
   iconCircleSection: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 3
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)'
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: -0.4,
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: -0.5,
     flex: 1
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 16,
-    marginBottom: 12,
+    marginBottom: 14,
     paddingHorizontal: 16,
     borderWidth: 1.5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+    minHeight: 48
   },
   inputIcon: {
     marginRight: 12
   },
   input: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 14,
     fontSize: 15,
-    fontWeight: '500'
+    fontWeight: '600'
   },
   roleSelector: {
     flexDirection: 'row',
@@ -1009,60 +1018,77 @@ const styles = StyleSheet.create({
   },
   roleButton: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: 'center',
-    borderRadius: 10,
-    borderWidth: 1.5
+    borderRadius: 12,
+    borderWidth: 2,
+    minHeight: 48
   },
   roleButtonText: {
     fontSize: 15,
-    fontWeight: '600'
+    fontWeight: '700',
+    letterSpacing: 0.2
   },
   actionButton: {
-    marginBottom: 12,
+    marginBottom: 14,
     borderRadius: 16,
-    overflow: 'hidden'
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3
   },
   buttonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 12,
-    borderRadius: 14
+    padding: 14,
+    borderRadius: 14,
+    minHeight: 48
   },
   buttonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '700'
+    fontWeight: '800',
+    letterSpacing: 0.3
   },
   expandButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 14,
+    padding: 16,
     borderRadius: 14,
-    borderWidth: 1.5,
-    marginBottom: 12
+    borderWidth: 2,
+    marginBottom: 14,
+    minHeight: 48,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2
   },
   expandButtonText: {
     fontSize: 15,
-    fontWeight: '700'
+    fontWeight: '800',
+    letterSpacing: 0.2
   },
   userListContainer: {
     marginTop: 8
   },
   userCard: {
     flexDirection: 'row',
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 10,
-    borderWidth: 1,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1.5,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     elevation: 2,
-    alignItems: 'center'
+    alignItems: 'center',
+    minHeight: 80
   },
   userInfo: {
     flex: 1,
@@ -1083,24 +1109,28 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 16,
-    fontWeight: '700',
-    flex: 1
+    fontWeight: '800',
+    flex: 1,
+    letterSpacing: -0.3
   },
   userRoleBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)'
   },
   userRoleText: {
     color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '900',
     textTransform: 'uppercase',
-    letterSpacing: 0.5
+    letterSpacing: 0.6
   },
   userEmail: {
-    fontSize: 13,
-    marginBottom: 4
+    fontSize: 14,
+    marginBottom: 6,
+    fontWeight: '600'
   },
   userDateRow: {
     flexDirection: 'row',
@@ -1112,17 +1142,26 @@ const styles = StyleSheet.create({
     fontSize: 12
   },
   statusButton: {
-    backgroundColor: '#10B981',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
+    backgroundColor: '#22C55E',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
     flexDirection: 'row',
-    alignItems: 'center'
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+    minHeight: 44,
+    shadowColor: '#22C55E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3
   },
   statusButtonText: {
     color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700'
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.2
   },
   helpText: {
     fontSize: 13,
@@ -1155,11 +1194,16 @@ const styles = StyleSheet.create({
     borderRadius: 12
   },
   statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#10B981',
-    marginRight: 6
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#22C55E',
+    marginRight: 8,
+    shadowColor: '#22C55E',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 3,
+    elevation: 2
   },
   statusText: {
     fontSize: 13,
@@ -1203,46 +1247,53 @@ const styles = StyleSheet.create({
   urgentModalContent: {
     width: '90%',
     maxHeight: '80%',
-    borderRadius: 20,
+    borderRadius: 28,
     padding: 0,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    elevation: 12
   },
   urgentModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 59, 48, 0.2)'
+    padding: 22,
+    borderBottomWidth: 1.5,
+    borderBottomColor: 'rgba(239, 68, 68, 0.2)'
   },
   urgentModalTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: 0.5
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: -0.5
   },
   urgentModalSubtitle: {
-    fontSize: 14,
-    marginTop: 2,
-    fontWeight: '500'
+    fontSize: 15,
+    marginTop: 4,
+    fontWeight: '600',
+    letterSpacing: -0.2
   },
   urgentModalScroll: {
     maxHeight: 400,
-    padding: 16
+    padding: 18
+  },
+  urgentModalFooter: {
+    padding: 18,
+    borderTopWidth: 1.5,
+    borderTopColor: 'rgba(239, 68, 68, 0.2)'
   },
   urgentTaskCard: {
     padding: 16,
-    borderRadius: 14,
-    marginBottom: 12,
-    borderWidth: 2,
+    borderRadius: 16,
+    marginBottom: 14,
+    borderWidth: 2.5,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+    minHeight: 100
   },
   urgentTaskHeader: {
     flexDirection: 'row',
@@ -1250,42 +1301,52 @@ const styles = StyleSheet.create({
     marginBottom: 12
   },
   urgentTaskTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    lineHeight: 20
+    fontSize: 17,
+    fontWeight: '800',
+    lineHeight: 22,
+    letterSpacing: -0.3
   },
   urgentTaskArea: {
-    fontSize: 13,
+    fontSize: 14,
     marginTop: 4,
-    fontWeight: '500'
+    fontWeight: '600',
+    letterSpacing: -0.2
   },
   urgentTaskTimer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
-    borderRadius: 10,
-    marginTop: 4
+    padding: 12,
+    borderRadius: 12,
+    marginTop: 8,
+    minHeight: 40
   },
   urgentTaskTime: {
-    fontSize: 15,
-    fontWeight: '700',
-    marginLeft: 8
+    fontSize: 16,
+    fontWeight: '800',
+    marginLeft: 10,
+    letterSpacing: -0.2
   },
   urgentModalFooter: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 59, 48, 0.2)'
+    padding: 18,
+    borderTopWidth: 1.5,
+    borderTopColor: 'rgba(239, 68, 68, 0.2)'
   },
   urgentModalButton: {
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center'
+    padding: 18,
+    borderRadius: 14,
+    alignItems: 'center',
+    minHeight: 48,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3
   },
   urgentModalButtonText: {
     color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: 0.5
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 0.3
   },
 });
 

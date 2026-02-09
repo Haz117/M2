@@ -15,12 +15,11 @@ import LoginScreen from './screens/LoginScreen';
 import HomeScreen from './screens/HomeScreen';
 import KanbanScreen from './screens/KanbanScreen';
 import CalendarScreen from './screens/CalendarScreen';
-import ReportScreen from './screens/ReportScreen';
+import DashboardScreen from './screens/DashboardScreen';
 import AdminScreen from './screens/AdminScreen';
 import MyInboxScreen from './screens/MyInboxScreen';
 import TaskDetailScreen from './screens/TaskDetailScreen';
 import TaskChatScreen from './screens/TaskChatScreen';
-import DashboardScreen from './screens/DashboardScreen';
 import { getCurrentSession, logoutUser } from './services/authFirestore';
 import { startConnectivityMonitoring } from './services/offlineQueue';
 import { setupNotificationResponseListener } from './services/notifications';
@@ -147,8 +146,7 @@ function MainTabs({ onLogout }) {
             if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
             else if (route.name === 'Kanban') iconName = focused ? 'apps' : 'apps-outline';
             else if (route.name === 'Calendar') iconName = focused ? 'calendar' : 'calendar-outline';
-            else if (route.name === 'Dashboard') iconName = focused ? 'bar-chart' : 'bar-chart-outline';
-            else if (route.name === 'Reports') iconName = focused ? 'stats-chart' : 'stats-chart-outline';
+            else if (route.name === 'Reports') iconName = focused ? 'bar-chart' : 'bar-chart-outline';
             else if (route.name === 'Admin') iconName = focused ? 'settings' : 'settings-outline';
             else if (route.name === 'Inbox') iconName = focused ? 'file-tray-full' : 'file-tray-outline';
             return <Ionicons name={iconName} size={size} color={color} />;
@@ -223,17 +221,9 @@ function MainTabs({ onLogout }) {
       
       {isJefeOrAdmin && (
         <Tab.Screen 
-          name="Dashboard" 
-          options={{ title: 'Dashboard' }} 
-          component={DashboardScreen} 
-        />
-      )}
-      
-      {isJefeOrAdmin && (
-        <Tab.Screen 
           name="Reports" 
-          options={{ title: 'Reportes' }} 
-          component={ReportScreen} 
+          options={{ title: 'Dashboard + Reportes' }} 
+          component={DashboardScreen} 
         />
       )}
       

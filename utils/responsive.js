@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { Dimensions, Platform } from 'react-native';
-import { BREAKPOINTS, getColumnCount, getResponsivePadding, getResponsiveValue } from '../theme/tokens';
+import { BREAKPOINTS, getColumnCount, getResponsivePadding, getResponsiveValue, MAX_WIDTHS, RESPONSIVE_PADDING, getMaxWidth } from '../theme/tokens';
 
 // Hook para detectar cambios de tamaño de pantalla
 export const useResponsive = () => {
@@ -20,17 +20,30 @@ export const useResponsive = () => {
   const width = dimensions.width;
   const height = dimensions.height;
   const isWeb = Platform.OS === 'web';
+  const isMobile = width < BREAKPOINTS.tablet;
+  const isTablet = width >= BREAKPOINTS.tablet && width < BREAKPOINTS.desktop;
+  const isDesktop = width >= BREAKPOINTS.desktop;
+  const isDesktopLarge = width >= BREAKPOINTS.desktopLarge;
+
+  // Padding responsivo
+  const responsivePadding = getResponsivePadding(width);
+  const paddingObj = isDesktopLarge ? RESPONSIVE_PADDING.desktopLarge :
+                     isDesktop ? RESPONSIVE_PADDING.desktop :
+                     isTablet ? RESPONSIVE_PADDING.tablet :
+                     RESPONSIVE_PADDING.mobile;
 
   return {
     width,
     height,
     isWeb,
-    isMobile: width < BREAKPOINTS.tablet,
-    isTablet: width >= BREAKPOINTS.tablet && width < BREAKPOINTS.desktop,
-    isDesktop: width >= BREAKPOINTS.desktop,
-    isDesktopLarge: width >= BREAKPOINTS.desktopLarge,
+    isMobile,
+    isTablet,
+    isDesktop,
+    isDesktopLarge,
     columns: getColumnCount(width),
-    padding: getResponsivePadding(width),
+    padding: responsivePadding,
+    paddingObj,
+    maxWidth: getMaxWidth(width),
     getValue: (values) => getResponsiveValue(width, values),
   };
 };
