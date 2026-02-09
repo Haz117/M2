@@ -54,6 +54,8 @@ export default function TaskDetailScreen({ route, navigation }) {
   const [isSaving, setIsSaving] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [canEdit, setCanEdit] = useState(false);
+  const [userRole, setUserRole] = useState(null);
+  const [isReadOnly, setIsReadOnly] = useState(false);
   
   // Modal de selección de usuario
   const [showAssigneeModal, setShowAssigneeModal] = useState(false);
@@ -161,16 +163,22 @@ export default function TaskDetailScreen({ route, navigation }) {
     const result = await getCurrentSession();
     if (result.success) {
       setCurrentUser(result.session);
-      const userRole = result.session.role;
+      const role = result.session.role;
+      setUserRole(role);
       
-      // Admin y jefe pueden editar todo
-      // Operativo solo puede cambiar el status de tareas asignadas a él
-      if (userRole === 'admin' || userRole === 'jefe') {
+      // Si es operativo y está viendo una tarea, modo solo lectura
+      if (role === 'operativo' && editingTask) {
+        setIsReadOnly(true);
+        setCanEdit(false);
+      } else if (role === 'admin' || role === 'jefe') {
         setCanEdit(true);
-      } else if (userRole === 'operativo' && editingTask && editingTask.assignedTo === result.session.email) {
-        setCanEdit(false); // Solo puede cambiar status, no editar completo
+        setIsReadOnly(false);
+      } else if (role === 'operativo' && editingTask && editingTask.assignedTo === result.session.email) {
+        setCanEdit(false);
+        setIsReadOnly(true);
       } else {
         setCanEdit(false);
+        setIsReadOnly(false);
       }
     }
   };
@@ -495,6 +503,65 @@ export default function TaskDetailScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
+      {/* Modal de solo lectura para operativos */}
+      {isReadOnly && editingTask && (
+        <Modal
+          visible={true}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => navigation.goBack()}
+        >
+          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
+            <View style={[styles.readOnlyModalContainer, { backgroundColor: theme.card }]}>
+              {/* Header */}
+              <View style={[styles.readOnlyHeader, { borderBottomColor: theme.border }]}>
+                <Text style={[styles.readOnlyTitle, { color: theme.text }]}>Detalles de la Tarea</Text>
+                <TouchableOpacity 
+                  onPress={() => navigation.goBack()}
+                  style={styles.readOnlyCloseButton}
+                >
+                  <Ionicons name="close" size={28} color={theme.text} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Content */}
+              <ScrollView style={styles.readOnlyContent} showsVerticalScrollIndicator={true}>
+                {/* Nombre */}
+                <View style={styles.readOnlySection}>
+                  <Text style={[styles.readOnlyLabel, { color: theme.textSecondary }]}>Nombre de la Tarea</Text>
+                  <View style={[styles.readOnlyField, { backgroundColor: theme.background, borderColor: theme.border }]}>
+                    <Text style={[styles.readOnlyFieldText, { color: theme.text }]}>
+                      {editingTask.title}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Descripción */}
+                <View style={styles.readOnlySection}>
+                  <Text style={[styles.readOnlyLabel, { color: theme.textSecondary }]}>Lo que debes hacer</Text>
+                  <View style={[styles.readOnlyFieldLarge, { backgroundColor: theme.background, borderColor: theme.border }]}>
+                    <Text style={[styles.readOnlyFieldText, { color: theme.text }]}>
+                      {editingTask.description || 'Sin descripción'}
+                    </Text>
+                  </View>
+                </View>
+              </ScrollView>
+
+              {/* Close Button */}
+              <TouchableOpacity 
+                style={[styles.readOnlyCloseButtonBottom, { backgroundColor: theme.primary }]}
+                onPress={() => navigation.goBack()}
+              >
+                <Text style={styles.readOnlyCloseButtonText}>Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Vista normal si no es read-only */}
+      {!isReadOnly && (
+        <View style={styles.container}>
       <View style={[styles.headerBar, { backgroundColor: '#9F2241' }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
           <Ionicons name="close" size={24} color="#FFFFFF" />
@@ -1282,6 +1349,8 @@ export default function TaskDetailScreen({ route, navigation }) {
           </View>
         </View>
       )}
+        </View>
+      )}
     </View>
   );
 }
@@ -2065,5 +2134,88 @@ const createStyles = (theme, isDark) => StyleSheet.create({
     color: '#FFFFFF',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  // Estilos para modal de solo lectura
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  readOnlyModalContainer: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '90%',
+    paddingBottom: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    elevation: 50,
+  },
+  readOnlyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  readOnlyTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  readOnlyCloseButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  readOnlyContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    flex: 1,
+  },
+  readOnlySection: {
+    marginBottom: 24,
+  },
+  readOnlyLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  readOnlyField: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    minHeight: 50,
+    justifyContent: 'center',
+  },
+  readOnlyFieldLarge: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    minHeight: 120,
+    justifyContent: 'flex-start',
+  },
+  readOnlyFieldText: {
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 22,
+  },
+  readOnlyCloseButtonBottom: {
+    marginHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  readOnlyCloseButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 });
