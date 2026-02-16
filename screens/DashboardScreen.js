@@ -29,6 +29,7 @@ import SpringCard from '../components/SpringCard';
 import RippleButton from '../components/RippleButton';
 import ProjectCard from '../components/ProjectCard';
 import WebSafeBlur from '../components/WebSafeBlur';
+import SecretarioStatsCard from '../components/SecretarioStatsCard';
 import { useResponsive } from '../utils/responsive';
 import { SPACING, TYPOGRAPHY, RADIUS, MAX_WIDTHS } from '../theme/tokens';
 import { AREAS } from '../config/areas';
@@ -799,6 +800,18 @@ export default function DashboardScreen({ navigation }) {
               </View>
             ))}
           </View>
+          </FadeInView>
+        )}
+
+        {/* Estadísticas de Secretarios (solo admin) */}
+        {currentUser?.role === 'admin' && (
+          <FadeInView duration={500} delay={550}>
+            <SecretarioStatsCard 
+              onSecretarioPress={(secretario) => {
+                // Navegar a detalle del secretario o mostrar modal
+                console.log('Secretario seleccionado:', secretario.displayName);
+              }}
+            />
           </FadeInView>
         )}
 

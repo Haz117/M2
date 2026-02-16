@@ -388,3 +388,153 @@ function percentage(value, total) {
   if (total === 0) return 0;
   return Math.round((value / total) * 100);
 }
+
+/**
+ * Generar reporte de rendimiento de secretarios (solo admin)
+ * @returns {Promise<string>} - Path o nombre del archivo generado
+ */
+export const generateSecretarioReport = async () => {
+  try {
+    const session = await getCurrentSession();
+    if (!session.success) {
+      throw new Error('Usuario no autenticado');
+    }
+
+    if (session.session.role !== 'admin') {
+      throw new Error('Solo administradores pueden generar este reporte');
+    }
+
+    // Obtener usuarios secretarios
+    const usersQuery = query(collection(db, 'users'), where('role', '==', 'secretario'));
+    const usersSnapshot = await getDocs(usersQuery);
+    const secretarios = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    if (secretarios.length === 0) {
+      throw new Error('No hay secretarios registrados');
+    }
+
+    // Obtener todas las tareas
+    const tasksQuery = query(collection(db, 'tasks'));
+    const tasksSnapshot = await getDocs(tasksQuery);
+    const tasks = tasksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    const now = Date.now();
+    const weekAgo = now - (7 * 24 * 60 * 60 * 1000);
+    const monthAgo = now - (30 * 24 * 60 * 60 * 1000);
+
+    // Calcular métricas por secretario
+    const reportData = secretarios.map(secretario => {
+      const tasksCreated = tasks.filter(t => 
+        t.createdBy === secretario.email || t.createdBy === secretario.id
+      );
+      const tasksCompleted = tasksCreated.filter(t => t.status === 'cerrada');
+      const tasksPending = tasksCreated.filter(t => t.status !== 'cerrada');
+      const tasksOverdue = tasksPending.filter(t => t.dueAt && t.dueAt < now);
+      const tasksCreatedWeek = tasksCreated.filter(t => t.createdAt >= weekAgo);
+      const tasksCompletedWeek = tasksCompleted.filter(t => t.completedAt >= weekAgo);
+      const tasksCreatedMonth = tasksCreated.filter(t => t.createdAt >= monthAgo);
+      const tasksCompletedMonth = tasksCompleted.filter(t => t.completedAt >= monthAgo);
+
+      const onTimeCompleted = tasksCompleted.filter(t => 
+        t.dueAt && t.completedAt && t.completedAt <= t.dueAt
+      ).length;
+
+      const completionRate = tasksCreated.length > 0 
+        ? (tasksCompleted.length / tasksCreated.length * 100).toFixed(1)
+        : 0;
+      const onTimeRate = tasksCompleted.length > 0
+        ? (onTimeCompleted / tasksCompleted.length * 100).toFixed(1)
+        : 0;
+
+      return {
+        nombre: secretario.displayName || secretario.email,
+        email: secretario.email,
+        area: secretario.area || secretario.department || 'Sin área',
+        totalDelegadas: tasksCreated.length,
+        completadas: tasksCompleted.length,
+        pendientes: tasksPending.length,
+        vencidas: tasksOverdue.length,
+        delegadasSemana: tasksCreatedWeek.length,
+        completadasSemana: tasksCompletedWeek.length,
+        delegadasMes: tasksCreatedMonth.length,
+        completadasMes: tasksCompletedMonth.length,
+        tasaCompletitud: completionRate,
+        tasaATiempo: onTimeRate
+      };
+    });
+
+    // Generar CSV
+    const headers = [
+      'Nombre',
+      'Email',
+      'Área',
+      'Total Delegadas',
+      'Completadas',
+      'Pendientes',
+      'Vencidas',
+      'Delegadas Semana',
+      'Completadas Semana',
+      'Delegadas Mes',
+      'Completadas Mes',
+      'Tasa Completitud %',
+      'Tasa A Tiempo %'
+    ];
+
+    const rows = reportData.map(s => [
+      escapeCSV(s.nombre),
+      escapeCSV(s.email),
+      escapeCSV(s.area),
+      s.totalDelegadas,
+      s.completadas,
+      s.pendientes,
+      s.vencidas,
+      s.delegadasSemana,
+      s.completadasSemana,
+      s.delegadasMes,
+      s.completadasMes,
+      s.tasaCompletitud,
+      s.tasaATiempo
+    ].map(field => `"${field}"`).join(','));
+
+    const csv = [
+      headers.map(h => `"${h}"`).join(','),
+      ...rows
+    ].join('\n');
+
+    const fileName = `reporte_secretarios_${new Date().toISOString().split('T')[0]}.csv`;
+
+    // En web, descargar directamente
+    if (Platform.OS === 'web') {
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', fileName);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      return fileName;
+    }
+
+    // En mobile, guardar y compartir
+    const filePath = `${FileSystem.documentDirectory}${fileName}`;
+    await FileSystem.writeAsStringAsync(filePath, csv, {
+      encoding: FileSystem.EncodingType.UTF8
+    });
+
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(filePath, {
+        mimeType: 'text/csv',
+        dialogTitle: 'Exportar Reporte de Secretarios'
+      });
+    }
+
+    return filePath;
+  } catch (error) {
+    console.error('Error generando reporte de secretarios:', error);
+    throw error;
+  }
+};
