@@ -83,7 +83,8 @@ export const loginUser = async (email, password) => {
       displayName: userData.displayName,
       role: userData.role,
       department: userData.department || '',
-      area: userData.area || userData.department || ''
+      area: userData.area || userData.department || '',
+      direcciones: userData.direcciones || [] // Direcciones a cargo del secretario
     };
     
     await AsyncStorage.setItem('userSession', JSON.stringify(session));

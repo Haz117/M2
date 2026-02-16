@@ -193,12 +193,12 @@ export default function HomeScreen({ navigation }) {
     }
   }, [tasks, tasksLoading]);
 
-  // Navegar a pantalla para crear nueva tarea (solo admin y jefe)
+  // Navegar a pantalla para crear nueva tarea (admin, jefe y secretario)
   const goToCreate = useCallback(() => {
-    if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'jefe')) {
+    if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'jefe' || currentUser.role === 'secretario')) {
       navigation.navigate('TaskDetail');
     } else {
-      Alert.alert('Sin permisos', 'Solo administradores y jefes pueden crear tareas');
+      Alert.alert('Sin permisos', 'Solo administradores, jefes y secretarios pueden crear tareas');
     }
   }, [currentUser, navigation]);
 
@@ -865,6 +865,7 @@ export default function HomeScreen({ navigation }) {
           // Determinar permisos según el rol
           const isAdmin = currentUser?.role === 'admin';
           const isJefe = currentUser?.role === 'jefe';
+          const isSecretario = currentUser?.role === 'secretario';
           
           const content = (
             <TaskItem 
@@ -876,8 +877,8 @@ export default function HomeScreen({ navigation }) {
               onToggleComplete={() => toggleComplete(item)}
               // Solo admin puede reabrir tareas
               onReopen={isAdmin ? reopenTask : undefined}
-              // Solo admin y jefe pueden duplicar tareas
-              onDuplicate={isAdmin || isJefe ? () => duplicateTask(item) : undefined}
+              // Admin, jefe y secretario pueden duplicar tareas
+              onDuplicate={isAdmin || isJefe || isSecretario ? () => duplicateTask(item) : undefined}
               onShare={() => shareTask(item)}
               onChangeStatus={(newStatus) => changeTaskStatus(item.id, newStatus)}
               currentUserRole={currentUser?.role || 'operativo'}
@@ -935,7 +936,7 @@ export default function HomeScreen({ navigation }) {
       />
       
       {/* Botón para crear tarea */}
-      {currentUser && (currentUser.role === 'admin' || currentUser.role === 'jefe') && (
+      {currentUser && (currentUser.role === 'admin' || currentUser.role === 'jefe' || currentUser.role === 'secretario') && (
         <TouchableOpacity 
           style={styles.fab}
           onPress={() => navigation.navigate('TaskDetail')}

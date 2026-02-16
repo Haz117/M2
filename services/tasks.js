@@ -113,12 +113,21 @@ export async function subscribeToTasks(callback) {
     const userRole = session.role;
     const userEmail = session.email;
     const userDepartment = session.department;
+    const userArea = session.area || '';
+    const userDirecciones = session.direcciones || [];
 
     let tasksQuery;
 
     // Construir query según el rol del usuario
-    // Admin y Secretario ven todas las tareas
-    if (userRole === 'admin' || userRole === 'secretario') {
+    if (userRole === 'admin') {
+      // Admin ve TODAS las tareas
+      tasksQuery = query(
+        collection(db, COLLECTION_NAME),
+        orderBy('createdAt', 'desc')
+      );
+    } else if (userRole === 'secretario') {
+      // Secretario ve tareas de su área específica
+      // Usamos query general y filtramos después por área/direcciones
       tasksQuery = query(
         collection(db, COLLECTION_NAME),
         orderBy('createdAt', 'desc')
@@ -163,6 +172,22 @@ export async function subscribeToTasks(callback) {
         // Filtrar según rol
         if (userRole === 'operativo') {
           tasks = tasks.filter(task => isTaskAssignedToUser(task, userEmail));
+        } else if (userRole === 'secretario') {
+          // Secretario solo ve tareas de su área o direcciones
+          tasks = tasks.filter(task => {
+            // Si la tarea es del área del secretario
+            if (task.area === userArea) return true;
+            // Si la tarea fue creada por este secretario
+            if (task.createdBy === userEmail) return true;
+            // Si la tarea está asignada a alguna de sus direcciones
+            if (userDirecciones.length > 0) {
+              const taskArea = task.area || '';
+              if (userDirecciones.some(dir => taskArea.toLowerCase().includes(dir.toLowerCase()))) {
+                return true;
+              }
+            }
+            return false;
+          });
         }
         
         // Deduplicación

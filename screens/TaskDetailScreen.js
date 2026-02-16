@@ -124,11 +124,50 @@ export default function TaskDetailScreen({ route, navigation }) {
     'rrhh': 'Recursos Humanos'
   }), []);
 
+  // Filtrar áreas según el rol del usuario
+  const availableAreas = useMemo(() => {
+    if (!currentUser) return AREAS;
+    
+    // Admin ve todas las áreas
+    if (currentUser.role === 'admin') return AREAS;
+    
+    // Secretario solo ve su área principal y sus direcciones
+    if (currentUser.role === 'secretario') {
+      const secretarioAreas = [];
+      
+      // Agregar el área principal del secretario
+      if (currentUser.area) {
+        secretarioAreas.push(currentUser.area);
+      }
+      
+      // Agregar las direcciones a cargo
+      if (currentUser.direcciones && Array.isArray(currentUser.direcciones)) {
+        secretarioAreas.push(...currentUser.direcciones);
+      }
+      
+      // Filtrar AREAS para solo mostrar las que coinciden con el secretario
+      if (secretarioAreas.length > 0) {
+        return AREAS.filter(area => 
+          secretarioAreas.some(secArea => 
+            area.toLowerCase().includes(secArea.toLowerCase()) ||
+            secArea.toLowerCase().includes(area.toLowerCase())
+          )
+        );
+      }
+      
+      // Si no tiene áreas definidas, solo mostrar su área principal
+      return currentUser.area ? [currentUser.area] : [];
+    }
+    
+    // Jefe y operativo ven todas las áreas
+    return AREAS;
+  }, [currentUser]);
+
   const filteredAreas = useMemo(() => {
-    if (!areaSearchQuery.trim()) return AREAS;
+    if (!areaSearchQuery.trim()) return availableAreas;
     const query = areaSearchQuery.toLowerCase();
-    return AREAS.filter(area => area.toLowerCase().includes(query));
-  }, [areaSearchQuery]);
+    return availableAreas.filter(area => area.toLowerCase().includes(query));
+  }, [areaSearchQuery, availableAreas]);
 
   useEffect(() => {
     navigation.setOptions({ 
@@ -207,7 +246,8 @@ export default function TaskDetailScreen({ route, navigation }) {
       if (role === 'operativo' && editingTask) {
         setIsReadOnly(true);
         setCanEdit(false);
-      } else if (role === 'admin' || role === 'jefe') {
+      } else if (role === 'admin' || role === 'jefe' || role === 'secretario') {
+        // Admin, Jefe y Secretario pueden editar
         setCanEdit(true);
         setIsReadOnly(false);
       } else if (role === 'operativo' && editingTask && editingTask.assignedTo === result.session.email) {
@@ -538,7 +578,17 @@ export default function TaskDetailScreen({ route, navigation }) {
   // Memoizar handlers para evitar recrearlos en cada render
   const toggleAreaSelection = useCallback((a) => {
     const areaDep = areaToDepMap[a] || a.toLowerCase();
-    const canSelectArea = canEdit && (currentUser?.role === 'admin' || areaDep === currentUser?.department);
+    
+    // Determinar si puede seleccionar el área según el rol
+    let canSelectArea = false;
+    if (currentUser?.role === 'admin') {
+      canSelectArea = canEdit;
+    } else if (currentUser?.role === 'secretario') {
+      // Secretario puede seleccionar áreas de su lista
+      canSelectArea = canEdit && availableAreas.includes(a);
+    } else if (currentUser?.role === 'jefe') {
+      canSelectArea = canEdit && areaDep === currentUser?.department;
+    }
     
     if (!canSelectArea) return;
     
@@ -552,7 +602,7 @@ export default function TaskDetailScreen({ route, navigation }) {
         return [...prev, a];
       }
     });
-  }, [canEdit, currentUser, areaToDepMap]);
+  }, [canEdit, currentUser, areaToDepMap, availableAreas]);
 
   const handlePriorityChange = useCallback((p) => {
     if (canEdit) setPriority(p);

@@ -280,14 +280,29 @@ export default function ReportsScreen({ navigation }) {
     const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
     const monthAgo = now - 30 * 24 * 60 * 60 * 1000;
 
-    // Mostrar todas las tareas para admin, filtrar por creador para otros
-    const userTasks = currentUser?.role === 'admin' 
-      ? allTasks
-      : allTasks.filter(t => {
-          // Si no hay createdBy, mostrar la tarea de todas formas
-          if (!t.createdBy) return true;
-          return t.createdBy === currentUser?.email;
-        });
+    // Mostrar todas las tareas para admin, filtrar por área para secretario, por creador para otros
+    let userTasks;
+    if (currentUser?.role === 'admin') {
+      userTasks = allTasks;
+    } else if (currentUser?.role === 'secretario') {
+      // Secretario ve tareas de su área o que haya creado
+      userTasks = allTasks.filter(t => {
+        if (t.createdBy === currentUser?.email) return true;
+        if (t.area === currentUser?.area) return true;
+        // Verificar si la tarea está en alguna de sus direcciones
+        if (currentUser?.direcciones && Array.isArray(currentUser.direcciones)) {
+          return currentUser.direcciones.some(dir => 
+            (t.area || '').toLowerCase().includes(dir.toLowerCase())
+          );
+        }
+        return false;
+      });
+    } else {
+      userTasks = allTasks.filter(t => {
+        if (!t.createdBy) return true;
+        return t.createdBy === currentUser?.email;
+      });
+    }
 
     // Weekly stats
     const weeklyTasks = userTasks.filter(t => t.createdAt >= weekAgo);
@@ -745,7 +760,7 @@ export default function ReportsScreen({ navigation }) {
           )}
 
           {/* Botón de exportación */}
-          {currentUser?.role === 'admin' && Object.keys(areaMetrics).length > 0 && (
+          {(currentUser?.role === 'admin' || currentUser?.role === 'secretario') && Object.keys(areaMetrics).length > 0 && (
             <TouchableOpacity
               style={[styles.exportButton, { backgroundColor: theme.primary }]}
               onPress={handleExportReport}
