@@ -18,6 +18,8 @@ import TaskStatusButtons from '../components/TaskStatusButtons';
 import MultiUserSelector from '../components/MultiUserSelector';
 import SubtasksList from '../components/SubtasksList';
 import AreaSelectorModal from '../components/AreaSelectorModal';
+import AssigneeProgress from '../components/AssigneeProgress';
+import { confirmTaskCompletion, removeTaskConfirmation, hasUserConfirmed } from '../services/taskConfirmations';
 import { useTheme } from '../contexts/ThemeContext';
 import { savePomodoroSession } from '../services/pomodoro';
 import { AREAS } from '../config/areas';
@@ -82,6 +84,9 @@ export default function TaskDetailScreen({ route, navigation }) {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('success');
   const [saveProgress, setSaveProgress] = useState(null);
+  
+  // Estado de confirmaciones por asignado
+  const [assigneeConfirmations, setAssigneeConfirmations] = useState([]);
   
   // Pomodoro & Tags state
   const [showPomodoroModal, setShowPomodoroModal] = useState(false);
@@ -229,9 +234,96 @@ export default function TaskDetailScreen({ route, navigation }) {
       }));
       
       setSelectedAssignees(assigneesObjects);
+      
+      // Inicializar estado de confirmaciones
+      initializeConfirmations();
     } catch (error) {
       console.error('Error inicializando asignados:', error);
     }
+  };
+  
+  // Inicializar confirmaciones de asignados
+  const initializeConfirmations = () => {
+    if (!editingTask) return;
+    
+    const assignedTo = editingTask.assignedTo || [];
+    const assignedToNames = editingTask.assignedToNames || [];
+    const completedBy = editingTask.completedBy || [];
+    
+    const confirmations = (Array.isArray(assignedTo) ? assignedTo : [assignedTo]).map((email, index) => {
+      const confirmation = completedBy.find(c => c.email?.toLowerCase() === email?.toLowerCase());
+      return {
+        email,
+        displayName: assignedToNames[index] || email,
+        completed: !!confirmation,
+        completedAt: confirmation?.completedAt || null
+      };
+    });
+    
+    setAssigneeConfirmations(confirmations);
+  };
+  
+  // Confirmar mi parte de la tarea
+  const handleConfirmMyPart = async () => {
+    if (!editingTask || !currentUser) return;
+    
+    try {
+      const result = await confirmTaskCompletion(editingTask.id, {
+        email: currentUser.email,
+        displayName: currentUser.displayName || currentUser.email,
+        area: currentUser.department || ''
+      });
+      
+      setToastMessage(result.allCompleted 
+        ? '¡Tarea lista para revisión!' 
+        : `Confirmado (${result.completedCount}/${result.totalAssigned})`
+      );
+      setToastType('success');
+      setToastVisible(true);
+      
+      // Actualizar estado local
+      initializeConfirmations();
+      
+      // Si todos confirmaron, actualizar status en pantalla
+      if (result.allCompleted) {
+        setStatus('en_revision');
+      }
+    } catch (error) {
+      setToastMessage(error.message);
+      setToastType('error');
+      setToastVisible(true);
+    }
+  };
+  
+  // Quitar confirmación (solo admin)
+  const handleRemoveConfirmation = async (userEmail) => {
+    if (!editingTask) return;
+    
+    Alert.alert(
+      'Quitar confirmación',
+      '¿Quieres quitar la confirmación de este usuario?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Quitar', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await removeTaskConfirmation(editingTask.id, userEmail);
+              setToastMessage('Confirmación removida');
+              setToastType('success');
+              setToastVisible(true);
+              initializeConfirmations();
+              setStatus('en_proceso');
+            } catch (error) {
+              setToastMessage(error.message);
+              setToastType('error');
+              setToastVisible(true);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const loadUserNames = async () => {
@@ -772,7 +864,9 @@ export default function TaskDetailScreen({ route, navigation }) {
           {/* SECCIÓN BÁSICA */}
           <View style={[styles.section, { backgroundColor: theme.cardBackground }]}>
             <View style={styles.sectionHeaderSimple}>
-              <Ionicons name="document-text" size={20} color={theme.primary} />
+              <View style={{ backgroundColor: theme.primary + '15', padding: 10, borderRadius: 12 }}>
+                <Ionicons name="document-text" size={22} color={theme.primary} />
+              </View>
               <Text style={[styles.sectionTitleSimple, { color: theme.text }]}>Información Básica</Text>
             </View>
             
@@ -782,7 +876,7 @@ export default function TaskDetailScreen({ route, navigation }) {
               value={title} 
               onChangeText={setTitle} 
               placeholder="¿Qué hay que hacer?" 
-              placeholderTextColor="#C7C7CC" 
+              placeholderTextColor={isDark ? '#666' : '#A0A0A0'} 
               style={styles.input}
               editable={canEdit}
               error={!title.trim() && title.length > 0}
@@ -793,9 +887,9 @@ export default function TaskDetailScreen({ route, navigation }) {
               ref={descriptionInputRef}
               value={description} 
               onChangeText={setDescription} 
-              placeholder="Detalles de la tarea..." 
-              placeholderTextColor="#C7C7CC" 
-              style={[styles.input, {height:80}]} 
+              placeholder="Describe los detalles de la tarea..." 
+              placeholderTextColor={isDark ? '#666' : '#A0A0A0'} 
+              style={[styles.input, {height: 100, textAlignVertical: 'top', paddingTop: 14}]} 
               multiline
               editable={canEdit}
               error={!description.trim() && description.length > 0}
@@ -805,12 +899,14 @@ export default function TaskDetailScreen({ route, navigation }) {
           {/* SECCIÓN ASIGNACIÓN */}
           <View style={[styles.section, { backgroundColor: theme.cardBackground }]}>
             <View style={styles.sectionHeaderSimple}>
-              <Ionicons name="people" size={20} color={theme.primary} />
+              <View style={{ backgroundColor: theme.primary + '15', padding: 10, borderRadius: 12 }}>
+                <Ionicons name="people" size={22} color={theme.primary} />
+              </View>
               <Text style={[styles.sectionTitleSimple, { color: theme.text }]}>Asignación y Área</Text>
             </View>
             
             {/* Selector de Asignados Múltiples */}
-            <Text style={[styles.label, { marginTop: 16, marginBottom: 12 }]}>ASIGNADOS A *</Text>
+            <Text style={[styles.label, { marginTop: 8, marginBottom: 12 }]}>ASIGNADOS A *</Text>
             <View style={{ opacity: canEdit ? 1 : 0.5 }}>
               <MultiUserSelector
                 selectedUsers={selectedAssignees}
@@ -819,23 +915,35 @@ export default function TaskDetailScreen({ route, navigation }) {
                 area={currentUser?.department || selectedAreas[0]}
               />
             </View>
+            
+            {/* Progreso de confirmaciones por asignado - Solo para tareas existentes con múltiples asignados */}
+            {editingTask && assigneeConfirmations.length > 1 && (
+              <AssigneeProgress
+                assignees={assigneeConfirmations}
+                currentUserEmail={currentUser?.email}
+                onConfirm={handleConfirmMyPart}
+                onRemoveConfirmation={currentUser?.role === 'admin' ? handleRemoveConfirmation : null}
+                isAdmin={currentUser?.role === 'admin'}
+              />
+            )}
 
             {/* Selector de Múltiples Áreas */}
-            <Text style={[styles.label, { marginTop: 24, marginBottom: 12 }]}>ÁREAS *</Text>
+            <Text style={[styles.label, { marginTop: 28, marginBottom: 14 }]}>ÁREAS *</Text>
             
             {/* Mostrar áreas seleccionadas como pills */}
             {selectedAreas.length > 0 && (
               <View style={styles.selectedAreasContainer}>
                 {selectedAreas.map((a) => (
                   <View key={a} style={[styles.areaPill, { backgroundColor: theme.primary }]}>
-                    <Ionicons name="folder" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
-                    <Text style={styles.areaPillText}>{a}</Text>
+                    <Ionicons name="folder" size={16} color="#FFFFFF" />
+                    <Text style={styles.areaPillText} numberOfLines={1}>{a.replace('Secretaría ', '').replace('Dirección ', '')}</Text>
                     {canEdit && (
                       <TouchableOpacity 
                         onPress={() => toggleAreaSelection(a)}
                         style={styles.areaPillRemove}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
-                        <Ionicons name="close" size={14} color="#FFFFFF" />
+                        <Ionicons name="close" size={12} color="#FFFFFF" />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -848,30 +956,57 @@ export default function TaskDetailScreen({ route, navigation }) {
               style={[
                 styles.areaButton,
                 {
-                  borderColor: theme.primary,
-                  backgroundColor: theme.primary + '12',
+                  borderColor: selectedAreas.length === 0 ? '#E53935' : theme.primary,
+                  backgroundColor: selectedAreas.length === 0 
+                    ? (isDark ? 'rgba(229, 57, 53, 0.08)' : 'rgba(229, 57, 53, 0.04)')
+                    : (isDark ? theme.primary + '15' : theme.primary + '08'),
                   opacity: canEdit ? 1 : 0.5,
-                  borderWidth: 2,
                   borderStyle: 'dashed',
                 },
               ]}
               onPress={() => setShowAreaModal(true)}
-              activeOpacity={0.7}
+              activeOpacity={0.8}
               disabled={!canEdit}
             >
-              <View style={[styles.areaButtonIcon, { backgroundColor: theme.primary }]}>
-                <Ionicons name="add" size={22} color="#FFFFFF" />
+              <View style={[
+                styles.areaButtonIcon, 
+                { backgroundColor: selectedAreas.length === 0 ? '#E53935' : theme.primary }
+              ]}>
+                <Ionicons 
+                  name={selectedAreas.length > 0 ? "add" : "folder-open"} 
+                  size={24} 
+                  color="#FFFFFF" 
+                />
               </View>
               <View style={styles.areaButtonInfo}>
-                <Text style={[styles.areaButtonLabel, { color: theme.textSecondary, fontSize: 12 }]}>
-                  {selectedAreas.length > 0 ? 'AGREGAR MAS ÁREAS' : 'SELECCIONAR ÁREA'}
+                <Text style={[
+                  styles.areaButtonLabel, 
+                  { color: selectedAreas.length === 0 ? '#E53935' : theme.textSecondary }
+                ]}>
+                  {selectedAreas.length > 0 ? 'AGREGAR MÁS ÁREAS' : 'SELECCIONAR ÁREA'}
                 </Text>
-                <Text style={[styles.areaButtonValue, { color: theme.text, fontSize: 15, fontWeight: '700' }]}>
-                  {selectedAreas.length === 0 ? 'Sin área asignada' : `${selectedAreas.length} ${selectedAreas.length === 1 ? 'área' : 'áreas'} seleccionada${selectedAreas.length > 1 ? 's' : ''}`}
+                <Text style={[
+                  styles.areaButtonValue, 
+                  { 
+                    color: selectedAreas.length === 0 ? '#E53935' : theme.text,
+                    fontWeight: selectedAreas.length === 0 ? '600' : '700'
+                  }
+                ]}>
+                  {selectedAreas.length === 0 
+                    ? 'Sin área asignada' 
+                    : `${selectedAreas.length} ${selectedAreas.length === 1 ? 'área' : 'áreas'} seleccionada${selectedAreas.length > 1 ? 's' : ''}`
+                  }
                 </Text>
               </View>
-              <View style={[styles.areaButtonChevron, { backgroundColor: theme.primary + '1a' }]}>
-                <Ionicons name="chevron-forward" size={20} color={theme.primary} />
+              <View style={[
+                styles.areaButtonChevron, 
+                { backgroundColor: selectedAreas.length === 0 ? 'rgba(229, 57, 53, 0.12)' : theme.primary + '15' }
+              ]}>
+                <Ionicons 
+                  name="chevron-forward" 
+                  size={20} 
+                  color={selectedAreas.length === 0 ? '#E53935' : theme.primary} 
+                />
               </View>
             </TouchableOpacity>
           </View>
@@ -889,24 +1024,51 @@ export default function TaskDetailScreen({ route, navigation }) {
           {/* SECCIÓN PRIORIDAD Y FECHA */}
           <View style={[styles.section, { backgroundColor: theme.cardBackground }]}>
             <View style={styles.sectionHeaderSimple}>
-              <Ionicons name="flag" size={20} color={theme.primary} />
+              <View style={{ backgroundColor: theme.primary + '15', padding: 10, borderRadius: 12 }}>
+                <Ionicons name="flag" size={22} color={theme.primary} />
+              </View>
               <Text style={[styles.sectionTitleSimple, { color: theme.text }]}>Prioridad y Fecha</Text>
             </View>
             
             <Text style={styles.label}>PRIORIDAD *</Text>
             <View style={styles.pickerRow}>
-              {priorities.map(p => (
-                <TouchableOpacity
-                  key={p}
-                  onPress={() => handlePriorityChange(p)}
-                  style={[styles.optionBtn, priority === p && styles.optionBtnActive, !canEdit && styles.optionBtnDisabled]}
-                  disabled={!canEdit}
-                >
-                  <Text style={[styles.optionText, priority === p && styles.optionTextActive]} numberOfLines={1}>
-                    {p.charAt(0).toUpperCase() + p.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {priorities.map((p, index) => {
+                const priorityColors = {
+                  'alta': '#E53935',
+                  'media': '#FB8C00', 
+                  'baja': '#43A047'
+                };
+                const isActive = priority === p;
+                const pColor = priorityColors[p] || theme.primary;
+                
+                return (
+                  <TouchableOpacity
+                    key={p}
+                    onPress={() => handlePriorityChange(p)}
+                    style={[
+                      styles.optionBtn, 
+                      isActive && [styles.optionBtnActive, { backgroundColor: pColor, borderColor: pColor }],
+                      !canEdit && styles.optionBtnDisabled
+                    ]}
+                    disabled={!canEdit}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Ionicons 
+                        name={isActive ? "flag" : "flag-outline"} 
+                        size={18} 
+                        color={isActive ? "#FFFFFF" : pColor} 
+                      />
+                      <Text style={[
+                        styles.optionText, 
+                        isActive && styles.optionTextActive,
+                        !isActive && { color: pColor }
+                      ]} numberOfLines={1}>
+                        {p.charAt(0).toUpperCase() + p.slice(1)}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             <Text style={styles.label}>FECHA COMPROMISO *</Text>
@@ -1434,29 +1596,31 @@ const createStyles = (theme, isDark) => StyleSheet.create({
     padding: 16
   },
   label: { 
-    marginTop: 14, 
-    marginBottom: 6,
-    color: isDark ? '#AAA' : '#1A1A1A', 
-    fontWeight: '800', 
-    fontSize: 12,
+    marginTop: 18, 
+    marginBottom: 10,
+    color: isDark ? '#B8B8B8' : '#5A5A5A', 
+    fontWeight: '700', 
+    fontSize: 11,
     textTransform: 'uppercase',
-    letterSpacing: 1
+    letterSpacing: 1.2,
+    paddingLeft: 4,
   },
   input: { 
-    padding: 12, 
-    backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : '#FFFFFF', 
-    borderRadius: 12,
+    padding: 16, 
+    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#FAFAFA', 
+    borderRadius: 14,
     color: theme.text,
-    fontSize: 15,
-    fontWeight: '600',
-    shadowColor: '#9F2241',
+    fontSize: 16,
+    fontWeight: '500',
+    shadowColor: isDark ? '#000' : '#9F2241',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 2,
-    borderWidth: 2,
-    borderColor: '#F5DEB3',
-    minHeight: 48
+    borderWidth: 1.5,
+    borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(159, 34, 65, 0.12)',
+    minHeight: 52,
+    lineHeight: 22,
   },
   dateButton: {
     borderRadius: 16,
@@ -1509,46 +1673,45 @@ const createStyles = (theme, isDark) => StyleSheet.create({
   pickerRow: { 
     flexDirection: 'row', 
     flexWrap: 'wrap', 
-    marginTop: 10, 
-    marginBottom: 8,
-    gap: 10
+    marginTop: 12, 
+    marginBottom: 10,
+    gap: 12
   },
   optionBtn: { 
-    paddingHorizontal: 16, 
-    paddingVertical: 12, 
-    backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : '#FFFAF0', 
-    borderRadius: 12,
+    paddingHorizontal: 20, 
+    paddingVertical: 14, 
+    backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#FFFFFF', 
+    borderRadius: 14,
     borderWidth: 2,
-    borderColor: isDark ? 'rgba(255,255,255,0.2)' : '#F5DEB3',
-    shadowColor: '#9F2241',
+    borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
-    maxWidth: '48%',
-    flexShrink: 1
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+    flex: 1,
+    minWidth: 100,
   },
   optionBtnActive: { 
     backgroundColor: '#9F2241',
     borderColor: '#9F2241',
     shadowColor: '#9F2241',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
     transform: [{ scale: 1.02 }]
   },
   optionBtnDisabled: {
-    opacity: 0.5,
-    backgroundColor: '#E5E5EA'
+    opacity: 0.4,
+    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#F0F0F0'
   },
   optionText: { 
     fontSize: 15, 
     color: theme.text, 
     fontWeight: '700',
-    letterSpacing: 0.1,
+    letterSpacing: 0.2,
     textAlign: 'center',
-    flexShrink: 1
   },
   optionTextActive: { 
     color: '#FFFFFF', 
@@ -1698,25 +1861,30 @@ const createStyles = (theme, isDark) => StyleSheet.create({
   },
   // Nuevos estilos para secciones
   section: {
-    marginBottom: 20,
-    padding: 16,
-    borderRadius: 16,
+    marginBottom: 24,
+    padding: 20,
+    borderRadius: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)',
   },
   sectionHeaderSimple: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-    gap: 10,
+    marginBottom: 20,
+    gap: 12,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(159, 34, 65, 0.08)',
   },
   sectionTitleSimple: {
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
   advancedToggle: {
     marginVertical: 12,
@@ -2097,53 +2265,54 @@ const createStyles = (theme, isDark) => StyleSheet.create({
   },
   // Estilos para el botón de área modal
   areaButton: {
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 2,
-    paddingVertical: 16,
-    paddingHorizontal: 14,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    minHeight: 80,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
+    gap: 16,
+    minHeight: 88,
+    shadowColor: '#9F2241',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 4,
+    transition: 'all 0.2s ease',
   },
   areaButtonIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     flexShrink: 0,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowColor: '#9F2241',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
   areaButtonInfo: {
     flex: 1,
     justifyContent: 'center',
+    gap: 4,
   },
   areaButtonLabel: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: 6,
-    opacity: 0.7,
+    letterSpacing: 1,
+    marginBottom: 4,
   },
   areaButtonValue: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   areaButtonChevron: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     flexShrink: 0,
@@ -2191,30 +2360,36 @@ const createStyles = (theme, isDark) => StyleSheet.create({
   selectedAreasContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 16,
+    gap: 12,
+    marginBottom: 18,
+    paddingVertical: 4,
   },
   areaPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 22,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 2,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    gap: 10,
+    shadowColor: '#9F2241',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   areaPillText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
+    letterSpacing: 0.2,
   },
   areaPillRemove: {
-    padding: 2,
+    padding: 4,
     marginLeft: 2,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 10,
   },
   // Estilos para modal de solo lectura
   modalOverlay: {

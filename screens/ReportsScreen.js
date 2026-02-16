@@ -35,6 +35,7 @@ import AreaRankingCard from '../components/AreaRankingCard';
 import AreaFilter from '../components/AreaFilter';
 import AlertsPanel from '../components/AlertsPanel';
 import InsightsPanel from '../components/InsightsPanel';
+import ComplianceReport from '../components/ComplianceReport';
 import { calculateDetailedAreaMetrics, generateAreaSummary, getAreasNeedingAttention } from '../services/areaMetrics';
 import { getAreaAlerts, getAreasForAttention } from '../services/AreaAlerts';
 import { 
@@ -980,6 +981,19 @@ export default function ReportsScreen({ navigation }) {
                 bottlenecks={bottlenecks}
                 predictions={predictions}
                 workloadDistribution={workloadDistribution}
+              />
+            </Animated.View>
+          )}
+
+          {/* 📊 REPORTE DE CUMPLIMIENTO - Solo admin */}
+          {currentUser?.role === 'admin' && tasks.length > 0 && (
+            <Animated.View style={{ 
+              opacity: chartsOpacity,
+              transform: [{ translateY: chartsSlide }]
+            }}>
+              <ComplianceReport 
+                tasks={tasks}
+                showDetails={true}
               />
             </Animated.View>
           )}

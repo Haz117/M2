@@ -15,7 +15,8 @@ import { subscribeToTasks, updateTask, deleteTask as deleteTaskFirebase } from '
 import { scheduleNotificationForTask, cancelNotification } from '../services/notifications';
 import { getCurrentSession } from '../services/authFirestore';
 import { hapticMedium } from '../utils/haptics';
-import Toast from '../components/Toast';
+import Toast from 'react-native-toast-message';
+import { confirmTaskCompletion, hasUserConfirmed } from '../services/taskConfirmations';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTasks } from '../contexts/TasksContext';
 import { scheduleOverdueTasksNotification, scheduleMultipleDailyOverdueNotifications } from '../services/notifications';
@@ -375,6 +376,36 @@ export default function MyInboxScreen({ navigation }) {
       });
     }
   };
+  
+  // ✅ Confirmar mi parte de una tarea con múltiples asignados
+  const confirmMyPart = async (task) => {
+    try {
+      hapticMedium();
+      const result = await confirmTaskCompletion(task.id, {
+        email: currentUser.email,
+        displayName: currentUser.displayName || currentUser.email,
+        area: currentUser.department || ''
+      });
+      
+      Toast.show({
+        type: 'success',
+        text1: result.allCompleted ? '¡Listo para revisión!' : 'Confirmado',
+        text2: result.allCompleted 
+          ? 'Todos han confirmado' 
+          : `${result.completedCount}/${result.totalAssigned} han confirmado`,
+        position: 'top',
+        visibilityTime: 2000,
+      });
+    } catch (e) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: e.message,
+        position: 'top',
+        visibilityTime: 3000,
+      });
+    }
+  };
 
   // 💾 Guardar tareas en proceso de borrado en AsyncStorage
   const saveDeletingTasks = async (taskIds) => {
@@ -703,6 +734,21 @@ export default function MyInboxScreen({ navigation }) {
 
         {/* Acciones compactas con iconos */}
         <View style={styles.quickActionsRow}>
+          {/* Botón confirmar mi parte - Solo si tiene múltiples asignados y no ha confirmado */}
+          {Array.isArray(item.assignedTo) && item.assignedTo.length > 1 && !hasUserConfirmed(item, currentUser?.email) && item.status !== 'cerrada' && (
+            <TouchableOpacity 
+              style={[styles.quickActionBtn, { backgroundColor: '#8B5CF6' }]} 
+              onPress={() => confirmMyPart(item)}
+            >
+              <Ionicons name="checkmark-done" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
+          {/* Indicador de que ya confirmó */}
+          {Array.isArray(item.assignedTo) && item.assignedTo.length > 1 && hasUserConfirmed(item, currentUser?.email) && item.status !== 'cerrada' && (
+            <View style={[styles.quickActionBtn, { backgroundColor: '#D1D5DB' }]}>
+              <Ionicons name="checkmark-done" size={18} color="#6B7280" />
+            </View>
+          )}
           <TouchableOpacity 
             style={[styles.quickActionBtn, { backgroundColor: '#10B981' }]} 
             onPress={() => markClosed(item)}

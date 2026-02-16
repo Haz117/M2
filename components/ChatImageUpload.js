@@ -11,7 +11,8 @@ import {
   Modal,
   SafeAreaView,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -40,18 +41,25 @@ export default function ChatImageUpload({
     return true;
   };
 
-  // Redimensionar imagen para optimización
+  // Redimensionar imagen para optimización (más pequeña para web/base64)
   const compressImage = async (imageUri) => {
     try {
+      // En web, comprimir más para base64
+      const maxSize = Platform.OS === 'web' ? 600 : 1280;
+      const quality = Platform.OS === 'web' ? 0.5 : 0.7;
+      
       const manipResult = await ImageManipulator.manipulateAsync(
         imageUri,
-        [{ resize: { width: 1280, height: 1024 } }],
-        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+        [{ resize: { width: maxSize, height: maxSize } }],
+        { compress: quality, format: ImageManipulator.SaveFormat.JPEG, base64: Platform.OS === 'web' }
       );
-      return manipResult.uri;
+      return {
+        uri: manipResult.uri,
+        base64: manipResult.base64 || null
+      };
     } catch (error) {
       console.error('Error comprimiendo imagen:', error);
-      return imageUri; // Si falla, usar original
+      return { uri: imageUri, base64: null }; // Si falla, usar original
     }
   };
 
@@ -67,15 +75,17 @@ export default function ChatImageUpload({
         quality: 0.8
       });
 
-      if (!result.cancelled) {
-        const compressedUri = await compressImage(result.assets[0].uri);
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const compressed = await compressImage(result.assets[0].uri);
         setSelectedImage({
-          uri: compressedUri,
+          uri: compressed.uri,
+          base64: compressed.base64 || null,
           type: 'photo'
         });
         setPreviewModalVisible(true);
       }
     } catch (error) {
+      console.error('Error capturando foto:', error);
       Alert.alert('Error', 'No se pudo capturar la foto');
     }
   };
@@ -87,21 +97,23 @@ export default function ChatImageUpload({
 
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8
       });
 
-      if (!result.cancelled) {
-        const compressedUri = await compressImage(result.assets[0].uri);
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const compressed = await compressImage(result.assets[0].uri);
         setSelectedImage({
-          uri: compressedUri,
+          uri: compressed.uri,
+          base64: compressed.base64 || null,
           type: 'gallery'
         });
         setPreviewModalVisible(true);
       }
     } catch (error) {
+      console.error('Error seleccionando imagen:', error);
       Alert.alert('Error', 'No se pudo seleccionar la imagen');
     }
   };
@@ -109,41 +121,70 @@ export default function ChatImageUpload({
   // Enviar imagen
   const sendImage = async () => {
     if (!selectedImage) return;
-
+    
     try {
       setUploading(true);
       setUploadProgress(0);
+
+      const timestamp = Date.now();
+      const filename = `${timestamp}-${Math.random().toString(36).substr(2, 9)}.jpg`;
+      
+      // En web, usar base64 directamente (evita CORS)
+      if (Platform.OS === 'web' || selectedImage.base64) {
+        setUploadProgress(50);
+        
+        // Crear data URL para web
+        let imageUri = selectedImage.uri;
+        if (selectedImage.base64) {
+          imageUri = `data:image/jpeg;base64,${selectedImage.base64}`;
+        }
+        
+        setUploadProgress(100);
+        
+        onImageCapture({
+          uri: imageUri,
+          name: filename,
+          type: 'image',
+          isBase64: true,
+          localUri: selectedImage.uri
+        });
+        
+        // Limpiar
+        setSelectedImage(null);
+        setPreviewModalVisible(false);
+        setUploadProgress(0);
+        return;
+      }
+      
+      // Para móvil con Storage disponible
+      if (!storage) {
+        Alert.alert(
+          'No disponible', 
+          'El almacenamiento de imágenes no está configurado.'
+        );
+        return;
+      }
 
       // Leer archivo
       const response = await fetch(selectedImage.uri);
       const blob = await response.blob();
 
       // Crear referencia en Storage
-      const timestamp = Date.now();
-      const filename = `${timestamp}-${Math.random().toString(36).substr(2, 9)}.jpg`;
       const storageRef = ref(storage, `chat-images/${filename}`);
 
-      // Subir con progreso
-      await uploadBytes(storageRef, blob, {
-        onProgress: (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setUploadProgress(Math.round(progress));
-        }
-      });
+      // Subir imagen
+      setUploadProgress(30);
+      await uploadBytes(storageRef, blob);
+      setUploadProgress(80);
 
       // Obtener URL descargable
       const downloadURL = await getDownloadURL(storageRef);
-
-      // Capturar datos de imagen
-      const imageData = await Image.getSize(selectedImage.uri);
-      const size = blob.size;
+      setUploadProgress(100);
 
       onImageCapture({
         uri: downloadURL,
+        name: filename,
         type: 'image',
-        size: size,
-        width: imageData.width || 1280,
-        height: imageData.height || 1024,
         localUri: selectedImage.uri
       });
 
@@ -154,7 +195,31 @@ export default function ChatImageUpload({
 
     } catch (error) {
       console.error('Error subiendo imagen:', error);
-      Alert.alert('Error', 'No se pudo subir la imagen. Intenta nuevamente.');
+      
+      // Si falla Storage, intentar con base64 como fallback
+      if (selectedImage.base64 || Platform.OS === 'web') {
+        try {
+          const imageUri = selectedImage.base64 
+            ? `data:image/jpeg;base64,${selectedImage.base64}` 
+            : selectedImage.uri;
+            
+          onImageCapture({
+            uri: imageUri,
+            name: `fallback-${Date.now()}.jpg`,
+            type: 'image',
+            isBase64: true
+          });
+          
+          setSelectedImage(null);
+          setPreviewModalVisible(false);
+          setUploadProgress(0);
+          return;
+        } catch (fallbackError) {
+          console.error('Fallback también falló:', fallbackError);
+        }
+      }
+      
+      Alert.alert('Error', 'No se pudo enviar la imagen. Intenta de nuevo.');
       setUploadProgress(0);
     } finally {
       setUploading(false);
@@ -169,48 +234,19 @@ export default function ChatImageUpload({
 
   return (
     <View style={styles.container}>
-      {/* Botones de acción */}
-      <View style={styles.buttonGroup}>
-        <TouchableOpacity
-          style={[styles.button, disabled && styles.buttonDisabled]}
-          onPress={takePicture}
-          disabled={disabled || uploading}
-        >
-          <Ionicons
-            name="camera"
-            size={20}
-            color={disabled || uploading ? '#CCC' : '#9F2241'}
-          />
-          <Text
-            style={[
-              styles.buttonText,
-              (disabled || uploading) && styles.buttonTextDisabled
-            ]}
-          >
-            Foto
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.button, disabled && styles.buttonDisabled]}
-          onPress={pickFromGallery}
-          disabled={disabled || uploading}
-        >
-          <Ionicons
-            name="image"
-            size={20}
-            color={disabled || uploading ? '#CCC' : '#9F2241'}
-          />
-          <Text
-            style={[
-              styles.buttonText,
-              (disabled || uploading) && styles.buttonTextDisabled
-            ]}
-          >
-            Galería
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {/* Botón de acción para imagen */}
+      <TouchableOpacity
+        style={[styles.imageButton, disabled && styles.buttonDisabled]}
+        onPress={pickFromGallery}
+        onLongPress={takePicture}
+        disabled={disabled || uploading}
+      >
+        <Ionicons
+          name="image"
+          size={22}
+          color={disabled || uploading ? '#CCC' : '#9F2241'}
+        />
+      </TouchableOpacity>
 
       {/* Modal de vista previa */}
       <Modal
@@ -309,39 +345,22 @@ export default function ChatImageUpload({
 
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
+    // No ocupar todo el ancho
   },
 
-  buttonGroup: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-
-  button: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+  imageButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(159, 34, 65, 0.1)',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: '#F5F5F5',
-    borderWidth: 1,
-    borderColor: '#DDD',
-    gap: 6,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(159, 34, 65, 0.2)',
   },
 
   buttonDisabled: {
     opacity: 0.5,
-  },
-
-  buttonText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#9F2241',
-  },
-
-  buttonTextDisabled: {
-    color: '#CCC',
   },
 
   // MODAL STYLES

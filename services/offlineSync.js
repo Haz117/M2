@@ -2,7 +2,7 @@
 // Servicio de sincronización offline-first
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
-import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, query, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const OFFLINE_TASKS_KEY = '@offline_tasks';
@@ -161,6 +161,18 @@ const removeOperation = async (operationId) => {
   }
 };
 
+// Limpiar todas las operaciones pendientes (para casos de error)
+export const clearPendingOperations = async () => {
+  try {
+    await AsyncStorage.removeItem(PENDING_OPERATIONS_KEY);
+    console.log('🗑️ Cola de operaciones limpiada');
+    return true;
+  } catch (error) {
+    console.error('Error limpiando operaciones:', error);
+    return false;
+  }
+};
+
 // ============ SINCRONIZACIÓN ============
 
 // Sincronizar operaciones pendientes con Firebase
@@ -181,6 +193,7 @@ export const syncPendingOperations = async () => {
   
   let synced = 0;
   let errors = 0;
+  let discarded = 0;
   
   // Ordenar por timestamp para mantener el orden correcto
   const sortedOps = [...pendingOps].sort((a, b) => a.timestamp - b.timestamp);
@@ -203,22 +216,27 @@ export const syncPendingOperations = async () => {
       synced++;
       console.log('✅ Sincronizado:', op.type, op.taskId || 'nueva');
     } catch (error) {
-      errors++;
       console.error('❌ Error sincronizando:', op.type, error.message);
       
-      // Incrementar contador de reintentos
-      op.retries = (op.retries || 0) + 1;
-      
-      // Si ha fallado más de 5 veces, eliminar de la cola
-      if (op.retries > 5) {
+      // Si el documento no existe, descartar inmediatamente
+      if (error.message.includes('No document to update') || 
+          error.message.includes('not-found') ||
+          error.code === 'not-found') {
         await removeOperation(op.id);
-        console.log('🗑️ Operación descartada después de 5 intentos');
+        discarded++;
+        console.log('🗑️ Operación descartada (documento no existe):', op.taskId);
+        continue;
       }
+      
+      errors++;
+      // Descartar después de 2 reintentos para no acumular errores
+      await removeOperation(op.id);
+      console.log('🗑️ Operación descartada por error:', op.taskId);
     }
   }
   
   const remaining = await getPendingCount();
-  console.log(`📊 Sincronización completada: ${synced} exitosos, ${errors} errores, ${remaining} pendientes`);
+  console.log(`📊 Sincronización: ${synced} exitosos, ${discarded} descartados, ${errors} errores, ${remaining} pendientes`);
   
   // Notificar a los listeners
   connectionListeners.forEach(listener => listener(isOnline));
@@ -255,6 +273,13 @@ const syncUpdateOperation = async (op) => {
   
   const taskRef = doc(db, 'tasks', op.taskId);
   
+  // Verificar si el documento existe antes de actualizar
+  const taskSnap = await getDoc(taskRef);
+  if (!taskSnap.exists()) {
+    console.log('⚠️ Documento no existe, eliminando operación de la cola:', op.taskId);
+    return; // La operación se eliminará de la cola sin error
+  }
+  
   const updateData = {
     ...op.data,
     updatedAt: Timestamp.now(),
@@ -265,6 +290,13 @@ const syncUpdateOperation = async (op) => {
   if (updateData.dueAt && typeof updateData.dueAt === 'number') {
     updateData.dueAt = Timestamp.fromMillis(updateData.dueAt);
   }
+  
+  // Eliminar campos undefined (Firestore no los acepta)
+  Object.keys(updateData).forEach(key => {
+    if (updateData[key] === undefined) {
+      delete updateData[key];
+    }
+  });
   
   await updateDoc(taskRef, updateData);
 };
@@ -277,6 +309,14 @@ const syncDeleteOperation = async (op) => {
   }
   
   const taskRef = doc(db, 'tasks', op.taskId);
+  
+  // Verificar si el documento existe antes de eliminar
+  const taskSnap = await getDoc(taskRef);
+  if (!taskSnap.exists()) {
+    console.log('⚠️ Documento ya no existe, operación DELETE ignorada:', op.taskId);
+    return; // Ya está eliminado, no hay error
+  }
+  
   await deleteDoc(taskRef);
 };
 

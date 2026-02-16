@@ -4,7 +4,7 @@
 // Funcionalidad mínima: lista de mensajes en tiempo real + enviar mensaje de texto.
 
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, Image } from 'react-native';
+import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, Image, Modal, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, addDoc, onSnapshot, query, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -33,6 +33,7 @@ export default function TaskChatScreen({ route, navigation }) {
   const [hasAccess, setHasAccess] = useState(false);
   const [taskData, setTaskData] = useState(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState(null);
   const flatRef = useRef();
 
   // Cargar usuario actual y verificar acceso a la tarea
@@ -245,11 +246,19 @@ export default function TaskChatScreen({ route, navigation }) {
               <View key={item.id} style={styles.msgRow}>
                 <Text style={styles.msgAuthor}>{item.author || 'Usuario'}</Text>
                 {item.type === 'image' ? (
-                  <Image
-                    source={{ uri: item.imageUrl }}
-                    style={styles.msgImage}
-                    resizeMode="cover"
-                  />
+                  <TouchableOpacity 
+                    onPress={() => setSelectedImageUrl(item.imageUrl)}
+                    activeOpacity={0.9}
+                  >
+                    <Image
+                      source={{ uri: item.imageUrl }}
+                      style={styles.msgImage}
+                      resizeMode="cover"
+                    />
+                    <View style={styles.imageOverlay}>
+                      <Ionicons name="expand-outline" size={16} color="#FFFFFF" />
+                    </View>
+                  </TouchableOpacity>
                 ) : (
                   <Text style={styles.msgText}>{item.text || ''}</Text>
                 )}
@@ -261,16 +270,18 @@ export default function TaskChatScreen({ route, navigation }) {
           />
 
           <View style={styles.composer}>
-            <TextInput
-              placeholder="Mensaje..."
-              placeholderTextColor="#C7C7CC"
-              value={text}
-              onChangeText={setText}
-              style={styles.input}
-            />
             <ChatImageUpload
               onImageCapture={handleImageCapture}
               disabled={isUploadingImage}
+            />
+            <TextInput
+              placeholder="Escribe un mensaje..."
+              placeholderTextColor="#999"
+              value={text}
+              onChangeText={setText}
+              style={styles.input}
+              multiline
+              maxLength={500}
             />
             <TouchableOpacity 
               style={[styles.sendButton, !text.trim() && styles.sendButtonDisabled]} 
@@ -283,6 +294,37 @@ export default function TaskChatScreen({ route, navigation }) {
           </View>
         </View>
       )}
+      
+      {/* Modal para ver imagen en pantalla completa */}
+      <Modal
+        visible={!!selectedImageUrl}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setSelectedImageUrl(null)}
+      >
+        <TouchableOpacity 
+          style={styles.imageModalContainer}
+          activeOpacity={1}
+          onPress={() => setSelectedImageUrl(null)}
+        >
+          <TouchableOpacity 
+            style={styles.imageModalClose}
+            onPress={() => setSelectedImageUrl(null)}
+          >
+            <Ionicons name="close" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+          
+          {selectedImageUrl && (
+            <Image
+              source={{ uri: selectedImageUrl }}
+              style={styles.fullScreenImage}
+              resizeMode="contain"
+            />
+          )}
+          
+          <Text style={styles.imageModalHint}>Toca fuera para cerrar</Text>
+        </TouchableOpacity>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -332,88 +374,93 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5
   },
   messagesContainer: {
-    padding: 12
+    padding: 16,
+    paddingBottom: 8
   },
   msgRow: { 
-    marginBottom: 12, 
-    backgroundColor: '#FFFAF0', 
-    padding: 12, 
-    borderRadius: 16,
+    marginBottom: 14, 
+    backgroundColor: '#FFFFFF', 
+    padding: 14, 
+    borderRadius: 18,
     maxWidth: '85%',
     alignSelf: 'flex-start',
-    shadowColor: '#DAA520',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
     elevation: 2,
-    borderWidth: 1.5,
-    borderColor: '#F5DEB3'
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.04)'
   },
   msgAuthor: { 
     fontWeight: '700', 
     marginBottom: 6, 
     color: '#9F2241',
-    fontSize: 14,
+    fontSize: 13,
     letterSpacing: 0.2
   },
   msgText: { 
     color: '#1A1A1A',
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 15,
+    lineHeight: 21,
     fontWeight: '400'
   },
   msgImage: {
-    width: 200,
-    height: 200,
-    borderRadius: 12,
+    width: 220,
+    height: 180,
+    borderRadius: 14,
     marginVertical: 8
   },
   msgTime: { 
     marginTop: 8, 
-    fontSize: 12, 
-    color: '#AEAEB2',
+    fontSize: 11, 
+    color: '#A0A0A0',
     fontWeight: '500'
   },
   composer: { 
     flexDirection: 'row', 
     padding: 12, 
-    alignItems: 'center', 
-    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    alignItems: 'flex-end', 
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderColor: '#E5E5EA',
-    gap: 10,
+    borderColor: '#E8E8E8',
+    gap: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 6
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 8
   },
   input: { 
     flex: 1, 
-    padding: 12, 
-    backgroundColor: '#FFFAF0', 
-    borderRadius: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 16, 
+    backgroundColor: '#F5F5F5', 
+    borderRadius: 22,
     color: '#1A1A1A',
-    fontSize: 16,
-    fontWeight: '400',
-    borderWidth: 1.5,
-    borderColor: '#F5DEB3'
+    fontSize: 15,
+    fontWeight: '500',
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    maxHeight: 100,
+    minHeight: 44,
   },
   sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#9F2241',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#9F2241',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.35,
     shadowRadius: 8,
-    elevation: 5
+    elevation: 6
   },
   sendButtonDisabled: {
-    backgroundColor: '#CFBF9F',
+    backgroundColor: '#D0D0D0',
     shadowOpacity: 0.1
   },
   noAccessContainer: {
@@ -436,5 +483,42 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
     fontWeight: '500'
+  },
+  // Estilos para overlay de imagen
+  imageOverlay: {
+    position: 'absolute',
+    bottom: 16,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 12,
+    padding: 6,
+  },
+  // Estilos para modal de imagen
+  imageModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageModalClose: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 20,
+    padding: 8,
+  },
+  fullScreenImage: {
+    width: Dimensions.get('window').width - 32,
+    height: Dimensions.get('window').height * 0.7,
+    borderRadius: 12,
+  },
+  imageModalHint: {
+    position: 'absolute',
+    bottom: 50,
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 14,
+    fontWeight: '500',
   }
 });

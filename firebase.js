@@ -23,6 +23,7 @@ import {
   increment,
   Timestamp
 } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import { getAnalytics } from 'firebase/analytics';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
@@ -64,10 +65,19 @@ try {
 // Inicializar Firestore
 const db = getFirestore(app);
 
-// Exportar app, db, analytics y funciones de Firestore
+// Inicializar Storage
+let storage = null;
+try {
+  storage = getStorage(app);
+} catch (error) {
+  console.warn('Storage no disponible:', error.message);
+}
+
+// Exportar app, db, storage, analytics y funciones de Firestore
 export { 
   app, 
-  db, 
+  db,
+  storage,
   analytics,
   // Funciones de Firestore
   collection,
