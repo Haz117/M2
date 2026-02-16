@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { View, Text, StyleSheet, Button, TextInput, Platform, Alert, TouchableOpacity, ScrollView, Animated, ActivityIndicator, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createTask, updateTask, deleteTask } from '../services/tasks';
+import { createTaskMultiple, updateTaskMultiple } from '../services/tasksMultiple';
 import { getAllUsersNames } from '../services/roles';
 import { scheduleNotificationForTask, cancelNotification, notifyAssignment } from '../services/notifications';
 import { getCurrentSession } from '../services/authFirestore';
@@ -14,6 +15,9 @@ import PressableButton from '../components/PressableButton';
 import PomodoroTimer from '../components/PomodoroTimer';
 import TagInput from '../components/TagInput';
 import TaskStatusButtons from '../components/TaskStatusButtons';
+import MultiUserSelector from '../components/MultiUserSelector';
+import SubtasksList from '../components/SubtasksList';
+import AreaSelectorModal from '../components/AreaSelectorModal';
 import { useTheme } from '../contexts/ThemeContext';
 import { savePomodoroSession } from '../services/pomodoro';
 import { AREAS } from '../config/areas';
@@ -40,8 +44,19 @@ export default function TaskDetailScreen({ route, navigation }) {
 
   const [title, setTitle] = useState(editingTask ? editingTask.title : '');
   const [description, setDescription] = useState(editingTask ? editingTask.description : '');
+  
+  // Estado para múltiples asignados
+  const [selectedAssignees, setSelectedAssignees] = useState([]);
+  
+  // Mantener backward compatibility
   const [assignedTo, setAssignedTo] = useState(editingTask ? editingTask.assignedTo : '');
-  const [area, setArea] = useState(editingTask ? editingTask.area : 'Jurídica');
+  
+  // Múltiples áreas
+  const [selectedAreas, setSelectedAreas] = useState(
+    editingTask?.areas && Array.isArray(editingTask.areas) 
+      ? editingTask.areas 
+      : (editingTask?.area ? [editingTask.area] : [])
+  );
   const [priority, setPriority] = useState(editingTask ? editingTask.priority : 'media');
   const [status, setStatus] = useState(editingTask ? editingTask.status : 'pendiente');
   const [dueAt, setDueAt] = useState(editingTask ? new Date(editingTask.dueAt) : getDefaultDate());
@@ -57,10 +72,6 @@ export default function TaskDetailScreen({ route, navigation }) {
   const [canEdit, setCanEdit] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [isReadOnly, setIsReadOnly] = useState(false);
-  
-  // Modal de selección de usuario
-  const [showAssigneeModal, setShowAssigneeModal] = useState(false);
-  const [assigneeSearchQuery, setAssigneeSearchQuery] = useState('');
   
   // Modal de selección de área
   const [showAreaModal, setShowAreaModal] = useState(false);
@@ -113,16 +124,6 @@ export default function TaskDetailScreen({ route, navigation }) {
     'rrhh': 'Recursos Humanos'
   }), []);
 
-  // Filtrar usuarios según búsqueda
-  const filteredPeople = useMemo(() => {
-    if (!assigneeSearchQuery.trim()) return peopleNames;
-    const query = assigneeSearchQuery.toLowerCase();
-    return peopleNames.filter(person => 
-      person.toLowerCase().includes(query) || 
-      person.split('@')[0].toLowerCase().includes(query)
-    );
-  }, [peopleNames, assigneeSearchQuery]);
-
   const filteredAreas = useMemo(() => {
     if (!areaSearchQuery.trim()) return AREAS;
     const query = areaSearchQuery.toLowerCase();
@@ -146,6 +147,7 @@ export default function TaskDetailScreen({ route, navigation }) {
   useEffect(() => {
     loadUserNames();
     checkPermissions();
+    initializeAssignees();
     
     // Animar entrada del formulario
     Animated.timing(fadeAnim, {
@@ -154,6 +156,40 @@ export default function TaskDetailScreen({ route, navigation }) {
       useNativeDriver: true,
     }).start();
   }, []);
+
+  // Inicializar asignados múltiples desde tarea existente
+  const initializeAssignees = async () => {
+    if (!editingTask) return;
+    
+    try {
+      const names = await getAllUsersNames();
+      
+      // Backward compatibility: convertir assignedTo string a array
+      let assigneesToConvert = [];
+      
+      if (editingTask.assignedToNames && Array.isArray(editingTask.assignedToNames)) {
+        // Nueva estructura: ya es array
+        const emails = editingTask.assignedTo || [];
+        assigneesToConvert = Array.isArray(emails) ? emails : [emails];
+      } else if (editingTask.assignments && Array.isArray(editingTask.assignments)) {
+        // Si tiene array de assignments
+        assigneesToConvert = editingTask.assignments.map(a => a.email || a);
+      } else if (editingTask.assignedTo && typeof editingTask.assignedTo === 'string') {
+        // Tarea antigua con string => convertir a array
+        assigneesToConvert = [editingTask.assignedTo];
+      }
+      
+      // Convertir a objetos con email y displayName
+      const assigneesObjects = assigneesToConvert.map(email => ({
+        email: email,
+        displayName: names.includes(email) ? email : email
+      }));
+      
+      setSelectedAssignees(assigneesObjects);
+    } catch (error) {
+      console.error('Error inicializando asignados:', error);
+    }
+  };
 
   const loadUserNames = async () => {
     const names = await getAllUsersNames();
@@ -266,8 +302,17 @@ export default function TaskDetailScreen({ route, navigation }) {
       return;
     }
 
-    if (!assignedTo) {
-      setToastMessage('Debes asignar la tarea a alguien');
+    // Validar múltiples asignados
+    if (!selectedAssignees || selectedAssignees.length === 0) {
+      setToastMessage('Debes asignar la tarea a al menos una persona');
+      setToastType('error');
+      setToastVisible(true);
+      return;
+    }
+
+    // Validar múltiples áreas
+    if (!selectedAreas || selectedAreas.length === 0) {
+      setToastMessage('Debes seleccionar al menos una área');
       setToastType('error');
       setToastVisible(true);
       return;
@@ -338,8 +383,11 @@ export default function TaskDetailScreen({ route, navigation }) {
 
       // Jefes solo pueden crear/editar tareas de su área
       if (currentUser.role === 'jefe') {
-        const taskDepartment = areaToDepMap[area] || area.toLowerCase();
-        if (taskDepartment !== currentUser.department) {
+        const hasPermissionForAreas = selectedAreas.some(area => {
+          const taskDepartment = areaToDepMap[area] || area.toLowerCase();
+          return taskDepartment === currentUser.department;
+        });
+        if (!hasPermissionForAreas) {
           Alert.alert('Sin permisos', 'Solo puedes crear/editar tareas de tu área');
           setIsSaving(false);
           return;
@@ -360,12 +408,15 @@ export default function TaskDetailScreen({ route, navigation }) {
         }),
       ]).start();
 
-      // Construir objeto tarea
+      // Construir objeto tarea con múltiples asignados y múltiples áreas
+      const assignedEmails = selectedAssignees.map(a => a.email);
+      
       const taskData = {
         title: title.trim(),
         description: description.trim(),
-        assignedTo: assignedTo.trim().toLowerCase(), // ✅ Normalizar email a minúsculas
-        area,
+        assignedEmails: assignedEmails, // Array de emails para múltiples asignados
+        areas: selectedAreas, // Array de áreas seleccionadas
+        area: selectedAreas[0], // Backward compatibility: primera área como principal
         priority,
         status,
         dueAt: dueAt.getTime(),
@@ -388,7 +439,8 @@ export default function TaskDetailScreen({ route, navigation }) {
         }
         
         setSaveProgress(60);
-        await updateTask(taskId, taskData);
+        // Usar updateTaskMultiple para tareas con múltiples asignados
+        await updateTaskMultiple(taskId, taskData);
         setSaveProgress(100);
         
         // Mostrar toast de éxito
@@ -402,9 +454,9 @@ export default function TaskDetailScreen({ route, navigation }) {
           navigation.goBack();
         }, 1000);
       } else {
-        // Crear nueva tarea
+        // Crear nueva tarea con múltiples asignados
         setSaveProgress(60);
-        taskId = await createTask(taskData);
+        taskId = await createTaskMultiple(taskData);
         setSaveProgress(100);
         
         // Mostrar toast de éxito
@@ -426,15 +478,15 @@ export default function TaskDetailScreen({ route, navigation }) {
       if (task.status !== 'cerrada') {
         scheduleNotificationForTask(task, { minutesBefore: 10 }).then(notifId => {
           if (notifId) {
-            updateTask(taskId, { notificationId: notifId });
+            updateTaskMultiple(taskId, { notificationId: notifId });
           }
         });
       }
 
       // Notificar asignación si es tarea nueva o cambió el responsable (async)
       const isNewTask = !editingTask;
-      const assignedToChanged = editingTask && editingTask.assignedTo !== task.assignedTo;
-      if ((isNewTask || assignedToChanged) && task.assignedTo) {
+      const assignedToChanged = editingTask && JSON.stringify(assignedEmails) !== JSON.stringify(editingTask.assignedTo);
+      if ((isNewTask || assignedToChanged) && assignedEmails.length > 0) {
         notifyAssignment(task);
       }
       
@@ -484,14 +536,22 @@ export default function TaskDetailScreen({ route, navigation }) {
   const styles = React.useMemo(() => createStyles(theme, isDark), [theme, isDark]);
 
   // Memoizar handlers para evitar recrearlos en cada render
-  const handleAssignedToChange = useCallback((name) => {
-    if (canEdit) setAssignedTo(name);
-  }, [canEdit]);
-
-  const handleAreaChange = useCallback((a) => {
+  const toggleAreaSelection = useCallback((a) => {
     const areaDep = areaToDepMap[a] || a.toLowerCase();
     const canSelectArea = canEdit && (currentUser?.role === 'admin' || areaDep === currentUser?.department);
-    if (canSelectArea) setArea(a);
+    
+    if (!canSelectArea) return;
+    
+    // Toggle: agregar o remover el área
+    setSelectedAreas(prev => {
+      if (prev.includes(a)) {
+        // Remover, pero mantener al menos una área
+        return prev.length > 1 ? prev.filter(area => area !== a) : prev;
+      } else {
+        // Agregar
+        return [...prev, a];
+      }
+    });
   }, [canEdit, currentUser, areaToDepMap]);
 
   const handlePriorityChange = useCallback((p) => {
@@ -501,7 +561,17 @@ export default function TaskDetailScreen({ route, navigation }) {
   const handleStatusChange = useCallback((taskId, newStatus) => {
     setStatus(newStatus);
     updateTask(taskId, { status: newStatus });
-  }, []);
+    
+    // Mostrar mensaje de confirmación
+    setToastMessage('Tarea iniciada correctamente');
+    setToastType('success');
+    setToastVisible(true);
+    
+    // Cerrar el modal después de un breve delay
+    setTimeout(() => {
+      navigation.goBack();
+    }, 1200);
+  }, [navigation]);
 
   return (
     <View style={styles.container}>
@@ -556,6 +626,49 @@ export default function TaskDetailScreen({ route, navigation }) {
                     taskId={editingTask.id}
                     onStatusChange={handleStatusChange}
                   />
+                </View>
+
+                {/* Subtareas */}
+                <View style={styles.readOnlySection}>
+                  <Text style={[styles.readOnlyLabel, { color: theme.textSecondary }]}>Subtareas</Text>
+                  <SubtasksList 
+                    taskId={editingTask.id}
+                    canEdit={false}
+                  />
+                </View>
+
+                {/* Botón para acceder a Reportes y Chat */}
+                <View style={styles.readOnlySection}>
+                  <Text style={[styles.readOnlyLabel, { color: theme.textSecondary }]}>Más Opciones</Text>
+                  <View style={{ gap: 12, marginTop: 10 }}>
+                    {/* Botón Reportes */}
+                    <TouchableOpacity 
+                      style={[styles.readOnlyActionButton, { backgroundColor: theme.primary }]}
+                      onPress={() => {
+                        navigation.goBack();
+                        setTimeout(() => {
+                          navigation.navigate('TaskReportsAndActivity', { taskId: editingTask.id, taskTitle: editingTask.title });
+                        }, 300);
+                      }}
+                    >
+                      <Ionicons name="document-text" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                      <Text style={styles.readOnlyActionButtonText}>📊 Ver/Enviar Reportes</Text>
+                    </TouchableOpacity>
+
+                    {/* Botón Chat */}
+                    <TouchableOpacity 
+                      style={[styles.readOnlyActionButton, { backgroundColor: '#007AFF' }]}
+                      onPress={() => {
+                        navigation.goBack();
+                        setTimeout(() => {
+                          navigation.navigate('TaskChat', { taskId: editingTask.id, taskTitle: editingTask.title });
+                        }, 300);
+                      }}
+                    >
+                      <Ionicons name="chatbubble-ellipses" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                      <Text style={styles.readOnlyActionButtonText}>💬 Ir al Chat</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </ScrollView>
 
@@ -642,240 +755,82 @@ export default function TaskDetailScreen({ route, navigation }) {
               <Text style={[styles.sectionTitleSimple, { color: theme.text }]}>Asignación y Área</Text>
             </View>
             
-            {/* Selector de Asignado */}
-            <Text style={[styles.label, { marginTop: 16, marginBottom: 12 }]}>ASIGNADO A *</Text>
-            <TouchableOpacity
-              onPress={() => setShowAssigneeModal(true)}
-              style={[styles.assigneeSelector, { backgroundColor: theme.background, borderColor: theme.border }]}
-              disabled={!canEdit}
-            >
-              <View style={styles.assigneeSelectorContent}>
-                <View style={styles.assigneeSelectorAvatar}>
-                  <Text style={styles.assigneeSelectorInitial}>
-                    {assignedTo ? assignedTo.charAt(0).toUpperCase() : '?'}
-                  </Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.assigneeSelectorLabel, { color: theme.textSecondary }]}>
-                    Persona asignada
-                  </Text>
-                  <Text style={[styles.assigneeSelectorValue, { color: theme.text }]} numberOfLines={1}>
-                    {assignedTo || 'Seleccionar usuario'}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
-              </View>
-            </TouchableOpacity>
+            {/* Selector de Asignados Múltiples */}
+            <Text style={[styles.label, { marginTop: 16, marginBottom: 12 }]}>ASIGNADOS A *</Text>
+            <View style={{ opacity: canEdit ? 1 : 0.5 }}>
+              <MultiUserSelector
+                selectedUsers={selectedAssignees}
+                onSelectionChange={setSelectedAssignees}
+                role={currentUser?.role || 'admin'}
+                area={currentUser?.department || selectedAreas[0]}
+              />
+            </View>
 
-            {/* Selector de Área - Botón Modal */}
-            <Text style={[styles.label, { marginTop: 24, marginBottom: 12 }]}>ÁREA *</Text>
+            {/* Selector de Múltiples Áreas */}
+            <Text style={[styles.label, { marginTop: 24, marginBottom: 12 }]}>ÁREAS *</Text>
+            
+            {/* Mostrar áreas seleccionadas como pills */}
+            {selectedAreas.length > 0 && (
+              <View style={styles.selectedAreasContainer}>
+                {selectedAreas.map((a) => (
+                  <View key={a} style={[styles.areaPill, { backgroundColor: theme.primary }]}>
+                    <Ionicons name="folder" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Text style={styles.areaPillText}>{a}</Text>
+                    {canEdit && (
+                      <TouchableOpacity 
+                        onPress={() => toggleAreaSelection(a)}
+                        style={styles.areaPillRemove}
+                      >
+                        <Ionicons name="close" size={14} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
+            
+            {/* Botón para agregar más áreas */}
             <TouchableOpacity
-              style={[styles.areaButton, { borderColor: theme.primary, backgroundColor: isDark ? `${theme.primary}15` : `${theme.primary}10` }]}
+              style={[
+                styles.areaButton,
+                {
+                  borderColor: theme.primary,
+                  backgroundColor: theme.primary + '12',
+                  opacity: canEdit ? 1 : 0.5,
+                  borderWidth: 2,
+                  borderStyle: 'dashed',
+                },
+              ]}
               onPress={() => setShowAreaModal(true)}
               activeOpacity={0.7}
+              disabled={!canEdit}
             >
               <View style={[styles.areaButtonIcon, { backgroundColor: theme.primary }]}>
-                <Ionicons name="folder" size={20} color="#FFFFFF" />
+                <Ionicons name="add" size={22} color="#FFFFFF" />
               </View>
               <View style={styles.areaButtonInfo}>
-                <Text style={[styles.areaButtonLabel, { color: theme.textSecondary }]}>
-                  Seleccionar área
+                <Text style={[styles.areaButtonLabel, { color: theme.textSecondary, fontSize: 12 }]}>
+                  {selectedAreas.length > 0 ? 'AGREGAR MAS ÁREAS' : 'SELECCIONAR ÁREA'}
                 </Text>
-                <Text style={[styles.areaButtonValue, { color: theme.text }]}>
-                  {area || 'Sin área'}
+                <Text style={[styles.areaButtonValue, { color: theme.text, fontSize: 15, fontWeight: '700' }]}>
+                  {selectedAreas.length === 0 ? 'Sin área asignada' : `${selectedAreas.length} ${selectedAreas.length === 1 ? 'área' : 'áreas'} seleccionada${selectedAreas.length > 1 ? 's' : ''}`}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color={theme.primary} />
+              <View style={[styles.areaButtonChevron, { backgroundColor: theme.primary + '1a' }]}>
+                <Ionicons name="chevron-forward" size={20} color={theme.primary} />
+              </View>
             </TouchableOpacity>
           </View>
-
-          {/* Modal de Selección de Área */}
-          <Modal
+          {/* Modal de Selección de Área - Componente Mejorado */}
+          <AreaSelectorModal
             visible={showAreaModal}
-            transparent
-            animationType="slide"
-            onRequestClose={() => setShowAreaModal(false)}
-          >
-            <View style={[styles.modalContainer, { backgroundColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)' }]}>
-              <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
-                {/* Modal Header */}
-                <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
-                  <Text style={[styles.modalTitle, { color: theme.text }]}>Seleccionar área</Text>
-                  <TouchableOpacity onPress={() => setShowAreaModal(false)}>
-                    <Ionicons name="close" size={24} color={theme.text} />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Search Box */}
-                <View style={[styles.searchBox, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
-                  <Ionicons name="search" size={18} color={theme.textSecondary} />
-                  <TextInput
-                    placeholder="Buscar área..."
-                    placeholderTextColor={theme.textSecondary}
-                    style={[styles.searchInput, { color: theme.text }]}
-                    value={areaSearchQuery}
-                    onChangeText={setAreaSearchQuery}
-                    autoFocus
-                  />
-                  {areaSearchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setAreaSearchQuery('')}>
-                      <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* Area List */}
-                <ScrollView style={styles.userList} showsVerticalScrollIndicator={false}>
-                  {filteredAreas.length > 0 ? (
-                    filteredAreas.map((a) => {
-                      const areaType = getAreaType(a);
-                      const isSecretaria = areaType === 'secretaria';
-                      const iconColor = isSecretaria ? '#9F2241' : '#0EA5E9';
-                      const bgColor = isSecretaria ? '#9F224115' : '#0EA5E915';
-                      const borderColor = isSecretaria ? '#9F2241' : '#0EA5E9';
-                      const icon = isSecretaria ? 'briefcase' : 'folder-outline';
-                      const badgeText = isSecretaria ? 'Secretaría' : 'Dirección';
-                      const badgeBg = isSecretaria ? '#9F2241' : '#0EA5E9';
-                      
-                      return (
-                        <TouchableOpacity
-                          key={a}
-                          onPress={() => {
-                            handleAreaChange(a);
-                            setShowAreaModal(false);
-                            setAreaSearchQuery('');
-                          }}
-                          style={[
-                            styles.areaListItem,
-                            area === a && [
-                              styles.areaListItemActive,
-                              { backgroundColor: `${borderColor}20`, borderColor: borderColor, borderWidth: 2 }
-                            ],
-                            !area === a && { borderBottomColor: theme.border },
-                            { backgroundColor: area === a ? `${borderColor}20` : bgColor }
-                          ]}
-                        >
-                          <View style={[styles.areaListIcon, { backgroundColor: `${iconColor}25` }]}>
-                            <Ionicons name={icon} size={20} color={iconColor} />
-                          </View>
-                          
-                          <View style={{ flex: 1 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                              <Text style={[styles.areaListName, { color: theme.text, flex: 1 }]}>
-                                {a}
-                              </Text>
-                              <View style={[styles.areaTypeBadge, { backgroundColor: badgeBg }]}>
-                                <Text style={styles.areaTypeBadgeText}>
-                                  {badgeText}
-                                </Text>
-                              </View>
-                            </View>
-                          </View>
-                          
-                          {area === a && (
-                            <Ionicons name="checkmark-circle" size={24} color={borderColor} />
-                          )}
-                        </TouchableOpacity>
-                      );
-                    })
-                  ) : (
-                    <View style={styles.emptyState}>
-                      <Ionicons name="search" size={40} color={theme.textSecondary} style={{ marginBottom: 12 }} />
-                      <Text style={[styles.emptyStateText, { color: theme.textSecondary }]}>
-                        No se encontraron áreas
-                      </Text>
-                    </View>
-                  )}
-                </ScrollView>
-              </View>
-            </View>
-          </Modal>
-
-          {/* Modal de Selección de Usuario */}
-          <Modal
-            visible={showAssigneeModal}
-            transparent
-            animationType="slide"
-            onRequestClose={() => setShowAssigneeModal(false)}
-          >
-            <View style={[styles.modalContainer, { backgroundColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)' }]}>
-              <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
-                {/* Modal Header */}
-                <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
-                  <Text style={[styles.modalTitle, { color: theme.text }]}>Seleccionar usuario</Text>
-                  <TouchableOpacity onPress={() => setShowAssigneeModal(false)}>
-                    <Ionicons name="close" size={24} color={theme.text} />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Search Box */}
-                <View style={[styles.searchBox, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
-                  <Ionicons name="search" size={18} color={theme.textSecondary} />
-                  <TextInput
-                    placeholder="Buscar por email o nombre..."
-                    placeholderTextColor={theme.textSecondary}
-                    style={[styles.searchInput, { color: theme.text }]}
-                    value={assigneeSearchQuery}
-                    onChangeText={setAssigneeSearchQuery}
-                    autoFocus
-                  />
-                  {assigneeSearchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setAssigneeSearchQuery('')}>
-                      <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* User List */}
-                <ScrollView style={styles.userList} showsVerticalScrollIndicator={false}>
-                  {filteredPeople.length > 0 ? (
-                    filteredPeople.map((person) => (
-                      <TouchableOpacity
-                        key={person}
-                        onPress={() => {
-                          handleAssignedToChange(person);
-                          setShowAssigneeModal(false);
-                          setAssigneeSearchQuery('');
-                        }}
-                        style={[
-                          styles.userListItem,
-                          assignedTo === person && [
-                            styles.userListItemActive,
-                            { backgroundColor: `${theme.primary}15`, borderColor: theme.primary }
-                          ],
-                          { borderBottomColor: theme.border }
-                        ]}
-                      >
-                        <View style={[styles.userAvatar, assignedTo === person && { backgroundColor: theme.primary }]}>
-                          <Text style={[styles.userAvatarText, assignedTo === person && { color: '#FFFFFF' }]}>
-                            {person.charAt(0).toUpperCase()}
-                          </Text>
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.userName, { color: theme.text }]}>
-                            {person.split('@')[0]}
-                          </Text>
-                          <Text style={[styles.userEmail, { color: theme.textSecondary }]}>
-                            {person}
-                          </Text>
-                        </View>
-                        {assignedTo === person && (
-                          <Ionicons name="checkmark-circle" size={24} color={theme.primary} />
-                        )}
-                      </TouchableOpacity>
-                    ))
-                  ) : (
-                    <View style={styles.emptyState}>
-                      <Ionicons name="search" size={40} color={theme.textSecondary} style={{ marginBottom: 12 }} />
-                      <Text style={[styles.emptyStateText, { color: theme.textSecondary }]}>
-                        No se encontraron usuarios
-                      </Text>
-                    </View>
-                  )}
-                </ScrollView>
-              </View>
-            </View>
-          </Modal>
+            onClose={() => setShowAreaModal(false)}
+            selectedAreas={selectedAreas}
+            onAreasChange={setSelectedAreas}
+            allAreas={AREAS}
+            theme={theme}
+            isDark={isDark}
+          />
 
           {/* SECCIÓN PRIORIDAD Y FECHA */}
           <View style={[styles.section, { backgroundColor: theme.cardBackground }]}>
@@ -1257,6 +1212,14 @@ export default function TaskDetailScreen({ route, navigation }) {
                 </View>
               </View>
             </Modal>
+          )}
+
+          {/* SECCIÓN DE SUBTAREAS - Solo si estamos editando */}
+          {editingTask && (
+            <SubtasksList 
+              taskId={editingTask.id}
+              canEdit={canEdit}
+            />
           )}
 
           <PressableButton 
@@ -2080,33 +2043,56 @@ const createStyles = (theme, isDark) => StyleSheet.create({
   },
   // Estilos para el botón de área modal
   areaButton: {
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 2,
-    padding: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
+    minHeight: 80,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
   areaButtonIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
   },
   areaButtonInfo: {
     flex: 1,
+    justifyContent: 'center',
   },
   areaButtonLabel: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
+    letterSpacing: 0.6,
+    marginBottom: 6,
+    opacity: 0.7,
   },
   areaButtonValue: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
+  },
+  areaButtonChevron: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
   },
   // Estilos para el listado de áreas mejorado
   areaListItem: {
@@ -2146,6 +2132,35 @@ const createStyles = (theme, isDark) => StyleSheet.create({
     color: '#FFFFFF',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  // Estilos para pills de áreas seleccionadas
+  selectedAreasContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 16,
+  },
+  areaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 22,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  areaPillText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  areaPillRemove: {
+    padding: 2,
+    marginLeft: 2,
   },
   // Estilos para modal de solo lectura
   modalOverlay: {
@@ -2215,6 +2230,24 @@ const createStyles = (theme, isDark) => StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     lineHeight: 22,
+  },
+  readOnlyActionButton: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  readOnlyActionButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   readOnlyCloseButtonBottom: {
     marginHorizontal: 20,

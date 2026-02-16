@@ -12,6 +12,8 @@ import ContextMenu from './ContextMenu';
 import ConfirmDialog from './ConfirmDialog';
 import Avatar from './Avatar';
 import PulsingDot from './PulsingDot';
+import ProgressBar from './ProgressBar';
+import { subscribeToTaskProgress } from '../services/taskProgress';
 
 const Swipeable = getSwipeable();
 
@@ -47,12 +49,24 @@ const TaskItem = memo(function TaskItem({
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [progressData, setProgressData] = useState(null);
   
   // Animaciones
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const deletePulseAnim = useRef(new Animated.Value(0)).current;
+
+  // Suscribir a cambios de progreso en tiempo real
+  useEffect(() => {
+    if (!task.id) return;
+    
+    const unsubscribe = subscribeToTaskProgress(task.id, (data) => {
+      setProgressData(data);
+    });
+
+    return () => unsubscribe();
+  }, [task.id]);
   
   useEffect(() => {
     // Animación de entrada escalonada
@@ -291,7 +305,7 @@ const TaskItem = memo(function TaskItem({
               >
                 {/* Fila 1: Avatar + Título */}
                 <View style={styles.row}>
-                  {task.assignedTo && <Avatar name={task.assignedTo} size={isSmallDevice ? 32 : 36} style={styles.avatar} showBorder />}
+                  {task.assignedToNames && task.assignedToNames.length > 0 && <Avatar name={task.assignedToNames[0]} size={isSmallDevice ? 32 : 36} style={styles.avatar} showBorder />}
                   <Text style={[styles.title, { color: theme.text }, task.status === 'cerrada' && styles.titleCompleted]} numberOfLines={2}>
                     {task.title}
                   </Text>
@@ -299,13 +313,33 @@ const TaskItem = memo(function TaskItem({
               
                 {/* Fila 2: Área • Asignado */}
                 <Text style={[styles.meta, { color: theme.textSecondary }]} numberOfLines={1}>
-                  {task.area || 'Sin área'} • {task.assignedTo || 'Sin asignar'}
+                  {task.area || 'Sin área'} • {task.assignedToNames?.length > 0 ? task.assignedToNames.join(', ') : 'Sin asignar'}
                 </Text>
                 
                 {/* Fila 3: Estado */}
                 <Text style={[styles.statusText, { color: theme.textTertiary }]} numberOfLines={1}>
                   {task.status === 'en_progreso' ? 'En progreso' : task.status === 'en_revision' ? 'En revisión' : task.status === 'cerrada' ? 'Completada' : 'Pendiente'}
                 </Text>
+
+                {/* Fila 4: Barra de Progreso (EN TIEMPO REAL) */}
+                {progressData && progressData.subtaskStats && progressData.subtaskStats.total > 0 && (
+                  <View style={styles.progressSection}>
+                    <View style={styles.progressHeader}>
+                      <Text style={[styles.progressLabel, { color: theme.textSecondary }]}>
+                        Progreso
+                      </Text>
+                      <Text style={[styles.progressValue, { color: theme.primary }]}>
+                        {progressData.subtaskStats.completada}/{progressData.subtaskStats.total}
+                      </Text>
+                    </View>
+                    <ProgressBar
+                      progress={progressData.overallProgress}
+                      size="small"
+                      showLabel={true}
+                      color={progressData.isComplete ? '#34C759' : theme.primary}
+                    />
+                  </View>
+                )}
               </TouchableOpacity>
               
               {/* Acciones a la derecha: Chat + Delete */}
@@ -498,6 +532,31 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontStyle: 'italic',
     flex: 1,
+  },
+  progressContainer: {
+    marginTop: 8,
+    paddingHorizontal: 4
+  },
+  progressSection: {
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    gap: 6,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  progressLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  progressValue: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   completeAction: {
     justifyContent: 'center',

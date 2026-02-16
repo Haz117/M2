@@ -1,15 +1,14 @@
 // screens/AdminScreen.js
 // Pantalla de configuración y administración
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Animated, Platform, Modal, Easing } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Animated, Platform, Modal, Easing, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ensurePermissions, getAllScheduledNotifications, cancelAllNotifications } from '../services/notifications';
 import { collection, addDoc, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import * as Notifications from 'expo-notifications';
-import { getCurrentSession, logoutUser, isAdmin } from '../services/authFirestore';
+import { getCurrentSession, logoutUser, isAdmin, registerUser } from '../services/authFirestore';
 import { useTheme } from '../contexts/ThemeContext';
 import Toast from '../components/Toast';
 import OverdueAlert from '../components/OverdueAlert';
@@ -34,90 +33,53 @@ export default function AdminScreen({ navigation, onLogout }) {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('success');
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Disable animations on web for compatibility
+  const supportsNativeDriver = Platform.OS !== 'web';
 
   // Animation refs for stagger effect
-  const headerOpacity = useRef(new Animated.Value(0)).current;
-  const headerSlide = useRef(new Animated.Value(-20)).current;
-  const statsOpacity = useRef(new Animated.Value(0)).current;
-  const statsSlide = useRef(new Animated.Value(30)).current;
-  const formOpacity = useRef(new Animated.Value(0)).current;
-  const formSlide = useRef(new Animated.Value(30)).current;
-  const usersOpacity = useRef(new Animated.Value(0)).current;
-  const usersSlide = useRef(new Animated.Value(30)).current;
+  const headerOpacity = useRef(new Animated.Value(supportsNativeDriver ? 0 : 1)).current;
+  const headerSlide = useRef(new Animated.Value(supportsNativeDriver ? -20 : 0)).current;
+  const statsOpacity = useRef(new Animated.Value(supportsNativeDriver ? 0 : 1)).current;
+  const statsSlide = useRef(new Animated.Value(supportsNativeDriver ? 30 : 0)).current;
+  const formOpacity = useRef(new Animated.Value(supportsNativeDriver ? 0 : 1)).current;
+  const formSlide = useRef(new Animated.Value(supportsNativeDriver ? 30 : 0)).current;
+  const usersOpacity = useRef(new Animated.Value(supportsNativeDriver ? 0 : 1)).current;
+  const usersSlide = useRef(new Animated.Value(supportsNativeDriver ? 30 : 0)).current;
 
-  // Stagger animations on mount
+  // Load data on mount
   useEffect(() => {
-    const staggerDelay = 120;
+    console.log('AdminScreen mounted, starting load');
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        await loadCurrentUser();
+        await loadNotificationCount();
+        await loadAllUsers();
+        console.log('Admin data loaded successfully');
+      } catch (error) {
+        console.error('Error loading admin data:', error);
+        showToast('Error al cargar datos de administración', 'error');
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    // Header animation
-    Animated.parallel([
-      Animated.timing(headerOpacity, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-        easing: Easing.out(Easing.cubic),
-      }),
-      Animated.spring(headerSlide, {
-        toValue: 0,
-        tension: 80,
-        friction: 12,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    // Stats cards animation
-    setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(statsOpacity, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-          easing: Easing.out(Easing.cubic),
-        }),
-        Animated.spring(statsSlide, {
-          toValue: 0,
-          tension: 80,
-          friction: 12,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }, staggerDelay);
-
-    // Form section animation
-    setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(formOpacity, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-          easing: Easing.out(Easing.cubic),
-        }),
-        Animated.spring(formSlide, {
-          toValue: 0,
-          tension: 80,
-          friction: 12,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }, staggerDelay * 2);
-
-    // Users list animation
-    setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(usersOpacity, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-          easing: Easing.out(Easing.cubic),
-        }),
-        Animated.spring(usersSlide, {
-          toValue: 0,
-          tension: 80,
-          friction: 12,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }, staggerDelay * 3);
+    loadData();
+    
+    // Subscribe to urgent tasks (non-blocking)
+    let unsubscribe = null;
+    const setupUrgentTasks = async () => {
+      unsubscribe = await loadUrgentTasks();
+    };
+    setupUrgentTasks();
+    
+    return () => {
+      if (unsubscribe && typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
   }, []);
 
   const showToast = (message, type = 'success') => {
@@ -126,13 +88,8 @@ export default function AdminScreen({ navigation, onLogout }) {
     setToastVisible(true);
   };
   
-  useEffect(() => {
-    loadNotificationCount();
-    loadCurrentUser();
-    loadAllUsers();
-    loadUrgentTasks();
-  }, []);
-
+  // Removed duplicate useEffect - new one handles data loading
+  
   const loadUrgentTasks = async () => {
     const unsubscribe = await subscribeToTasks((tasks) => {
       const now = Date.now();
@@ -155,33 +112,61 @@ export default function AdminScreen({ navigation, onLogout }) {
   };
 
   const loadCurrentUser = async () => {
-    const result = await getCurrentSession();
-    if (result.success) {
-      setCurrentUser(result.session);
-      const adminStatus = await isAdmin();
-      setIsUserAdmin(adminStatus);
-    } else {
-      // No hay sesión, redirigir a login
-      navigation.replace('Login');
+    try {
+      console.log('Loading current user...');
+      const result = await getCurrentSession();
+      if (result.success && result.session) {
+        console.log('Session found:', result.session.email);
+        setCurrentUser(result.session);
+        const adminStatus = await isAdmin();
+        setIsUserAdmin(adminStatus);
+        console.log('Admin status:', adminStatus);
+      } else {
+        console.warn('No user session found');
+        showToast('No hay sesión activa. Inicia sesión primero', 'warning');
+        // No redirigir aquí, dejar que se muestre un estado apropiado
+      }
+    } catch (error) {
+      console.error('Error loading current user:', error);
+      showToast('Error al cargar usuario', 'error');
     }
   };
 
   const loadNotificationCount = async () => {
-    const notifications = await getAllScheduledNotifications();
-    setNotificationCount(notifications.length);
+    try {
+      const notifications = await getAllScheduledNotifications();
+      if (Array.isArray(notifications)) {
+        setNotificationCount(notifications.length);
+      } else {
+        setNotificationCount(0);
+      }
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+      setNotificationCount(0);
+    }
   };
 
   const loadAllUsers = async () => {
     try {
       const usersRef = collection(db, 'users');
       const querySnapshot = await getDocs(usersRef);
-      const users = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setAllUsers(users);
+      if (querySnapshot.empty) {
+        setAllUsers([]);
+      } else {
+        const users = querySnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            createdAt: data.createdAt || new Date(),
+            active: data.active !== false // Default to active if not specified
+          };
+        });
+        setAllUsers(users);
+      }
     } catch (error) {
-      // Error silencioso
+      console.error('Error loading users:', error);
+      setAllUsers([]);
     }
   };
 
@@ -274,8 +259,6 @@ export default function AdminScreen({ navigation, onLogout }) {
     }
 
     try {
-      // Importar registerUser
-      const { registerUser } = require('../services/authFirestore');
       const result = await registerUser(userEmail.trim(), userPassword, userName.trim(), userRole);
       
       if (result.success) {
@@ -362,7 +345,31 @@ export default function AdminScreen({ navigation, onLogout }) {
     );
   };
 
+  // Show loading indicator while fetching data
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+        <Text style={[styles.loadingText, { color: theme.text }]}>Cargando administración...</Text>
+      </View>
+    );
+  }
 
+  // Show error if no user session
+  if (!currentUser) {
+    return (
+      <View style={[styles.container, styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <Ionicons name="alert-circle" size={60} color={theme.text} style={{ marginBottom: 16, opacity: 0.5 }} />
+        <Text style={[styles.loadingText, { color: theme.text, marginBottom: 24 }]}>No hay sesión activa</Text>
+        <TouchableOpacity 
+          style={[styles.button, { backgroundColor: theme.primary }]}
+          onPress={() => navigation.replace('Login')}
+        >
+          <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}>Ir a Login</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -455,7 +462,7 @@ export default function AdminScreen({ navigation, onLogout }) {
         </View>
       </Modal>
 
-      <Animated.View style={{ opacity: headerOpacity, transform: [{ translateY: headerSlide }] }}>
+      <View style={styles.headerSection}>
         <LinearGradient
           colors={isDark ? ['#2A1520', '#1A1A1A'] : ['#9F2241', '#7F1D35']}
           start={{ x: 0, y: 0 }}
@@ -496,7 +503,7 @@ export default function AdminScreen({ navigation, onLogout }) {
             </TouchableOpacity>
           </View>
         </LinearGradient>
-      </Animated.View>
+      </View>
 
       {/* Alerta de tareas vencidas */}
       <OverdueAlert 
@@ -510,10 +517,7 @@ export default function AdminScreen({ navigation, onLogout }) {
         showsVerticalScrollIndicator={false}
       >
         {/* Stats Overview - Estilo tarjetas grandes con glassmorphism */}
-        <Animated.View style={[
-          styles.statsContainer,
-          { opacity: statsOpacity, transform: [{ translateY: statsSlide }] }
-        ]}>
+        <View style={styles.statsContainer}>
           <View style={[styles.statCard, styles.statCardGlass]}>
             <LinearGradient
               colors={['rgba(59, 130, 246, 0.95)', 'rgba(37, 99, 235, 0.9)']}
@@ -558,10 +562,10 @@ export default function AdminScreen({ navigation, onLogout }) {
               <Text style={styles.statLabel}>MODO OSCURO</Text>
             </LinearGradient>
           </View>
-        </Animated.View>
+        </View>
 
         {/* Crear Usuario */}
-        <Animated.View style={{ opacity: formOpacity, transform: [{ translateY: formSlide }] }}>
+        <View>
           <View style={[
             styles.sectionCard, 
             { 
@@ -676,10 +680,67 @@ export default function AdminScreen({ navigation, onLogout }) {
             </LinearGradient>
           </TouchableOpacity>
           </View>
-        </Animated.View>
+        </View>
+
+        {/* Gestión de Áreas */}
+        <TouchableOpacity 
+          style={[styles.actionButton, { marginTop: 12 }]}
+          onPress={() => {
+            hapticMedium();
+            navigation.navigate('AreaManagement');
+          }}
+        >
+          <LinearGradient
+            colors={['#9F2241', '#7D1A33']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.buttonGradient}
+          >
+            <Ionicons name="folder-open" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.buttonText}>Gestión de Áreas</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+
+        {/* Dashboard Jefe de Área */}
+        <TouchableOpacity 
+          style={[styles.actionButton, { marginTop: 12 }]}
+          onPress={() => {
+            hapticMedium();
+            navigation.navigate('AreaChiefDashboard');
+          }}
+        >
+          <LinearGradient
+            colors={['#5E72E4', '#3D5ADB']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.buttonGradient}
+          >
+            <Ionicons name="bar-chart" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.buttonText}>Mi Dashboard</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+
+        {/* Analytics & Reports */}
+        <TouchableOpacity 
+          style={[styles.actionButton, { marginTop: 12 }]}
+          onPress={() => {
+            hapticMedium();
+            navigation.navigate('Analytics');
+          }}
+        >
+          <LinearGradient
+            colors={['#06B6D4', '#0891B2']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.buttonGradient}
+          >
+            <Ionicons name="analytics" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.buttonText}>Analytics & Reportes</Text>
+          </LinearGradient>
+        </TouchableOpacity>
 
         {/* Lista de Usuarios */}
-        <Animated.View style={{ opacity: usersOpacity, transform: [{ translateY: usersSlide }] }}>
+        <View>
           <View style={[
             styles.sectionCard, 
             { 
@@ -779,7 +840,7 @@ export default function AdminScreen({ navigation, onLogout }) {
             </View>
           )}
           </View>
-        </Animated.View>
+        </View>
 
         {/* Recuperación de Contraseña */}
         <View style={[
@@ -981,6 +1042,18 @@ export default function AdminScreen({ navigation, onLogout }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '600'
+  },
+  headerSection: {
+    // Container for header without animations
   },
   headerGradient: {
     paddingHorizontal: 20,

@@ -2,7 +2,6 @@
 // Vista de calendario mensual con tareas por día - GLASSMORPHISM UI
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Animated, Platform, Easing } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import EmptyState from '../components/EmptyState';
@@ -21,6 +20,7 @@ import OverdueAlert from '../components/OverdueAlert';
 import { getCurrentSession } from '../services/authFirestore';
 import { useResponsive } from '../utils/responsive';
 import { SPACING, TYPOGRAPHY, RADIUS, SHADOWS, MAX_WIDTHS } from '../theme/tokens';
+import WebSafeBlur from '../components/WebSafeBlur';
 
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -532,7 +532,7 @@ export default function CalendarScreen({ navigation }) {
           setModalVisible(false);
         }}
       >
-        <BlurView intensity={Platform.OS === 'ios' ? 50 : 100} style={styles.modalBlurOverlay} tint={isDark ? 'dark' : 'light'}>
+        <WebSafeBlur intensity={Platform.OS === 'ios' ? 50 : 100} style={styles.modalBlurOverlay} tint={isDark ? 'dark' : 'light'}>
           <TouchableOpacity 
             style={styles.modalBackdrop} 
             activeOpacity={1} 
@@ -574,7 +574,7 @@ export default function CalendarScreen({ navigation }) {
               {selectedDateTasks.map((task, index) => renderTaskItem(task, index))}
             </ScrollView>
           </Animated.View>
-        </BlurView>
+        </WebSafeBlur>
       </Modal>
       </View>
 

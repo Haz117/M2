@@ -2,6 +2,8 @@
 // Configuración mínima para Firebase v9 modular + helper para Firestore
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, serverTimestamp } from 'firebase/firestore';
+import { getAnalytics } from 'firebase/analytics';
+import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 // Intentamos obtener valores inyectados por app.config.js (expo) o desde process.env
@@ -26,11 +28,23 @@ if (!firebaseConfig.apiKey) {
 // Inicializar Firebase App (solo si no existe)
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
+// Inicializar Analytics (solo en plataformas que lo soportan)
+let analytics = null;
+try {
+  // Analytics solo funciona en plataformas nativas reales (no en web/expo-web)
+  if (Platform.OS !== 'web') {
+    analytics = getAnalytics(app);
+  }
+} catch (error) {
+  console.warn('Analytics no disponible en esta plataforma:', error.message);
+  analytics = null;
+}
+
 // Inicializar Firestore
 const db = getFirestore(app);
 
-// Exportar solo app y db (auth se crea bajo demanda en services/auth.js)
-export { app, db };
+// Exportar app, db, analytics y serverTimestamp
+export { app, db, analytics };
 
-// Helper: timestamp de servidor (útil para mensajes)
+// Helper: timestamp de servidor (útil para operaciones y mensajes)
 export const getServerTimestamp = () => serverTimestamp();

@@ -212,6 +212,11 @@ export default function HomeScreen({ navigation }) {
     navigation.navigate('TaskChat', { taskId: task.id, taskTitle: task.title });
   }, [navigation]);
 
+  const openProgress = useCallback((task) => {
+    // Abrir pantalla de progreso detallado
+    navigation.navigate('TaskProgress', { taskId: task.id, task });
+  }, [navigation]);
+
   const deleteTask = useCallback((taskId) => {
     // 🛡️ GUARD: Prevenir eliminación múltiple del mismo task
     if (deletingTasksRef.current.has(taskId)) {
@@ -859,7 +864,7 @@ export default function HomeScreen({ navigation }) {
             <TaskItem 
               task={item}
               index={index}
-              onPress={() => openDetail(item)}
+              onPress={() => openDetail(item)} // 👈 Abre detalle de tarea consistente con otras pantallas
               // Solo admin puede eliminar tareas
               onDelete={isAdmin ? () => deleteTask(item.id) : undefined}
               onToggleComplete={() => toggleComplete(item)}

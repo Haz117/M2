@@ -4,7 +4,7 @@
 // Funcionalidad mínima: lista de mensajes en tiempo real + enviar mensaje de texto.
 
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, addDoc, onSnapshot, query, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -12,6 +12,17 @@ import { db, getServerTimestamp } from '../firebase';
 import { getCurrentSession } from '../services/authFirestore';
 import { notifyNewComment } from '../services/fcm';
 import { notifyNewChatMessage } from '../services/emailNotifications';
+import ChatImageUpload from '../components/ChatImageUpload';
+
+// Helper function to check if a task is assigned to a user (supports both string and array formats)
+function isTaskAssignedToUser(task, userEmail) {
+  if (!task.assignedTo) return false;
+  if (Array.isArray(task.assignedTo)) {
+    return task.assignedTo.includes(userEmail.toLowerCase());
+  }
+  // Backward compatibility: old string format
+  return task.assignedTo.toLowerCase() === userEmail.toLowerCase();
+}
 
 export default function TaskChatScreen({ route, navigation }) {
   const { taskId, taskTitle } = route.params;
@@ -21,6 +32,7 @@ export default function TaskChatScreen({ route, navigation }) {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [hasAccess, setHasAccess] = useState(false);
   const [taskData, setTaskData] = useState(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const flatRef = useRef();
 
   // Cargar usuario actual y verificar acceso a la tarea
@@ -30,9 +42,13 @@ export default function TaskChatScreen({ route, navigation }) {
 
   const loadCurrentUserAndCheckAccess = async () => {
     const result = await getCurrentSession();
+    console.log('[TaskChat] Session result:', result);
+    
     if (result.success) {
-      setCurrentUser(result.session.displayName || result.session.email || 'Usuario');
+      const displayName = result.session.displayName || result.session.email || 'Usuario';
+      setCurrentUser(displayName);
       setCurrentUserId(result.session.userId);
+      console.log('[TaskChat] Current user:', displayName, 'userId:', result.session.userId);
       
       // Cargar datos de la tarea para verificar acceso
       try {
@@ -40,26 +56,35 @@ export default function TaskChatScreen({ route, navigation }) {
         if (taskDoc.exists()) {
           const task = taskDoc.data();
           setTaskData(task);
+          console.log('[TaskChat] Task loaded, assignedTo:', task.assignedTo);
           
           // Verificar acceso según rol
           const userRole = result.session.role;
           const userEmail = result.session.email;
           const userDepartment = result.session.department;
           
+          console.log('[TaskChat] Checking access - role:', userRole, 'email:', userEmail, 'dept:', userDepartment);
+          
           if (userRole === 'admin') {
+            console.log('[TaskChat] Access granted - admin');
             setHasAccess(true);
           } else if (userRole === 'jefe' && task.area === userDepartment) {
+            console.log('[TaskChat] Access granted - jefe in correct area');
             setHasAccess(true);
-          } else if (userRole === 'operativo' && task.assignedTo === userEmail) {
+          } else if (userRole === 'operativo' && isTaskAssignedToUser(task, userEmail)) {
+            console.log('[TaskChat] Access granted - operativo assigned to task');
             setHasAccess(true);
           } else {
+            console.log('[TaskChat] Access denied - no matching criteria');
             setHasAccess(false);
           }
         }
       } catch (error) {
+        console.error('[TaskChat] Error loading task:', error);
         setHasAccess(false);
       }
     } else {
+      console.log('[TaskChat] Session failed:', result);
       setCurrentUser('Usuario');
       setCurrentUserId(null);
       setHasAccess(false);
@@ -68,30 +93,42 @@ export default function TaskChatScreen({ route, navigation }) {
 
   useEffect(() => {
     // Solo escuchar mensajes si tiene acceso
-    if (!hasAccess) return;
+    if (!hasAccess) {
+      console.log('[TaskChat] Not loading messages - no access');
+      return;
+    }
     
+    console.log('[TaskChat] Setting up message listener for taskId:', taskId);
     // Listener en tiempo real de la colección de mensajes de la tarea
     const q = query(collection(db, 'tasks', taskId, 'messages'), orderBy('createdAt', 'asc'));
     const unsub = onSnapshot(q, (snap) => {
       const arr = [];
       snap.forEach(doc => arr.push({ id: doc.id, ...doc.data() }));
+      console.log('[TaskChat] Messages updated:', arr.length, 'messages');
       setMessages(arr);
     }, (err) => {
-      // Error silencioso
+      console.error('[TaskChat] Error listening to messages:', err);
     });
 
     return () => unsub();
   }, [taskId, hasAccess]);
 
   const send = async () => {
-    if (!text.trim() || !hasAccess) return;
+    if (!text.trim() || !hasAccess) {
+      console.log('[TaskChat] Send blocked - text.trim():', !!text.trim(), 'hasAccess:', hasAccess);
+      return;
+    }
+    
+    console.log('[TaskChat] Attempting to send message:', text.trim());
     try {
       // 1. Enviar mensaje al chat
-      await addDoc(collection(db, 'tasks', taskId, 'messages'), {
+      const msgRef = await addDoc(collection(db, 'tasks', taskId, 'messages'), {
+        type: 'text',
         text: text.trim(),
         author: currentUser || 'Usuario',
         createdAt: getServerTimestamp()
       });
+      console.log('[TaskChat] Message sent successfully:', msgRef.id);
       
       // 2. Actualizar lastMessageAt en la tarea para ordenar por actividad
       try {
@@ -101,7 +138,7 @@ export default function TaskChatScreen({ route, navigation }) {
           hasUnreadMessages: true
         });
       } catch (updateError) {
-        // Error silencioso
+        console.error('[TaskChat] Error updating task:', updateError);
       }
       
       // 3. Notificar a otros usuarios de la tarea
@@ -117,14 +154,62 @@ export default function TaskChatScreen({ route, navigation }) {
           );
         }
       } catch (notifyError) {
-        // Error silencioso
+        console.error('[TaskChat] Error notifying:', notifyError);
       }
       
       setText('');
       // scroll opcional
       setTimeout(() => flatRef.current?.scrollToEnd?.({ animated: true }), 200);
     } catch (e) {
-      Alert.alert('Error', 'No se pudo enviar el mensaje. Intenta de nuevo.');
+      console.error('[TaskChat] Error sending message:', e);
+      Alert.alert('Error', `No se pudo enviar el mensaje: ${e.message}`);
+    }
+  };
+
+  const handleImageCapture = async (imageData) => {
+    if (!hasAccess) {
+      console.log('[TaskChat] Image upload blocked - hasAccess:', hasAccess);
+      return;
+    }
+    
+    console.log('[TaskChat] Attempting to upload image:', imageData.uri);
+    setIsUploadingImage(true);
+    try {
+      // imageData should contain: { uri, type, name }
+      const imgRef = await addDoc(collection(db, 'tasks', taskId, 'messages'), {
+        type: 'image',
+        imageUrl: imageData.uri,
+        imageName: imageData.name,
+        author: currentUser || 'Usuario',
+        createdAt: getServerTimestamp()
+      });
+      console.log('[TaskChat] Image uploaded successfully:', imgRef.id);
+      
+      // Actualizar lastMessageAt en la tarea
+      try {
+        await updateDoc(doc(db, 'tasks', taskId), {
+          lastMessageAt: getServerTimestamp(),
+          lastMessageBy: currentUser || 'Usuario',
+          hasUnreadMessages: true
+        });
+      } catch (updateError) {
+        console.error('[TaskChat] Error updating task after image:', updateError);
+      }
+      
+      // Notificar
+      try {
+        await notifyNewComment(taskId, currentUser || 'Usuario', '[Imagen enviada]');
+      } catch (notifyError) {
+        console.error('[TaskChat] Error notifying about image:', notifyError);
+      }
+      
+      // scroll opcional
+      setTimeout(() => flatRef.current?.scrollToEnd?.({ animated: true }), 200);
+    } catch (e) {
+      console.error('[TaskChat] Error uploading image:', e);
+      Alert.alert('Error', `No se pudo enviar la imagen: ${e.message}`);
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 
@@ -157,10 +242,20 @@ export default function TaskChatScreen({ route, navigation }) {
             keyExtractor={(i) => i.id}
             contentContainerStyle={styles.messagesContainer}
             renderItem={({ item }) => (
-              <View style={styles.msgRow}>
-                <Text style={styles.msgAuthor}>{item.author}</Text>
-                <Text style={styles.msgText}>{item.text}</Text>
-                <Text style={styles.msgTime}>{item.createdAt?.toDate ? item.createdAt.toDate().toLocaleString() : ''}</Text>
+              <View key={item.id} style={styles.msgRow}>
+                <Text style={styles.msgAuthor}>{item.author || 'Usuario'}</Text>
+                {item.type === 'image' ? (
+                  <Image
+                    source={{ uri: item.imageUrl }}
+                    style={styles.msgImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Text style={styles.msgText}>{item.text || ''}</Text>
+                )}
+                <Text style={styles.msgTime}>
+                  {item.createdAt?.toDate ? item.createdAt.toDate().toLocaleString() : 'Sin fecha'}
+                </Text>
               </View>
             )}
           />
@@ -173,7 +268,16 @@ export default function TaskChatScreen({ route, navigation }) {
               onChangeText={setText}
               style={styles.input}
             />
-            <TouchableOpacity style={styles.sendButton} onPress={send}>
+            <ChatImageUpload
+              onImageCapture={handleImageCapture}
+              disabled={isUploadingImage}
+            />
+            <TouchableOpacity 
+              style={[styles.sendButton, !text.trim() && styles.sendButtonDisabled]} 
+              onPress={send}
+              disabled={!text.trim()}
+              activeOpacity={0.7}
+            >
               <Ionicons name="send" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
@@ -254,6 +358,12 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontWeight: '400'
   },
+  msgImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 12,
+    marginVertical: 8
+  },
   msgTime: { 
     marginTop: 8, 
     fontSize: 12, 
@@ -297,6 +407,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 5
+  },
+  sendButtonDisabled: {
+    backgroundColor: '#CFBF9F',
+    shadowOpacity: 0.1
   },
   noAccessContainer: {
     flex: 1,

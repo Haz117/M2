@@ -5,6 +5,16 @@ import { db } from '../firebase';
 
 const COLLECTION_NAME = 'tasks';
 
+// Helper function to check if a task is assigned to a user (supports both string and array formats)
+function isTaskAssignedToUser(task, userEmail) {
+  if (!task.assignedTo) return false;
+  if (Array.isArray(task.assignedTo)) {
+    return task.assignedTo.includes(userEmail.toLowerCase());
+  }
+  // Backward compatibility: old string format
+  return task.assignedTo.toLowerCase() === userEmail.toLowerCase();
+}
+
 /**
  * Calcular racha de días productivos
  * @param {string} userEmail - Email del usuario
@@ -15,13 +25,15 @@ export async function calculateProductivityStreak(userEmail) {
     const tasksRef = collection(db, COLLECTION_NAME);
     const q = query(
       tasksRef,
-      where('assignedTo', '==', userEmail),
       where('status', '==', 'cerrada'),
       orderBy('updatedAt', 'desc')
     );
     
     const snapshot = await getDocs(q);
-    const tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // Filtrar solo tareas asignadas al usuario
+    tasks = tasks.filter(task => isTaskAssignedToUser(task, userEmail));
     
     if (tasks.length === 0) {
       return { currentStreak: 0, longestStreak: 0 };
@@ -94,12 +106,14 @@ export async function calculateAverageCompletionTime(userEmail) {
     const tasksRef = collection(db, COLLECTION_NAME);
     const q = query(
       tasksRef,
-      where('assignedTo', '==', userEmail),
       where('status', '==', 'cerrada')
     );
     
     const snapshot = await getDocs(q);
-    const tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // Filtrar solo tareas asignadas al usuario
+    tasks = tasks.filter(task => isTaskAssignedToUser(task, userEmail));
     
     if (tasks.length === 0) return 0;
     
@@ -134,12 +148,14 @@ export async function getWeeklyProductivity(userEmail) {
     const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
     const q = query(
       tasksRef,
-      where('assignedTo', '==', userEmail),
       where('updatedAt', '>=', sevenDaysAgo)
     );
     
     const snapshot = await getDocs(q);
-    const tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // Filtrar solo tareas asignadas al usuario
+    tasks = tasks.filter(task => isTaskAssignedToUser(task, userEmail));
     
     // Agrupar por día
     const weekData = [];

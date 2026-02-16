@@ -17,8 +17,19 @@ import {
 import { db } from '../firebase';
 import { getCurrentSession } from './authFirestore';
 import { notifyTaskAssigned } from './emailNotifications';
+import { getGeneralMetrics } from './analytics';
 
 const COLLECTION_NAME = 'tasks';
+
+// Helper function to check if a task is assigned to a user (supports both string and array formats)
+function isTaskAssignedToUser(task, userEmail) {
+  if (!task.assignedTo) return false;
+  if (Array.isArray(task.assignedTo)) {
+    return task.assignedTo.includes(userEmail.toLowerCase());
+  }
+  // Backward compatibility: old string format
+  return task.assignedTo.toLowerCase() === userEmail.toLowerCase();
+}
 
 // 🔍 DIAGNÓSTICO: Detectar si emulador está activo
 function detectEmulator() {
@@ -44,7 +55,41 @@ let activeSubscriptions = 0;
 const MAX_SUBSCRIPTIONS = 3; // Aumentar suscripciones permitidas
 
 /**
+ * Esperar a que la sesión esté disponible (con retry logic)
+ * Este es un blocker - NO retorna hasta que haya sesión o se agotan reintentos
+ * @param {number} maxRetries - Intentos máximos (default 30 = 3 segundos)
+ * @param {number} initialDelay - Delay inicial en ms (default 100)
+ * @returns {Promise} Sesión del usuario o null
+ */
+async function waitForSession(maxRetries = 30, initialDelay = 100) {
+  let delay = initialDelay;
+  let lastError = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const result = await getCurrentSession();
+      if (result.success && result.session) {
+        console.log(`✅ Sesión encontrada en intento ${attempt + 1}`);
+        return result.session;
+      }
+    } catch (error) {
+      lastError = error;
+    }
+    
+    if (attempt < maxRetries - 1) {
+      await new Promise(resolve => setTimeout(resolve, delay));
+      // Backoff: 100, 110, 120, 131, ...  hasta ~2000ms
+      delay = Math.min(delay * 1.1, 2000);
+    }
+  }
+  
+  console.warn(`⚠️  No se encontró sesión después de ${maxRetries} intentos. Último error:`, lastError?.message);
+  return null;
+}
+
+/**
  * Suscribirse a cambios en tiempo real de las tareas del usuario autenticado
+ * ⚠️ IMPORTANTE: NO LLAMA onSnapshot hasta que haya sesión VÁLIDA confirmada
  * @param {Function} callback - Función que recibe el array de tareas actualizado
  * @returns {Function} Función para cancelar la suscripción
  */
@@ -52,64 +97,74 @@ export async function subscribeToTasks(callback) {
   try {
     activeSubscriptions++;
 
-    // Obtener sesión del usuario actual
-    const sessionResult = await getCurrentSession();
-    if (!sessionResult.success) {
+    // 🔍 PASO 1: Esperar a que la sesión esté disponible
+    const session = await waitForSession();
+    
+    if (!session) {
       activeSubscriptions--;
       callback([]);
       return () => {};
     }
-
-    const userRole = sessionResult.session.role;
-    const userEmail = sessionResult.session.email;
-    const userDepartment = sessionResult.session.department;
+    
+    // 🔍 PASO 2: Esperar un poco más para asegurar que Firestore está listo
+    // Esto previene el race condition donde onSnapshot falla por sesión no lista
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const userRole = session.role;
+    const userEmail = session.email;
+    const userDepartment = session.department;
 
     let tasksQuery;
 
     // Construir query según el rol del usuario
     if (userRole === 'admin') {
-      // Admin: Ver todas las tareas
       tasksQuery = query(
         collection(db, COLLECTION_NAME),
         orderBy('createdAt', 'desc')
       );
     } else if (userRole === 'jefe') {
-      // Jefe: Solo tareas de su departamento/área
       tasksQuery = query(
         collection(db, COLLECTION_NAME),
         where('area', '==', userDepartment),
         orderBy('createdAt', 'desc')
       );
     } else if (userRole === 'operativo') {
-      // Operativo: Solo tareas asignadas a él (comparación exacta con email)
       tasksQuery = query(
         collection(db, COLLECTION_NAME),
-        where('assignedTo', '==', userEmail),
         orderBy('createdAt', 'desc')
       );
     } else {
-      // Sin rol definido: sin acceso
       callback([]);
       return () => {};
     }
 
-    // Listener en tiempo real
-    const unsubscribe = onSnapshot(
+    // 🔍 PASO 3: Ahora SÍ, crear el listener de Firestore
+    // En este punto, onSnapshot debería funcionar correctamente
+    let isSubscribed = true;
+    let unsubscribeListener = null;
+    
+    unsubscribeListener = onSnapshot(
       tasksQuery,
       (snapshot) => {
-        const tasks = snapshot.docs.map(doc => {
+        if (!isSubscribed) return;
+        
+        let tasks = snapshot.docs.map(doc => {
           const data = doc.data();
           return {
             id: doc.id,
             ...data,
-            // Convertir Timestamps de Firebase a milisegundos solo si son Timestamps
             createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : data.createdAt || Date.now(),
             updatedAt: data.updatedAt?.toMillis ? data.updatedAt.toMillis() : data.updatedAt || Date.now(),
             dueAt: data.dueAt?.toMillis ? data.dueAt.toMillis() : data.dueAt || Date.now()
           };
         });
         
-        // 🛡️ DEDUPLICACIÓN: Asegurar que no haya tareas duplicadas por ID
+        // Filtrar según rol
+        if (userRole === 'operativo') {
+          tasks = tasks.filter(task => isTaskAssignedToUser(task, userEmail));
+        }
+        
+        // Deduplicación
         const seenIds = new Set();
         const uniqueTasks = [];
         for (const task of tasks) {
@@ -122,14 +177,24 @@ export async function subscribeToTasks(callback) {
         callback(uniqueTasks);
       },
       (error) => {
-        callback([]);
+        // No loguear errores - el context reintentará
+        if (isSubscribed) {
+          // Silencio absoluto
+        }
       }
     );
 
-    // Retornar función de limpieza mejorada
+    // Retornar función de limpieza
     return () => {
       activeSubscriptions--;
-      if (unsubscribe) unsubscribe();
+      isSubscribed = false;
+      if (unsubscribeListener) {
+        try {
+          unsubscribeListener();
+        } catch (e) {
+          // Silent
+        }
+      }
     };
   } catch (error) {
     activeSubscriptions--;
@@ -309,4 +374,78 @@ export async function deleteTask(taskId) {
  */
 export async function loadTasks() {
   return [];
+}
+
+/**
+ * Obtener métricas generales de tareas del usuario actual
+ * @returns {Promise<Object>} Métricas de tareas incluyendo total, completed, etc.
+ */
+export async function getOverallTaskMetrics() {
+  try {
+    const sessionResult = await getCurrentSession();
+    
+    if (!sessionResult.success || !sessionResult.session) {
+      return {
+        total: 0,
+        completed: 0,
+        pending: 0,
+        inProgress: 0,
+        inReview: 0,
+        overdue: 0,
+        completionRate: 0,
+        avgCompletionTime: 0,
+        byPriority: { alta: 0, media: 0, baja: 0 },
+        periods: {
+          today: { created: 0, completed: 0 },
+          week: { created: 0, completed: 0 },
+          month: { created: 0, completed: 0 },
+        },
+        weeklyProductivity: 0,
+      };
+    }
+
+    const session = sessionResult.session;
+    const metricsResult = await getGeneralMetrics(session.userId, session.role);
+    
+    if (metricsResult.success) {
+      return metricsResult.metrics;
+    }
+    
+    return {
+      total: 0,
+      completed: 0,
+      pending: 0,
+      inProgress: 0,
+      inReview: 0,
+      overdue: 0,
+      completionRate: 0,
+      avgCompletionTime: 0,
+      byPriority: { alta: 0, media: 0, baja: 0 },
+      periods: {
+        today: { created: 0, completed: 0 },
+        week: { created: 0, completed: 0 },
+        month: { created: 0, completed: 0 },
+      },
+      weeklyProductivity: 0,
+    };
+  } catch (error) {
+    console.error('Error getting overall task metrics:', error);
+    return {
+      total: 0,
+      completed: 0,
+      pending: 0,
+      inProgress: 0,
+      inReview: 0,
+      overdue: 0,
+      completionRate: 0,
+      avgCompletionTime: 0,
+      byPriority: { alta: 0, media: 0, baja: 0 },
+      periods: {
+        today: { created: 0, completed: 0 },
+        week: { created: 0, completed: 0 },
+        month: { created: 0, completed: 0 },
+      },
+      weeklyProductivity: 0,
+    };
+  }
 }

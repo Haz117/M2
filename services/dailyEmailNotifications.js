@@ -4,6 +4,16 @@ import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { sendEmail } from './emailNotifications';
 
+// Helper function to check if a task is assigned to a user (supports both string and array formats)
+function isTaskAssignedToUser(task, userEmail) {
+  if (!task.assignedTo) return false;
+  if (Array.isArray(task.assignedTo)) {
+    return task.assignedTo.includes(userEmail.toLowerCase());
+  }
+  // Backward compatibility: old string format
+  return task.assignedTo.toLowerCase() === userEmail.toLowerCase();
+}
+
 /**
  * Envía email diario con resumen de tareas al usuario
  * @param {string} userEmail - Email del usuario
@@ -28,11 +38,16 @@ export async function sendDailyTaskSummary(userEmail, userName, role, department
     } else if (role === 'jefe' && department) {
       q = query(tasksRef, where('area', '==', department), orderBy('dueAt', 'asc'));
     } else {
-      q = query(tasksRef, where('assignedTo', '==', userEmail), orderBy('dueAt', 'asc'));
+      q = query(tasksRef, orderBy('dueAt', 'asc'));
     }
 
     const snapshot = await getDocs(q);
-    const allTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let allTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // Filtrar si no es admin o jefe
+    if (role !== 'admin' && role !== 'jefe') {
+      allTasks = allTasks.filter(task => isTaskAssignedToUser(task, userEmail));
+    }
 
     // Clasificar tareas
     const overdueTasks = allTasks.filter(t => t.dueAt < now && t.status !== 'cerrada');

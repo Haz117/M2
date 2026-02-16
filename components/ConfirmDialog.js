@@ -4,7 +4,7 @@ import React from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet, Animated, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
-import { BlurView } from 'expo-blur';
+import WebSafeBlur from './WebSafeBlur';
 
 export default function ConfirmDialog({ 
   visible, 

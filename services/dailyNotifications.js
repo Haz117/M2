@@ -7,6 +7,16 @@ import { sendDailySummary, notifyTaskDueSoon } from './emailNotifications';
 
 const COLLECTION_NAME = 'tasks';
 
+// Helper function to check if a task is assigned to a user (supports both string and array formats)
+function isTaskAssignedToUser(task, userEmail) {
+  if (!task.assignedTo) return false;
+  if (Array.isArray(task.assignedTo)) {
+    return task.assignedTo.includes(userEmail.toLowerCase());
+  }
+  // Backward compatibility: old string format
+  return task.assignedTo.toLowerCase() === userEmail.toLowerCase();
+}
+
 /**
  * Procesar y enviar notificaciones diarias
  * Se debe llamar una vez al día (ej: 8 AM)
@@ -20,12 +30,14 @@ export async function processDailyNotifications(userEmail) {
     const tasksRef = collection(db, COLLECTION_NAME);
     const q = query(
       tasksRef,
-      where('assignedTo', '==', userEmail),
       where('status', '!=', 'cerrada')
     );
     
     const snapshot = await getDocs(q);
-    const tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // Filtrar solo tareas asignadas al usuario
+    tasks = tasks.filter(task => isTaskAssignedToUser(task, userEmail));
     
     const now = Date.now();
     const twentyFourHours = 24 * 60 * 60 * 1000;

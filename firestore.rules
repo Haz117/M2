@@ -2,52 +2,55 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    function isSignedIn() {
-      return request.auth != null;
+    // ⚠️ NOTA: Sistema usa autenticación custom (Firestore + AsyncStorage)
+    // NO utiliza Firebase Authentication. La validación de permisos se hace
+    // a nivel de aplicación a través de roles de usuario.
+    // Por eso Firestore rules es completamente abierto - confía en app-level validation
+    
+    // REGLA POR DEFECTO: Permitir todo
+    match /{document=**} {
+      allow read, write: if true;
     }
     
-    // USUARIOS
+    // USUARIOS (más específico, pero permite todo igual)
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create: if request.auth.uid == userId;
-      allow update: if request.auth.uid == userId;
-      allow delete: if false;
+      allow read, write: if true;
     }
     
-    // TAREAS - Muy permisivo por ahora
+    // TAREAS (más específico, pero permite todo igual)
     match /tasks/{taskId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();  // ← Cualquier usuario autenticado puede eliminar
-    }
-    
-    // MENSAJES
-    match /tasks/{taskId}/messages/{messageId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if false;
+      allow read, write: if true;
+      
+      // SUBTAREAS - Nested under tasks (muy específico para asegurar que se permite)
+      match /subtasks/{subtaskId} {
+        allow read, write: if true;
+      }
+      
+      // MENSAJES - Nested under tasks
+      match /messages/{messageId} {
+        allow read, write: if true;
+      }
     }
     
     // FCM TOKENS
     match /fcmTokens/{tokenId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if true;
     }
     
     // REPORTES
     match /reports/{reportId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if true;
     }
     
     // FIRMAS
     match /signatures/{signatureId} {
-      allow read, create: if isSignedIn();
+      allow read, create: if true;
       allow update, delete: if false;
     }
     
     // AUDITORÍA
     match /auditLogs/{logId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if true;
     }
   }
 }

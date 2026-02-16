@@ -3,6 +3,16 @@
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 
+// Helper function to check if a task is assigned to a user (supports both string and array formats)
+function isTaskAssignedToUser(task, userEmail) {
+  if (!task.assignedTo) return false;
+  if (Array.isArray(task.assignedTo)) {
+    return task.assignedTo.includes(userEmail.toLowerCase());
+  }
+  // Backward compatibility: old string format
+  return task.assignedTo.toLowerCase() === userEmail.toLowerCase();
+}
+
 /**
  * Obtener datos de heatmap de actividad (estilo GitHub)
  * @param {string} userEmail - Email del usuario
@@ -17,13 +27,15 @@ export async function getActivityHeatmap(userEmail, days = 90) {
     const tasksRef = collection(db, 'tasks');
     const q = query(
       tasksRef,
-      where('assignedTo', '==', userEmail),
       where('completedAt', '>=', startDate.getTime()),
       orderBy('completedAt', 'asc')
     );
     
     const snapshot = await getDocs(q);
-    const tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // Filtrar solo tareas asignadas al usuario
+    tasks = tasks.filter(task => isTaskAssignedToUser(task, userEmail));
     
     // Agrupar por día
     const dayMap = {};
@@ -81,12 +93,14 @@ export async function getWeeklyProductivityChart(userEmail) {
     const tasksRef = collection(db, 'tasks');
     const q = query(
       tasksRef,
-      where('assignedTo', '==', userEmail),
       where('createdAt', '>=', startDate.getTime())
     );
     
     const snapshot = await getDocs(q);
-    const tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // Filtrar solo tareas asignadas al usuario
+    tasks = tasks.filter(task => isTaskAssignedToUser(task, userEmail));
     
     // Agrupar por semana
     const weekMap = {};
@@ -144,12 +158,15 @@ export async function getEstimatedVsRealTime(userEmail) {
     const tasksRef = collection(db, 'tasks');
     const q = query(
       tasksRef,
-      where('assignedTo', '==', userEmail),
-      where('status', '==', 'cerrada')
+      where('status', '!=', 'cerrada')
     );
     
     const snapshot = await getDocs(q);
-    const tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+    let tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // Filtrar solo tareas asignadas al usuario
+    tasks = tasks
+      .filter(task => isTaskAssignedToUser(task, userEmail))
       .filter(t => t.estimatedHours && t.completedAt && t.createdAt);
     
     if (tasks.length === 0) {
@@ -207,13 +224,15 @@ export async function getProductivityByHour(userEmail) {
     const tasksRef = collection(db, 'tasks');
     const q = query(
       tasksRef,
-      where('assignedTo', '==', userEmail),
       where('status', '==', 'cerrada'),
       where('completedAt', '>=', thirtyDaysAgo)
     );
     
     const snapshot = await getDocs(q);
-    const tasks = snapshot.docs.map(doc => doc.data());
+    let tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // Filtrar solo tareas asignadas al usuario
+    tasks = tasks.filter(task => isTaskAssignedToUser(task, userEmail));
     
     // Agrupar por hora
     const hourMap = {};

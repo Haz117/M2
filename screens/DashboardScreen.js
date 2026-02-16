@@ -2,7 +2,6 @@
 // Dashboard con métricas estilo Kanban mejorado - Glassmorphism + Animaciones
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions, TouchableOpacity, Platform, FlatList, Modal, ActivityIndicator, Alert, Animated, Easing } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
@@ -14,6 +13,7 @@ import { exportTasksToCSV, exportStatsToCSV } from '../services/export';
 import { calculateProductivityStreak, calculateAverageCompletionTime, formatAverageTime } from '../services/productivity';
 import { getActivityHeatmap, getWeeklyProductivityChart, getEstimatedVsRealTime } from '../services/productivityAdvanced';
 import { getFocusTimeStats } from '../services/pomodoro';
+import { subscribeToMultipleTasksProgress } from '../services/taskProgress';
 import { hapticMedium } from '../utils/haptics';
 import LoadingIndicator from '../components/LoadingIndicator';
 import EmptyState from '../components/EmptyState';
@@ -27,6 +27,8 @@ import Toast from '../components/Toast';
 import FadeInView from '../components/FadeInView';
 import SpringCard from '../components/SpringCard';
 import RippleButton from '../components/RippleButton';
+import ProjectCard from '../components/ProjectCard';
+import WebSafeBlur from '../components/WebSafeBlur';
 import { useResponsive } from '../utils/responsive';
 import { SPACING, TYPOGRAPHY, RADIUS, MAX_WIDTHS } from '../theme/tokens';
 import { AREAS } from '../config/areas';
@@ -57,6 +59,8 @@ export default function DashboardScreen({ navigation }) {
   const [estimatedVsReal, setEstimatedVsReal] = useState(null);
   const [pomodoroStats, setPomodoroStats] = useState(null);
   const [loadingAdvanced, setLoadingAdvanced] = useState(true);
+  const [taskProgressData, setTaskProgressData] = useState({});
+  const [progressLoading, setProgressLoading] = useState(false);
   const [personalStats, setPersonalStats] = useState({
     completedToday: 0,
     completedWeek: 0,
@@ -83,6 +87,17 @@ export default function DashboardScreen({ navigation }) {
     let unsubscribe;
     subscribeToTasks((updatedTasks) => {
       setTasks(updatedTasks);
+      
+      // Suscribirse a progreso de las tareas
+      if (updatedTasks.length > 0) {
+        setProgressLoading(true);
+        const taskIds = updatedTasks.map(t => t.id);
+        const unsubscribeProgress = subscribeToMultipleTasksProgress(taskIds, (progressMap) => {
+          setTaskProgressData(progressMap);
+          setProgressLoading(false);
+        });
+        return unsubscribeProgress;
+      }
     }).then((unsub) => {
       unsubscribe = unsub;
     });
@@ -403,6 +418,49 @@ export default function DashboardScreen({ navigation }) {
         }
         showsVerticalScrollIndicator={false}
       >
+        {/* PROYECTOS CON PROGRESO - Tarjetas de proyectos activos */}
+        {tasks.length > 0 && (
+          <View style={styles.projectsSection}>
+            <View style={styles.sectionHeaderContainer}>
+              <View style={[styles.sectionIconBadge, { backgroundColor: 'rgba(159, 34, 65, 0.15)' }]}>
+                <Ionicons name="folder-outline" size={20} color="#9F2241" />
+              </View>
+              <View style={styles.sectionHeaderText}>
+                <Text style={[styles.sectionLabel, { color: theme.text }]}>
+                  Proyectos Activos
+                </Text>
+                <Text style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
+                  {tasks.length} tareas en progreso
+                </Text>
+              </View>
+            </View>
+
+            <View style={[
+              styles.projectsGrid,
+              isDesktop ? styles.projectsGridDesktop : styles.projectsGridMobile
+            ]}>
+              {tasks
+                .filter(t => t.status !== 'cerrada')
+                .sort((a, b) => {
+                  // Ordenar por progreso (urgentes primero)
+                  const progressA = taskProgressData[a.id]?.overallProgress || 0;
+                  const progressB = taskProgressData[b.id]?.overallProgress || 0;
+                  return progressB - progressA;
+                })
+                .slice(0, isDesktop ? 6 : 4)
+                .map((task) => (
+                  <ProjectCard
+                    key={task.id}
+                    task={task}
+                    progressData={taskProgressData[task.id]}
+                    onPress={() => navigation.navigate('TaskProgress', { taskId: task.id, task })}
+                    compact={!isDesktop}
+                  />
+                ))}
+            </View>
+          </View>
+        )}
+
         {/* LAYOUT KANBAN - Columnas de Estados con animación */}
         <Animated.View style={[styles.kanbanContainer, { opacity: kanbanOpacity, transform: [{ translateY: kanbanSlide }] }]}>
           <View style={styles.sectionHeaderContainer}>
@@ -1409,6 +1467,21 @@ const createStyles = (theme, isDark, isDesktop, isTablet, isDesktopLarge, screen
     kanbanContainer: {
       marginBottom: isDesktop ? 32 : 24,
       width: '100%',
+    },
+    projectsSection: {
+      marginBottom: isDesktop ? 40 : 32,
+      width: '100%',
+    },
+    projectsGrid: {
+      flexDirection: 'row',
+      gap: isDesktop ? 16 : 12,
+      flexWrap: 'wrap',
+    },
+    projectsGridDesktop: {
+      justifyContent: 'flex-start',
+    },
+    projectsGridMobile: {
+      justifyContent: 'space-between',
     },
     kanbanScroll: {
       flexGrow: 0,

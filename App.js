@@ -21,9 +21,17 @@ import AdminScreen from './screens/AdminScreen';
 import MyInboxScreen from './screens/MyInboxScreen';
 import TaskDetailScreen from './screens/TaskDetailScreen';
 import TaskChatScreen from './screens/TaskChatScreen';
+import TaskProgressScreen from './screens/TaskProgressScreen';
+import ReportsScreen from './screens/ReportsScreen';
+import NotificationsScreen from './screens/NotificationsScreen';
+import AreaChiefDashboard from './screens/AreaChiefDashboard';
+import AreaManagementScreen from './screens/area/AreaManagementScreen';
+import AnalyticsScreen from './screens/AnalyticsScreen';
+import TaskReportsAndActivityScreen from './screens/TaskReportsAndActivityScreen';
 import { getCurrentSession, logoutUser } from './services/authFirestore';
 import { startConnectivityMonitoring } from './services/offlineQueue';
 import { setupNotificationResponseListener } from './services/notifications';
+import { registerPushToken, setupPushNotificationListener } from './services/pushNotifications';
 
 // Vercel Analytics y Speed Insights (solo en web)
 let Analytics, SpeedInsights;
@@ -55,6 +63,29 @@ function MainTabs({ onLogout }) {
     getCurrentSession().then((result) => {
       if (result.success && mounted) {
         setCurrentUser(result.session);
+        // Inicializar notificaciones locales
+        const { configureNotifications } = require('./services/notificationsAdvanced');
+        configureNotifications().catch(console.error);
+        
+        // Registrar push notification token para FCM
+        const { registerPushToken, setupPushNotificationListener } = require('./services/pushNotifications');
+        registerPushToken(result.session.uid).catch((err) => {
+          console.warn('Push token registration skipped (non-critical):', err.message);
+        });
+        
+        // Setup push notification listener
+        const unsubPush = setupPushNotificationListener((notification) => {
+          console.log('Push notification received:', notification);
+          // Toast de notificación
+          Toast.show({
+            type: 'success',
+            text1: notification.title,
+            text2: notification.body,
+            position: 'top'
+          });
+        });
+        
+        return () => unsubPush?.();
       }
     });
     return () => { mounted = false; };
@@ -223,8 +254,8 @@ function MainTabs({ onLogout }) {
       {isJefeOrAdmin && (
         <Tab.Screen 
           name="Reports" 
-          options={{ title: 'Dashboard + Reportes' }} 
-          component={DashboardScreen} 
+          options={{ title: 'Reportes' }} 
+          component={ReportsScreen} 
         />
       )}
       
@@ -378,6 +409,54 @@ export default function App() {
                   options={{ 
                     presentation: 'modal',
                     animation: 'slide_from_bottom'
+                  }}
+                />
+                <Stack.Screen 
+                  name="TaskProgress" 
+                  component={TaskProgressScreen}
+                  options={{ 
+                    presentation: 'card',
+                    animation: 'slide_from_right'
+                  }}
+                />
+                <Stack.Screen 
+                  name="AreaManagement" 
+                  component={AreaManagementScreen}
+                  options={{ 
+                    presentation: 'card',
+                    animation: 'slide_from_right'
+                  }}
+                />
+                <Stack.Screen 
+                  name="Notifications" 
+                  component={NotificationsScreen}
+                  options={{ 
+                    presentation: 'card',
+                    animation: 'slide_from_right'
+                  }}
+                />
+                <Stack.Screen 
+                  name="AreaChiefDashboard" 
+                  component={AreaChiefDashboard}
+                  options={{ 
+                    presentation: 'card',
+                    animation: 'slide_from_right'
+                  }}
+                />
+                <Stack.Screen 
+                  name="Analytics" 
+                  component={AnalyticsScreen}
+                  options={{ 
+                    presentation: 'card',
+                    animation: 'slide_from_right'
+                  }}
+                />
+                <Stack.Screen 
+                  name="TaskReportsAndActivity" 
+                  component={TaskReportsAndActivityScreen}
+                  options={{ 
+                    presentation: 'card',
+                    animation: 'slide_from_right'
                   }}
                 />
               </>

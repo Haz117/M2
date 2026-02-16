@@ -3,6 +3,7 @@
 
 import React, { createContext, useState, useEffect, useCallback, useRef } from 'react';
 import { subscribeToTasks } from '../services/tasks';
+import { getCurrentSession } from '../services/authFirestore';
 
 export const TasksContext = createContext();
 
@@ -30,7 +31,9 @@ function loadDeletedTasks() {
 export function TasksProvider({ children }) {
   const [tasks, setTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasSession, setHasSession] = useState(false); // Track sesión disponibility
   const unsubscribeRef = useRef(null);
+  const unsubscribeTasksRef = useRef(null);
   
   // 🛡️ Set global para rastrear tareas siendo eliminadas
   const deletingTasksRef = useRef(new Set());
@@ -57,13 +60,50 @@ export function TasksProvider({ children }) {
     saveDeletedTasks(permanentlyDeletedRef.current);
   }, []);
 
-  // Suscribirse al listener global de tareas
+  // 🔍 EFECTO 1: Monitorear disponibilidad de sesión
   useEffect(() => {
     let mounted = true;
+    let checkCount = 0;
+    const MAX_CHECKS = 100; // 10 segundos a 100ms por check
+
+    const checkSession = async () => {
+      while (mounted && checkCount < MAX_CHECKS) {
+        const sessionResult = await getCurrentSession();
+        if (sessionResult.success) {
+          if (mounted) {
+            setHasSession(true);
+            return; // Sesión encontrada, terminar loop
+          }
+        }
+        checkCount++;
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      // Si se alcanza MAX_CHECKS sin sesión, asumir que no hay y marcar como listo
+      if (mounted && !hasSession) {
+        setIsLoading(false);
+      }
+    };
+
+    checkSession();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // 🔍 EFECTO 2: Suscribirse al listener SOLO cuando hay sesión
+  useEffect(() => {
+    if (!hasSession) {
+      return; // Esperar a que haya sesión antes de conectarse
+    }
+
+    let mounted = true;
+    let retryCount = 0;
+    const MAX_RETRIES = 5; // Más reintentos para mayor robustez
 
     const setupSubscription = async () => {
       try {
-        unsubscribeRef.current = await subscribeToTasks((updatedTasks) => {
+        unsubscribeTasksRef.current = await subscribeToTasks((updatedTasks) => {
           if (!mounted) return;
           
           // 🛡️ FILTRAR: No restaurar tareas que están siendo eliminadas O fueron eliminadas permanentemente
@@ -75,10 +115,26 @@ export function TasksProvider({ children }) {
           
           setTasks(filteredTasks);
           setIsLoading(false);
+          retryCount = 0; // Reset retry counter on success
         });
       } catch (error) {
-        // Error silencioso en producción
-        setIsLoading(false);
+        console.error('❌ Error en setupSubscription:', error.message);
+        // Si falla y aún tenemos reintentos, esperar y volver a intentar
+        if (retryCount < MAX_RETRIES && mounted) {
+          retryCount++;
+          const delayMs = 500 * retryCount; // 500ms, 1s, 1.5s, 2s, 2.5s
+          console.warn(`Reintentando suscripción (${retryCount}/${MAX_RETRIES}) en ${delayMs}ms...`);
+          
+          setTimeout(() => {
+            if (mounted) {
+              setupSubscription();
+            }
+          }, delayMs);
+        } else {
+          // No hay más reintentos
+          setIsLoading(false);
+          console.error('❌ Agotados reintentos de suscripción a tareas');
+        }
       }
     };
 
@@ -87,11 +143,15 @@ export function TasksProvider({ children }) {
     // Limpiar al desmontar
     return () => {
       mounted = false;
-      if (unsubscribeRef.current && typeof unsubscribeRef.current === 'function') {
-        unsubscribeRef.current();
+      if (unsubscribeTasksRef.current && typeof unsubscribeTasksRef.current === 'function') {
+        try {
+          unsubscribeTasksRef.current();
+        } catch (e) {
+          // Silent cleanup error
+        }
       }
     };
-  }, []);
+  }, [hasSession]);
 
   const value = {
     tasks,

@@ -3,6 +3,26 @@
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 
+// Helper function to check if a task is assigned to a user (supports both string and array formats)
+function isTaskAssignedToUser(task, userEmail) {
+  if (!task.assignedTo) return false;
+  if (Array.isArray(task.assignedTo)) {
+    return task.assignedTo.includes(userEmail.toLowerCase());
+  }
+  // Backward compatibility: old string format
+  return task.assignedTo.toLowerCase() === userEmail.toLowerCase();
+}
+
+// Helper function to get task area (supports both area and areas fields)
+function getTaskArea(task) {
+  if (task.area) {
+    return task.area;
+  } else if (task.areas && Array.isArray(task.areas) && task.areas.length > 0) {
+    return task.areas[0];
+  }
+  return 'Sin área';
+}
+
 /**
  * Obtener métricas generales
  */
@@ -14,15 +34,17 @@ export const getGeneralMetrics = async (userId, userRole) => {
       // Admin ve todas las tareas
       tasksQuery = query(collection(db, 'tasks'));
     } else {
-      // Otros usuarios ven solo sus tareas
-      tasksQuery = query(
-        collection(db, 'tasks'),
-        where('assignedTo', '==', userId)
-      );
+      // Otros usuarios ven todas cuando las filtramos
+      tasksQuery = query(collection(db, 'tasks'));
     }
 
     const querySnapshot = await getDocs(tasksQuery);
-    const tasks = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let tasks = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // Filtrar si no es admin
+    if (userRole !== 'admin') {
+      tasks = tasks.filter(task => isTaskAssignedToUser(task, userId));
+    }
 
     const now = Date.now();
     const today = new Date().setHours(0, 0, 0, 0);
@@ -111,14 +133,16 @@ export const getTrendData = async (userId, userRole) => {
     if (userRole === 'admin') {
       tasksQuery = query(collection(db, 'tasks'));
     } else {
-      tasksQuery = query(
-        collection(db, 'tasks'),
-        where('assignedTo', '==', userId)
-      );
+      tasksQuery = query(collection(db, 'tasks'));
     }
-
+    
     const querySnapshot = await getDocs(tasksQuery);
-    const tasks = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let tasks = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // Filtrar si no es admin
+    if (userRole !== 'admin') {
+      tasks = tasks.filter(task => isTaskAssignedToUser(task, userId));
+    }
 
     // Últimos 30 días
     const days = [];
@@ -166,7 +190,7 @@ export const getAreaStats = async () => {
     const areas = {};
     
     tasks.forEach(task => {
-      const area = task.area || 'Sin área';
+      const area = getTaskArea(task);
       
       if (!areas[area]) {
         areas[area] = {

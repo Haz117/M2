@@ -23,6 +23,16 @@ import OverdueAlert from '../components/OverdueAlert';
 import { useResponsive } from '../utils/responsive';
 import { SPACING, TYPOGRAPHY, RADIUS, SHADOWS, MAX_WIDTHS } from '../theme/tokens';
 
+// Helper function to check if a task is assigned to a user (supports both string and array formats)
+function isTaskAssignedToUser(task, userEmail) {
+  if (!task.assignedTo) return false;
+  if (Array.isArray(task.assignedTo)) {
+    return task.assignedTo.includes(userEmail.toLowerCase());
+  }
+  // Backward compatibility: old string format
+  return task.assignedTo.toLowerCase() === userEmail.toLowerCase();
+}
+
 export default function MyInboxScreen({ navigation }) {
   const { theme, isDark } = useTheme();
   const { width, isDesktop, isTablet, columns, padding } = useResponsive();
@@ -260,7 +270,7 @@ export default function MyInboxScreen({ navigation }) {
       
       // Si es operativo, mostrar solo sus tareas asignadas
       if (currentUser.role === 'operativo') {
-        if (task.assignedTo !== currentUser.email) return false;
+        if (!isTaskAssignedToUser(task, currentUser.email)) return false;
       }
       
       // Filtro de búsqueda (título, descripción)
