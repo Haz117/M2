@@ -621,6 +621,12 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.heading}>Mis Tareas</Text>
               </View>
               <View style={styles.headerActions}>
+                <TouchableOpacity 
+                  style={styles.notificationButton}
+                  onPress={() => navigation.navigate('Notifications')}
+                >
+                  <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
+                </TouchableOpacity>
                 <AdvancedFilters
                   filters={advancedFilters}
                   onApplyFilters={handleApplyFilters}
@@ -997,6 +1003,19 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding, 
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  notificationButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   greetingContainer: {
     flexDirection: 'row',

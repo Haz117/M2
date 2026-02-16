@@ -67,7 +67,12 @@ export default function NotificationsScreen({ navigation }) {
     }
 
     // Navegar según tipo
-    if (notification.taskId && notification.type === 'task_assigned') {
+    if (notification.type === 'new_report' && notification.taskId) {
+      navigation.navigate('TaskReportsAndActivity', { 
+        taskId: notification.taskId,
+        taskTitle: 'Reporte'
+      });
+    } else if (notification.taskId && notification.type === 'task_assigned') {
       navigation.navigate('TaskProgress', { taskId: notification.taskId });
     } else if (notification.areaId && notification.type === 'area_created') {
       navigation.navigate('AreaManagement');
@@ -99,6 +104,8 @@ export default function NotificationsScreen({ navigation }) {
         return 'folder';
       case 'area_chief_assigned':
         return 'person-circle';
+      case 'new_report':
+        return 'document-text';
       default:
         return 'notifications';
     }
@@ -114,6 +121,8 @@ export default function NotificationsScreen({ navigation }) {
         return '#9F2241';
       case 'area_chief_assigned':
         return '#5E72E4';
+      case 'new_report':
+        return '#3B82F6';
       default:
         return theme.primary;
     }

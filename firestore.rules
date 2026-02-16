@@ -42,6 +42,16 @@ service cloud.firestore {
       allow read, write: if true;
     }
     
+    // REPORTES DE TAREAS
+    match /task_reports/{reportId} {
+      allow read, write: if true;
+    }
+    
+    // ACTIVIDAD DE TAREAS
+    match /task_activity/{activityId} {
+      allow read, write: if true;
+    }
+    
     // FIRMAS
     match /signatures/{signatureId} {
       allow read, create: if true;

@@ -1,7 +1,28 @@
 // firebase.js
 // Configuración mínima para Firebase v9 modular + helper para Firestore
 import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore, serverTimestamp } from 'firebase/firestore';
+import { 
+  getFirestore, 
+  serverTimestamp,
+  collection,
+  doc,
+  addDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot,
+  arrayUnion,
+  arrayRemove,
+  writeBatch,
+  increment,
+  Timestamp
+} from 'firebase/firestore';
 import { getAnalytics } from 'firebase/analytics';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
@@ -43,8 +64,32 @@ try {
 // Inicializar Firestore
 const db = getFirestore(app);
 
-// Exportar app, db, analytics y serverTimestamp
-export { app, db, analytics };
+// Exportar app, db, analytics y funciones de Firestore
+export { 
+  app, 
+  db, 
+  analytics,
+  // Funciones de Firestore
+  collection,
+  doc,
+  addDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot,
+  serverTimestamp,
+  arrayUnion,
+  arrayRemove,
+  writeBatch,
+  increment,
+  Timestamp
+};
 
 // Helper: timestamp de servidor (útil para operaciones y mensajes)
 export const getServerTimestamp = () => serverTimestamp();

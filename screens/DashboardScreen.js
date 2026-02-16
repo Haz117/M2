@@ -394,18 +394,27 @@ export default function DashboardScreen({ navigation }) {
                 </View>
                 <Text style={styles.heading}>Dashboard + Reportes</Text>
               </View>
-              <RippleButton 
-                style={styles.exportButton}
-                onPress={handleExport}
-                rippleColor="rgba(255,255,255,0.3)"
-                disabled={isExporting}
-              >
-                {isExporting ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Ionicons name="download-outline" size={22} color="#FFFFFF" />
-                )}
-              </RippleButton>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <RippleButton 
+                  style={styles.exportButton}
+                  onPress={() => navigation.navigate('Notifications')}
+                  rippleColor="rgba(255,255,255,0.3)"
+                >
+                  <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
+                </RippleButton>
+                <RippleButton 
+                  style={styles.exportButton}
+                  onPress={handleExport}
+                  rippleColor="rgba(255,255,255,0.3)"
+                  disabled={isExporting}
+                >
+                  {isExporting ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Ionicons name="download-outline" size={22} color="#FFFFFF" />
+                  )}
+                </RippleButton>
+              </View>
             </View>
           </LinearGradient>
         </Animated.View>

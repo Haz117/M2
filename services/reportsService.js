@@ -5,6 +5,7 @@ import {
   addDoc, 
   doc, 
   updateDoc, 
+  getDoc,
   query, 
   where, 
   getDocs,
@@ -18,6 +19,49 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 const storage = getStorage();
 
 /**
+ * Notificar a los admins sobre un nuevo reporte
+ */
+const notifyAdminsOfNewReport = async (taskId, reportId, reportTitle, createdByName) => {
+  try {
+    // Obtener info de la tarea
+    const taskDoc = await getDoc(doc(db, 'tasks', taskId));
+    const taskData = taskDoc.exists() ? taskDoc.data() : {};
+    const taskTitle = taskData.title || 'Tarea sin título';
+
+    // Obtener todos los admins
+    const adminsQuery = query(collection(db, 'users'), where('role', '==', 'admin'));
+    const adminsSnapshot = await getDocs(adminsQuery);
+
+    // Crear notificación para cada admin
+    const notifications = [];
+    adminsSnapshot.forEach((adminDoc) => {
+      const adminData = adminDoc.data();
+      notifications.push({
+        userId: adminDoc.id,
+        userEmail: adminData.email,
+        type: 'new_report',
+        title: '📋 Nuevo Reporte Enviado',
+        body: `${createdByName} envió un reporte: "${reportTitle}" para la tarea "${taskTitle}"`,
+        taskId,
+        reportId,
+        read: false,
+        createdAt: serverTimestamp(),
+      });
+    });
+
+    // Guardar todas las notificaciones
+    for (const notification of notifications) {
+      await addDoc(collection(db, 'notifications'), notification);
+    }
+
+    console.log(`✅ Notificación enviada a ${notifications.length} admin(s)`);
+  } catch (error) {
+    console.error('Error notificando a admins:', error);
+    // No lanzar error para no interrumpir el flujo del reporte
+  }
+};
+
+/**
  * Create a report for a task with images and evidence
  * @param {string} taskId - Task ID
  * @param {string} userId - User ID creating report
@@ -26,9 +70,15 @@ const storage = getStorage();
  */
 export const createTaskReport = async (taskId, userId, reportData) => {
   try {
+    // Obtener nombre del usuario que crea el reporte
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    const userData = userDoc.exists() ? userDoc.data() : {};
+    const createdByName = userData.displayName || userData.email || 'Usuario';
+
     const report = {
       taskId,
       createdBy: userId,
+      createdByName: createdByName,
       title: reportData.title,
       description: reportData.description,
       images: reportData.images || [],
@@ -56,6 +106,9 @@ export const createTaskReport = async (taskId, userId, reportData) => {
       reportId: docRef.id,
       title: report.title,
     });
+
+    // Notificar a los admins
+    await notifyAdminsOfNewReport(taskId, docRef.id, reportData.title, createdByName);
 
     return docRef.id;
   } catch (error) {

@@ -281,25 +281,65 @@ export const getMyNotifications = async (limit = 50) => {
     const sessionResult = await getCurrentSession();
     if (!sessionResult.success) return [];
 
+    const userId = sessionResult.session.userId;
     const userEmail = sessionResult.session.email;
 
-    const q = query(
-      collection(db, NOTIFICATION_HISTORY_COLLECTION),
-      where('userId', '==', userEmail)
-    );
+    // Buscar en ambas colecciones
+    const notifications = [];
 
-    const snapshot = await getDocs(q);
-    const notifications = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    // 1. Buscar en notifications (nuevos reportes, etc)
+    try {
+      const q1 = query(
+        collection(db, NOTIFICATIONS_COLLECTION),
+        where('userId', '==', userId)
+      );
+      const snapshot1 = await getDocs(q1);
+      snapshot1.docs.forEach((doc) => {
+        notifications.push({ id: doc.id, ...doc.data() });
+      });
+    } catch (e) {
+      console.log('Error buscando en notifications:', e);
+    }
+
+    // 2. Buscar también por email
+    try {
+      const q2 = query(
+        collection(db, NOTIFICATIONS_COLLECTION),
+        where('userEmail', '==', userEmail)
+      );
+      const snapshot2 = await getDocs(q2);
+      snapshot2.docs.forEach((doc) => {
+        // Evitar duplicados
+        if (!notifications.find(n => n.id === doc.id)) {
+          notifications.push({ id: doc.id, ...doc.data() });
+        }
+      });
+    } catch (e) {
+      console.log('Error buscando por email:', e);
+    }
+
+    // 3. Buscar en notification_history (historial antiguo)
+    try {
+      const q3 = query(
+        collection(db, NOTIFICATION_HISTORY_COLLECTION),
+        where('userId', '==', userEmail)
+      );
+      const snapshot3 = await getDocs(q3);
+      snapshot3.docs.forEach((doc) => {
+        if (!notifications.find(n => n.id === doc.id)) {
+          notifications.push({ id: doc.id, ...doc.data() });
+        }
+      });
+    } catch (e) {
+      console.log('Error buscando en history:', e);
+    }
 
     // Ordenar por fecha descendente
     return notifications.sort((a, b) => {
       const aTime = a.createdAt?.toMillis?.() || a.createdAt || 0;
       const bTime = b.createdAt?.toMillis?.() || b.createdAt || 0;
       return bTime - aTime;
-    });
+    }).slice(0, limit);
   } catch (error) {
     console.error('Error obteniendo notificaciones:', error);
     return [];

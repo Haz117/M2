@@ -243,37 +243,27 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
 
     setLoading(true);
     try {
-      const currentUser = await getCurrentSession();
-      if (!currentUser) {
+      const result = await getCurrentSession();
+      if (!result.success || !result.session) {
         throw new Error('User not authenticated');
       }
+      const currentUser = result.session;
 
-      // Create report
-      const reportId = await createTaskReport(taskId, currentUser.uid, {
+      // Preparar URIs de imágenes (sin subir a Storage por problemas de CORS en desarrollo)
+      const imageUrls = images.map(img => ({
+        uri: img.uri,
+        uploadedBy: currentUser.userId,
+        uploadedAt: new Date().toISOString(),
+      }));
+
+      // Create report con imágenes incluidas
+      const reportId = await createTaskReport(taskId, currentUser.userId, {
         title: title.trim(),
         description: description.trim(),
         rating: rating > 0 ? rating : null,
         ratingComment: ratingComment.trim(),
+        images: imageUrls, // Guardar URIs directamente
       });
-
-      // Upload images if any
-      if (images.length > 0) {
-        for (const image of images) {
-          if (!image.uploading) {
-            try {
-              const imageData = {
-                uri: image.uri,
-                uploadedBy: currentUser.uid,
-              };
-              // In a real app, convert image to blob
-              // For now, just store the URI
-              await uploadReportImage(taskId, reportId, imageData);
-            } catch (error) {
-              console.error('Error uploading image:', error);
-            }
-          }
-        }
-      }
 
       setToastMessage('Report created successfully!');
       setTimeout(() => {

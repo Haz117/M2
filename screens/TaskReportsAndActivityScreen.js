@@ -266,8 +266,10 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const user = await getCurrentSession();
-        setCurrentUser(user);
+        const result = await getCurrentSession();
+        if (result.success && result.session) {
+          setCurrentUser(result.session);
+        }
 
         // Subscribe to reports
         const unsubReports = subscribeToTaskReports(taskId, setReports);
@@ -303,7 +305,7 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
           text: 'Submit',
           onPress: async () => {
             try {
-              await rateTaskReport(taskId, reportId, rating, '', currentUser.uid);
+              await rateTaskReport(taskId, reportId, rating, '', currentUser.userId);
               setToastMessage('Report rated successfully!');
               setExpandedReportId(null);
             } catch (error) {
@@ -404,7 +406,7 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
             </View>
           )}
 
-          {!item.rating && currentUser?.isAdmin && (
+          {!item.rating && currentUser?.role === 'admin' && (
             <View style={styles.ratingSection}>
               <Text style={styles.ratingLabel}>Rate this report</Text>
               <View style={styles.starsContainer}>
