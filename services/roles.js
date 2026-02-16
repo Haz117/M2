@@ -4,9 +4,18 @@ import { getCurrentSession } from './authFirestore';
 
 // Roles disponibles en el sistema
 export const ROLES = {
-  ADMIN: 'admin',           // Alcalde, Secretario
+  ADMIN: 'admin',           // Alcalde (máximo nivel)
+  SECRETARIO: 'secretario', // Secretario (puede delegar a operativos)
   JEFE: 'jefe',             // Director de área
   OPERATIVO: 'operativo'    // Personal operativo
+};
+
+// Jerarquía de roles (mayor número = mayor nivel)
+export const ROLE_HIERARCHY = {
+  [ROLES.ADMIN]: 4,
+  [ROLES.SECRETARIO]: 3,
+  [ROLES.JEFE]: 2,
+  [ROLES.OPERATIVO]: 1
 };
 
 // Departamentos del municipio
@@ -110,6 +119,47 @@ export const isJefeOrAdmin = async () => {
   } catch (error) {
     return false;
   }
+};
+
+// Verificar si el usuario es secretario
+export const isSecretario = async () => {
+  try {
+    const profile = await getUserProfile();
+    return profile?.role === ROLES.SECRETARIO;
+  } catch (error) {
+    return false;
+  }
+};
+
+// Verificar si el usuario es secretario o admin (puede delegar tareas)
+export const isSecretarioOrAdmin = async () => {
+  try {
+    const profile = await getUserProfile();
+    return profile?.role === ROLES.ADMIN || profile?.role === ROLES.SECRETARIO;
+  } catch (error) {
+    return false;
+  }
+};
+
+// Verificar si el usuario puede delegar tareas (admin, secretario o jefe)
+export const canDelegateTasks = async () => {
+  try {
+    const profile = await getUserProfile();
+    const delegateRoles = [ROLES.ADMIN, ROLES.SECRETARIO, ROLES.JEFE];
+    return delegateRoles.includes(profile?.role);
+  } catch (error) {
+    return false;
+  }
+};
+
+// Verificar nivel de rol
+export const getRoleLevel = (role) => {
+  return ROLE_HIERARCHY[role] || 0;
+};
+
+// Verificar si un rol puede gestionar a otro
+export const canManageRole = (managerRole, targetRole) => {
+  return getRoleLevel(managerRole) > getRoleLevel(targetRole);
 };
 
 // Obtener usuarios por departamento

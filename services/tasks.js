@@ -117,7 +117,8 @@ export async function subscribeToTasks(callback) {
     let tasksQuery;
 
     // Construir query según el rol del usuario
-    if (userRole === 'admin') {
+    // Admin y Secretario ven todas las tareas
+    if (userRole === 'admin' || userRole === 'secretario') {
       tasksQuery = query(
         collection(db, COLLECTION_NAME),
         orderBy('createdAt', 'desc')

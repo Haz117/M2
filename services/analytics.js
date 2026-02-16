@@ -30,8 +30,9 @@ export const getGeneralMetrics = async (userId, userRole) => {
   try {
     let tasksQuery;
     
-    if (userRole === 'admin') {
-      // Admin ve todas las tareas
+    // Admin y Secretario ven todas las tareas
+    if (userRole === 'admin' || userRole === 'secretario') {
+      // Admin/Secretario ve todas las tareas
       tasksQuery = query(collection(db, 'tasks'));
     } else {
       // Otros usuarios ven todas cuando las filtramos
@@ -41,8 +42,8 @@ export const getGeneralMetrics = async (userId, userRole) => {
     const querySnapshot = await getDocs(tasksQuery);
     let tasks = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
-    // Filtrar si no es admin
-    if (userRole !== 'admin') {
+    // Filtrar si no es admin ni secretario
+    if (userRole !== 'admin' && userRole !== 'secretario') {
       tasks = tasks.filter(task => isTaskAssignedToUser(task, userId));
     }
 
@@ -130,7 +131,7 @@ export const getTrendData = async (userId, userRole) => {
   try {
     let tasksQuery;
     
-    if (userRole === 'admin') {
+    if (userRole === 'admin' || userRole === 'secretario') {
       tasksQuery = query(collection(db, 'tasks'));
     } else {
       tasksQuery = query(collection(db, 'tasks'));
@@ -139,8 +140,8 @@ export const getTrendData = async (userId, userRole) => {
     const querySnapshot = await getDocs(tasksQuery);
     let tasks = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
-    // Filtrar si no es admin
-    if (userRole !== 'admin') {
+    // Filtrar si no es admin ni secretario
+    if (userRole !== 'admin' && userRole !== 'secretario') {
       tasks = tasks.filter(task => isTaskAssignedToUser(task, userId));
     }
 

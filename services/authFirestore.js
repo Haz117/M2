@@ -33,7 +33,7 @@ export const registerUser = async (email, password, displayName, role = 'operati
       email: email.toLowerCase(),
       password: hashedPassword,
       displayName: displayName,
-      role: role, // 'admin' o 'operativo'
+      role: role, // 'admin', 'secretario', 'jefe' o 'operativo'
       active: true,
       createdAt: new Date()
     });
@@ -129,6 +129,24 @@ export const isAdmin = async () => {
   const result = await getCurrentSession();
   if (result.success) {
     return result.session.role === 'admin';
+  }
+  return false;
+};
+
+// Verificar si el usuario es secretario
+export const isSecretario = async () => {
+  const result = await getCurrentSession();
+  if (result.success) {
+    return result.session.role === 'secretario';
+  }
+  return false;
+};
+
+// Verificar si el usuario es secretario o admin (puede delegar tareas)
+export const isSecretarioOrAdmin = async () => {
+  const result = await getCurrentSession();
+  if (result.success) {
+    return result.session.role === 'admin' || result.session.role === 'secretario';
   }
   return false;
 };
