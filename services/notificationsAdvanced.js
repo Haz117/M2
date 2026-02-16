@@ -279,59 +279,66 @@ export const markNotificationAsRead = async (notificationId) => {
 export const getMyNotifications = async (limit = 50) => {
   try {
     const sessionResult = await getCurrentSession();
-    if (!sessionResult.success) return [];
+    if (!sessionResult.success || !sessionResult.session) return [];
 
-    const userId = sessionResult.session.userId;
-    const userEmail = sessionResult.session.email;
+    const userId = sessionResult.session.userId || '';
+    const userEmail = sessionResult.session.email || '';
+
+    // Validar que tenemos datos válidos
+    if (!userId && !userEmail) return [];
 
     // Buscar en ambas colecciones
     const notifications = [];
 
     // 1. Buscar en notifications (nuevos reportes, etc)
-    try {
-      const q1 = query(
-        collection(db, NOTIFICATIONS_COLLECTION),
-        where('userId', '==', userId)
-      );
-      const snapshot1 = await getDocs(q1);
-      snapshot1.docs.forEach((doc) => {
-        notifications.push({ id: doc.id, ...doc.data() });
-      });
-    } catch (e) {
-      console.log('Error buscando en notifications:', e);
+    if (userId) {
+      try {
+        const q1 = query(
+          collection(db, NOTIFICATIONS_COLLECTION),
+          where('userId', '==', userId)
+        );
+        const snapshot1 = await getDocs(q1);
+        snapshot1.docs.forEach((doc) => {
+          notifications.push({ id: doc.id, ...doc.data() });
+        });
+      } catch (e) {
+        console.log('Error buscando en notifications:', e);
+      }
     }
 
     // 2. Buscar también por email
-    try {
-      const q2 = query(
-        collection(db, NOTIFICATIONS_COLLECTION),
-        where('userEmail', '==', userEmail)
-      );
-      const snapshot2 = await getDocs(q2);
-      snapshot2.docs.forEach((doc) => {
-        // Evitar duplicados
-        if (!notifications.find(n => n.id === doc.id)) {
-          notifications.push({ id: doc.id, ...doc.data() });
-        }
-      });
-    } catch (e) {
-      console.log('Error buscando por email:', e);
-    }
+    if (userEmail) {
+      try {
+        const q2 = query(
+          collection(db, NOTIFICATIONS_COLLECTION),
+          where('userEmail', '==', userEmail)
+        );
+        const snapshot2 = await getDocs(q2);
+        snapshot2.docs.forEach((doc) => {
+          // Evitar duplicados
+          if (!notifications.find(n => n.id === doc.id)) {
+            notifications.push({ id: doc.id, ...doc.data() });
+          }
+        });
+      } catch (e) {
+        console.log('Error buscando por email:', e);
+      }
 
-    // 3. Buscar en notification_history (historial antiguo)
-    try {
-      const q3 = query(
-        collection(db, NOTIFICATION_HISTORY_COLLECTION),
-        where('userId', '==', userEmail)
-      );
-      const snapshot3 = await getDocs(q3);
-      snapshot3.docs.forEach((doc) => {
-        if (!notifications.find(n => n.id === doc.id)) {
-          notifications.push({ id: doc.id, ...doc.data() });
-        }
-      });
-    } catch (e) {
-      console.log('Error buscando en history:', e);
+      // 3. Buscar en notification_history (historial antiguo)
+      try {
+        const q3 = query(
+          collection(db, NOTIFICATION_HISTORY_COLLECTION),
+          where('userId', '==', userEmail)
+        );
+        const snapshot3 = await getDocs(q3);
+        snapshot3.docs.forEach((doc) => {
+          if (!notifications.find(n => n.id === doc.id)) {
+            notifications.push({ id: doc.id, ...doc.data() });
+          }
+        });
+      } catch (e) {
+        console.log('Error buscando en history:', e);
+      }
     }
 
     // Ordenar por fecha descendente
