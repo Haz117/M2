@@ -112,6 +112,35 @@ export const getCurrentSession = async () => {
     const sessionData = await AsyncStorage.getItem('userSession');
     if (sessionData) {
       const session = JSON.parse(sessionData);
+      
+      // Refrescar datos del usuario desde Firebase para obtener campos actualizados
+      try {
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('email', '==', session.email.toLowerCase()));
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          const userData = querySnapshot.docs[0].data();
+          // Actualizar sesión con datos frescos de Firebase
+          const updatedSession = {
+            ...session,
+            displayName: userData.displayName || session.displayName,
+            role: userData.role || session.role,
+            department: userData.department || session.department,
+            area: userData.area || userData.department || session.area,
+            direcciones: userData.direcciones || [],
+            areasPermitidas: userData.areasPermitidas || []
+          };
+          
+          // Guardar sesión actualizada
+          await AsyncStorage.setItem('userSession', JSON.stringify(updatedSession));
+          return { success: true, session: updatedSession };
+        }
+      } catch (refreshError) {
+        // Si falla el refresh, usar sesión local
+        console.log('Error refrescando sesión:', refreshError.message);
+      }
+      
       return { success: true, session };
     }
     return { success: false, error: 'No hay sesión activa' };
