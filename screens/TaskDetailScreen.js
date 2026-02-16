@@ -881,7 +881,7 @@ export default function TaskDetailScreen({ route, navigation }) {
             onClose={() => setShowAreaModal(false)}
             selectedAreas={selectedAreas}
             onAreasChange={setSelectedAreas}
-            allAreas={AREAS}
+            allAreas={availableAreas}
             theme={theme}
             isDark={isDark}
           />
