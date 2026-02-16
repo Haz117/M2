@@ -259,13 +259,34 @@ const recordNotification = async (notification) => {
  */
 export const markNotificationAsRead = async (notificationId) => {
   try {
-    const { updateDoc, doc } = require('firebase/firestore');
+    const { updateDoc, doc, getDoc } = require('firebase/firestore');
+    
+    // Primero buscar en notification_history
     const notifRef = doc(db, NOTIFICATION_HISTORY_COLLECTION, notificationId);
-
-    await updateDoc(notifRef, {
-      read: true,
-      readAt: serverTimestamp(),
-    });
+    const notifDoc = await getDoc(notifRef);
+    
+    if (notifDoc.exists()) {
+      await updateDoc(notifRef, {
+        read: true,
+        readAt: serverTimestamp(),
+      });
+      return;
+    }
+    
+    // Si no existe en notification_history, buscar en notifications
+    const notifRef2 = doc(db, 'notifications', notificationId);
+    const notifDoc2 = await getDoc(notifRef2);
+    
+    if (notifDoc2.exists()) {
+      await updateDoc(notifRef2, {
+        read: true,
+        readAt: serverTimestamp(),
+      });
+      return;
+    }
+    
+    // Si no se encontró en ninguna colección, solo logueamos sin error
+    console.log('Notificación ya no existe o fue eliminada:', notificationId);
   } catch (error) {
     console.error('Error marcando como leída:', error);
   }

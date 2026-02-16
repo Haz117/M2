@@ -70,14 +70,29 @@ const notifyAdminsOfNewReport = async (taskId, reportId, reportTitle, createdByN
  */
 export const createTaskReport = async (taskId, userId, reportData) => {
   try {
-    // Obtener nombre del usuario que crea el reporte
-    const userDoc = await getDoc(doc(db, 'users', userId));
-    const userData = userDoc.exists() ? userDoc.data() : {};
-    const createdByName = userData.displayName || userData.email || 'Usuario';
+    // Importar getCurrentSession para obtener datos del usuario actual
+    const { getCurrentSession } = await import('./authFirestore');
+    const sessionResult = await getCurrentSession();
+    
+    let createdByName = 'Usuario';
+    let userEmail = '';
+    
+    if (sessionResult.success && sessionResult.session) {
+      createdByName = sessionResult.session.displayName || sessionResult.session.email || 'Usuario';
+      userEmail = sessionResult.session.email || '';
+    } else {
+      // Fallback: buscar por userId en la colección users
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        createdByName = userData.displayName || userData.email || 'Usuario';
+        userEmail = userData.email || '';
+      }
+    }
 
     const report = {
       taskId,
-      createdBy: userId,
+      createdBy: userEmail || userId,
       createdByName: createdByName,
       title: reportData.title,
       description: reportData.description,

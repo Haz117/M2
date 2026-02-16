@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   FlatList,
+  Animated,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,223 +24,498 @@ const AnalyticsScreen = ({ navigation }) => {
   const [reportStats, setReportStats] = useState(null);
   const [taskMetrics, setTaskMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [tasks, setTasks] = useState([]);
+  
+  // ✨ Animaciones premium
+  const headerAnim = useRef(new Animated.Value(0)).current;
+  const headerSlide = useRef(new Animated.Value(-30)).current;
+  const overviewAnim = useRef(new Animated.Value(0)).current;
+  const overviewSlide = useRef(new Animated.Value(40)).current;
+  const ratingsAnim = useRef(new Animated.Value(0)).current;
+  const ratingsSlide = useRef(new Animated.Value(40)).current;
+  const statusAnim = useRef(new Animated.Value(0)).current;
+  const statusSlide = useRef(new Animated.Value(40)).current;
+  const topTasksAnim = useRef(new Animated.Value(0)).current;
+  const topTasksSlide = useRef(new Animated.Value(40)).current;
+  
+  // Animaciones de barras de progreso
+  const completedProgress = useRef(new Animated.Value(0)).current;
+  const inProgressProgress = useRef(new Animated.Value(0)).current;
+  const pendingProgress = useRef(new Animated.Value(0)).current;
+  
+  // Animaciones de escala para tarjetas
+  const [cardScales] = useState([
+    new Animated.Value(1),
+    new Animated.Value(1),
+    new Animated.Value(1),
+    new Animated.Value(1),
+  ]);
 
   const styles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: isDark ? '#000' : '#f5f5f5',
+      backgroundColor: isDark ? '#0A0A0F' : '#F8FAFC',
     },
-    header: {
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      backgroundColor: isDark ? '#1a1a1a' : '#fff',
-      borderBottomWidth: 1,
-      borderBottomColor: isDark ? '#333' : '#e0e0e0',
+    // ✨ Header Premium
+    headerGradient: {
+      paddingTop: 48,
+      paddingBottom: 20,
+      paddingHorizontal: 20,
+    },
+    headerContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    backButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 16,
+    },
+    headerTitleContainer: {
+      flex: 1,
     },
     headerTitle: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: isDark ? '#fff' : '#000',
+      fontSize: 26,
+      fontWeight: '800',
+      color: '#FFFFFF',
+      letterSpacing: -0.5,
     },
     headerSubtitle: {
-      fontSize: 12,
-      color: isDark ? '#888' : '#666',
+      fontSize: 13,
+      color: 'rgba(255,255,255,0.75)',
       marginTop: 4,
+      letterSpacing: 0.2,
+    },
+    headerDecoration: {
+      position: 'absolute',
+      right: 20,
+      top: 50,
+      opacity: 0.08,
     },
     content: {
       flex: 1,
     },
+    // ✨ Secciones
+    section: {
+      marginHorizontal: 16,
+      marginVertical: 12,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    sectionIconContainer: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: isDark ? '#FFFFFF' : '#1E293B',
+      letterSpacing: -0.3,
+    },
+    sectionSubtitle: {
+      fontSize: 12,
+      color: isDark ? '#64748B' : '#94A3B8',
+      marginTop: 2,
+    },
+    // ✨ Métricas Grid Premium
+    metricsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12,
+    },
+    metricCardWrapper: {
+      width: (width - 44) / 2,
+    },
+    metricCardGradient: {
+      borderRadius: 20,
+      padding: 18,
+      minHeight: 140,
+      position: 'relative',
+      overflow: 'hidden',
+    },
+    metricGlassOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      borderRadius: 20,
+    },
+    metricIconWrapper: {
+      width: 48,
+      height: 48,
+      borderRadius: 14,
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 14,
+    },
+    metricLabel: {
+      fontSize: 13,
+      color: 'rgba(255,255,255,0.8)',
+      fontWeight: '600',
+      marginBottom: 6,
+    },
+    metricValue: {
+      fontSize: 32,
+      fontWeight: '800',
+      color: '#FFFFFF',
+      letterSpacing: -1,
+    },
+    metricSubvalue: {
+      fontSize: 11,
+      color: 'rgba(255,255,255,0.6)',
+      marginTop: 4,
+      fontWeight: '500',
+    },
+    metricShine: {
+      position: 'absolute',
+      top: -50,
+      right: -50,
+      width: 120,
+      height: 120,
+      borderRadius: 60,
+      backgroundColor: 'rgba(255,255,255,0.08)',
+    },
+    // ✨ Rating Distribution Premium
+    ratingContainer: {
+      borderRadius: 20,
+      padding: 20,
+      overflow: 'hidden',
+    },
+    ratingHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    ratingIconBg: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 14,
+    },
+    ratingTitleText: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+    ratingSubtext: {
+      fontSize: 12,
+      color: 'rgba(255,255,255,0.6)',
+      marginTop: 2,
+    },
+    ratingBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 14,
+      gap: 12,
+    },
+    ratingStarContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      width: 45,
+      gap: 4,
+    },
+    ratingStarNum: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+    ratingBarBackground: {
+      flex: 1,
+      height: 12,
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      borderRadius: 6,
+      overflow: 'hidden',
+    },
+    ratingBarFill: {
+      height: '100%',
+      backgroundColor: '#FFFFFF',
+      borderRadius: 6,
+    },
+    ratingCount: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: '#FFFFFF',
+      minWidth: 30,
+      textAlign: 'right',
+    },
+    // ✨ Task Status Premium
+    statusContainer: {
+      borderRadius: 20,
+      padding: 20,
+      overflow: 'hidden',
+    },
+    statusHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    statusIconBg: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 14,
+    },
+    statusTitleText: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+    statusSubtext: {
+      fontSize: 12,
+      color: 'rgba(255,255,255,0.6)',
+      marginTop: 2,
+    },
+    statusItem: {
+      marginBottom: 18,
+    },
+    statusItemHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    statusItemLabel: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    statusDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+    },
+    statusText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: '#FFFFFF',
+    },
+    statusValue: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: '#FFFFFF',
+    },
+    statusBarBg: {
+      height: 14,
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      borderRadius: 7,
+      overflow: 'hidden',
+    },
+    statusBarFill: {
+      height: '100%',
+      borderRadius: 7,
+    },
+    // ✨ Top Tasks Premium
+    topTasksContainer: {
+      backgroundColor: isDark ? '#1E1E28' : '#FFFFFF',
+      borderRadius: 20,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+    },
+    topTasksHeader: {
+      padding: 18,
+      borderBottomWidth: 1,
+      borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+    },
+    topTasksHeaderContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    topTasksIconBg: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+    },
+    topTasksTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: isDark ? '#FFFFFF' : '#1E293B',
+    },
+    topTasksSubtitle: {
+      fontSize: 12,
+      color: isDark ? '#64748B' : '#94A3B8',
+      marginTop: 2,
+    },
+    topTaskItem: {
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    topTaskRank: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 14,
+    },
+    topTaskRankText: {
+      fontSize: 14,
+      fontWeight: '800',
+      color: '#FFFFFF',
+    },
+    topTaskInfo: {
+      flex: 1,
+    },
+    topTaskTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: isDark ? '#FFFFFF' : '#1E293B',
+      marginBottom: 4,
+    },
+    topTaskMeta: {
+      fontSize: 12,
+      color: isDark ? '#64748B' : '#94A3B8',
+    },
+    topTaskRating: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: isDark ? 'rgba(251,191,36,0.15)' : 'rgba(251,191,36,0.1)',
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 20,
+    },
+    topTaskRatingText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: '#FBBF24',
+    },
+    // Loading
     loadingContainer: {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
     },
-    section: {
-      marginHorizontal: 12,
-      marginVertical: 8,
-    },
-    sectionTitle: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: isDark ? '#fff' : '#000',
-      marginBottom: 10,
-      marginTop: 8,
-    },
-    metricsGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 10,
-      justifyContent: 'space-between',
-    },
-    metricCard: {
-      width: (width - 44) / 2,
-      backgroundColor: isDark ? '#1a1a1a' : '#fff',
-      borderRadius: 12,
-      padding: 12,
-      borderWidth: 1,
-      borderColor: isDark ? '#333' : '#e0e0e0',
-    },
-    metricCardGradient: {
-      borderRadius: 12,
-      padding: 12,
-      width: (width - 44) / 2,
-    },
-    metricIcon: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: 8,
-    },
-    metricLabel: {
-      fontSize: 12,
-      color: isDark ? '#888' : '#666',
-      marginBottom: 4,
-    },
-    metricValue: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      color: isDark ? '#fff' : '#000',
-    },
-    metricSubvalue: {
-      fontSize: 11,
-      color: isDark ? '#666' : '#999',
-      marginTop: 2,
-    },
-    ratingContainer: {
-      backgroundColor: isDark ? '#1a1a1a' : '#fff',
-      borderRadius: 12,
-      padding: 12,
-      marginBottom: 8,
-      borderWidth: 1,
-      borderColor: isDark ? '#333' : '#e0e0e0',
-    },
-    ratingTitle: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: isDark ? '#fff' : '#000',
-      marginBottom: 8,
-    },
-    ratingBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 10,
-      gap: 8,
-    },
-    ratingLabel: {
-      fontSize: 12,
-      color: isDark ? '#888' : '#666',
-      width: 30,
-    },
-    ratingBarBackground: {
-      flex: 1,
-      height: 8,
-      backgroundColor: isDark ? '#272727' : '#f0f0f0',
-      borderRadius: 4,
-      overflow: 'hidden',
-    },
-    ratingBarFill: {
-      height: '100%',
-      backgroundColor: theme.primary,
-    },
-    ratingCount: {
-      fontSize: 11,
-      color: isDark ? '#666' : '#999',
-      minWidth: 40,
-      textAlign: 'right',
-    },
-    heatmapContainer: {
-      backgroundColor: isDark ? '#1a1a1a' : '#fff',
-      borderRadius: 12,
-      padding: 12,
-      marginBottom: 8,
-      borderWidth: 1,
-      borderColor: isDark ? '#333' : '#e0e0e0',
-    },
-    heatmapTitle: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: isDark ? '#fff' : '#000',
-      marginBottom: 10,
-    },
-    heatmapGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 4,
-    },
-    heatmapCell: {
-      width: 32,
-      height: 32,
-      borderRadius: 4,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    heatmapLabel: {
-      fontSize: 10,
-      fontWeight: '500',
-      color: '#fff',
-    },
-    chartContainer: {
-      backgroundColor: isDark ? '#1a1a1a' : '#fff',
-      borderRadius: 12,
-      padding: 12,
-      marginBottom: 8,
-      borderWidth: 1,
-      borderColor: isDark ? '#333' : '#e0e0e0',
-    },
-    chartTitle: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: isDark ? '#fff' : '#000',
-      marginBottom: 12,
-    },
-    chartBar: {
-      marginBottom: 10,
-    },
-    chartBarLabel: {
-      fontSize: 12,
-      color: isDark ? '#888' : '#666',
-      marginBottom: 4,
-    },
-    chartBarBackground: {
-      height: 20,
-      backgroundColor: isDark ? '#272727' : '#f0f0f0',
-      borderRadius: 4,
-      overflow: 'hidden',
-      flexDirection: 'row',
-    },
-    chartBarSegment: {
-      height: '100%',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    topTasksContainer: {
-      backgroundColor: isDark ? '#1a1a1a' : '#fff',
-      borderRadius: 12,
-      padding: 0,
-      marginBottom: 8,
-      borderWidth: 1,
-      borderColor: isDark ? '#333' : '#e0e0e0',
-      overflow: 'hidden',
-    },
-    topTaskItem: {
-      padding: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: isDark ? '#272727' : '#f0f0f0',
-    },
-    topTaskTitle: {
-      fontSize: 13,
-      fontWeight: '500',
-      color: isDark ? '#fff' : '#000',
-      marginBottom: 6,
-    },
-    topTaskMeta: {
-      fontSize: 11,
-      color: isDark ? '#888' : '#666',
+    loadingGradient: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 300,
     },
   });
+  
+  // ✨ Función para ejecutar animaciones de entrada
+  const runEntranceAnimations = () => {
+    // Reset animaciones
+    headerAnim.setValue(0);
+    headerSlide.setValue(-30);
+    overviewAnim.setValue(0);
+    overviewSlide.setValue(40);
+    ratingsAnim.setValue(0);
+    ratingsSlide.setValue(40);
+    statusAnim.setValue(0);
+    statusSlide.setValue(40);
+    topTasksAnim.setValue(0);
+    topTasksSlide.setValue(40);
+    completedProgress.setValue(0);
+    inProgressProgress.setValue(0);
+    pendingProgress.setValue(0);
+    
+    // Animación secuencial
+    Animated.stagger(100, [
+      // Header
+      Animated.parallel([
+        Animated.spring(headerAnim, { toValue: 1, useNativeDriver: true, tension: 50, friction: 8 }),
+        Animated.spring(headerSlide, { toValue: 0, useNativeDriver: true, tension: 50, friction: 8 }),
+      ]),
+      // Overview
+      Animated.parallel([
+        Animated.spring(overviewAnim, { toValue: 1, useNativeDriver: true, tension: 50, friction: 8 }),
+        Animated.spring(overviewSlide, { toValue: 0, useNativeDriver: true, tension: 50, friction: 8 }),
+      ]),
+      // Ratings
+      Animated.parallel([
+        Animated.spring(ratingsAnim, { toValue: 1, useNativeDriver: true, tension: 50, friction: 8 }),
+        Animated.spring(ratingsSlide, { toValue: 0, useNativeDriver: true, tension: 50, friction: 8 }),
+      ]),
+      // Status
+      Animated.parallel([
+        Animated.spring(statusAnim, { toValue: 1, useNativeDriver: true, tension: 50, friction: 8 }),
+        Animated.spring(statusSlide, { toValue: 0, useNativeDriver: true, tension: 50, friction: 8 }),
+      ]),
+      // Top Tasks
+      Animated.parallel([
+        Animated.spring(topTasksAnim, { toValue: 1, useNativeDriver: true, tension: 50, friction: 8 }),
+        Animated.spring(topTasksSlide, { toValue: 0, useNativeDriver: true, tension: 50, friction: 8 }),
+      ]),
+    ]).start();
+    
+    // Animar barras de progreso después de un pequeño delay
+    setTimeout(() => {
+      if (taskMetrics) {
+        const total = taskMetrics.total || 1;
+        Animated.parallel([
+          Animated.timing(completedProgress, {
+            toValue: (taskMetrics.completed / total) * 100,
+            duration: 800,
+            useNativeDriver: false,
+          }),
+          Animated.timing(inProgressProgress, {
+            toValue: (taskMetrics.inProgress / total) * 100,
+            duration: 800,
+            useNativeDriver: false,
+          }),
+          Animated.timing(pendingProgress, {
+            toValue: (taskMetrics.pending / total) * 100,
+            duration: 800,
+            useNativeDriver: false,
+          }),
+        ]).start();
+      }
+    }, 500);
+  };
+  
+  // Función para animar escala de tarjeta
+  const animateCardPress = (index, pressed) => {
+    Animated.spring(cardScales[index], {
+      toValue: pressed ? 0.96 : 1,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 8,
+    }).start();
+  };
+  
+  // Función para refresh
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const stats = await getReportStatistics();
+      setReportStats(stats);
+      const metrics = await getOverallTaskMetrics();
+      setTaskMetrics(metrics);
+      runEntranceAnimations();
+    } catch (error) {
+      console.error('Error refreshing:', error);
+    }
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -262,6 +539,9 @@ const AnalyticsScreen = ({ navigation }) => {
         });
 
         setLoading(false);
+        
+        // ✨ Ejecutar animaciones de entrada
+        setTimeout(() => runEntranceAnimations(), 100);
 
         return () => unsubTasks?.();
       } catch (error) {
@@ -274,7 +554,7 @@ const AnalyticsScreen = ({ navigation }) => {
   }, []);
 
   const getRatingDistribution = () => {
-    if (!reportStats) return {};
+    if (!reportStats || !reportStats.reports) return {};
     const distribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
     reportStats.reports.forEach((report) => {
       if (report.rating) {
@@ -289,242 +569,362 @@ const AnalyticsScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={[styles.container]}>
-        <View style={[styles.header, { flexDirection: 'row', alignItems: 'center' }]}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={{ padding: 8 }}
-          >
-            <Ionicons name="chevron-back" size={28} color={theme.primary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Analytics & Reports</Text>
-        </View>
+      <View style={styles.container}>
+        <LinearGradient
+          colors={isDark ? ['#9F2241', '#691830', '#0A0A0F'] : ['#9F2241', '#BE3356', '#F8FAFC']}
+          style={styles.loadingGradient}
+        />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.primary} />
+          <ActivityIndicator size="large" color="#9F2241" />
+          <Text style={{ color: isDark ? '#FFFFFF' : '#1E293B', marginTop: 16, fontSize: 15, fontWeight: '600' }}>
+            Cargando analytics...
+          </Text>
         </View>
       </View>
     );
   }
+  
+  // Configuración de gradientes para las cards
+  const metricConfigs = [
+    { 
+      gradient: ['#10B981', '#059669'],
+      icon: 'document-text',
+      label: 'Total Reportes',
+      value: reportStats?.totalReports || 0,
+      subvalue: `${reportStats?.withImages || 0} con imágenes`
+    },
+    { 
+      gradient: ['#F43F5E', '#E11D48'],
+      icon: 'star',
+      label: 'Calificación Prom.',
+      value: reportStats?.avgRating?.toFixed(1) || 'N/A',
+      subvalue: `de ${reportStats?.ratedReports || 0} reportes`
+    },
+    { 
+      gradient: ['#3B82F6', '#2563EB'],
+      icon: 'checkmark-circle',
+      label: 'Total Tareas',
+      value: taskMetrics?.total || 0,
+      subvalue: `${taskMetrics?.completed || 0} completadas`
+    },
+    { 
+      gradient: ['#F59E0B', '#D97706'],
+      icon: 'trending-up',
+      label: 'Completado',
+      value: `${taskMetrics?.completionPercentage?.toFixed(0) || 0}%`,
+      subvalue: 'Progreso general'
+    },
+  ];
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={{ padding: 8 }}
+      {/* ✨ Header Premium con Gradiente */}
+      <Animated.View style={{
+        opacity: headerAnim,
+        transform: [{ translateY: headerSlide }]
+      }}>
+        <LinearGradient
+          colors={isDark ? ['#9F2241', '#691830'] : ['#9F2241', '#BE3356']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.headerGradient}
         >
-          <Ionicons name="chevron-back" size={28} color={theme.primary} />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Analytics & Reports</Text>
-          <Text style={styles.headerSubtitle}>
-            Overall project insights and performance metrics
-          </Text>
-        </View>
-      </View>
-
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Overview Metrics */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Overview</Text>
-          <View style={styles.metricsGrid}>
-            <View style={styles.metricCard}>
-              <View style={[styles.metricIcon, { backgroundColor: '#E8F5E9' }]}>
-                <Ionicons name="document" size={20} color="#4CAF50" />
-              </View>
-              <Text style={styles.metricLabel}>Total Reports</Text>
-              <Text style={styles.metricValue}>{reportStats?.totalReports || 0}</Text>
-              <Text style={styles.metricSubvalue}>
-                {reportStats?.withImages || 0} with images
+          <View style={styles.headerContent}>
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              style={styles.backButton}
+            >
+              <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerTitle}>Analytics</Text>
+              <Text style={styles.headerSubtitle}>
+                Insights y métricas de rendimiento
               </Text>
-            </View>
-
-            <View style={styles.metricCard}>
-              <View style={[styles.metricIcon, { backgroundColor: '#FCE4EC' }]}>
-                <Ionicons name="star" size={20} color="#E91E63" />
-              </View>
-              <Text style={styles.metricLabel}>Avg Rating</Text>
-              <Text style={styles.metricValue}>
-                {reportStats?.avgRating?.toFixed(1) || 'N/A'}
-              </Text>
-              <Text style={styles.metricSubvalue}>
-                from {reportStats?.ratedReports || 0} reports
-              </Text>
-            </View>
-
-            <View style={styles.metricCard}>
-              <View style={[styles.metricIcon, { backgroundColor: '#E3F2FD' }]}>
-                <Ionicons name="checkmark-done" size={20} color="#2196F3" />
-              </View>
-              <Text style={styles.metricLabel}>Tasks</Text>
-              <Text style={styles.metricValue}>{taskMetrics?.total || 0}</Text>
-              <Text style={styles.metricSubvalue}>
-                {taskMetrics?.completed || 0} completed
-              </Text>
-            </View>
-
-            <View style={styles.metricCard}>
-              <View style={[styles.metricIcon, { backgroundColor: '#FFF3E0' }]}>
-                <Ionicons name="trending-up" size={20} color="#FF9800" />
-              </View>
-              <Text style={styles.metricLabel}>Completion</Text>
-              <Text style={styles.metricValue}>
-                {taskMetrics?.completionPercentage?.toFixed(0) || 0}%
-              </Text>
-              <Text style={styles.metricSubvalue}>Overall progress</Text>
             </View>
           </View>
-        </View>
+          {/* Decoración */}
+          <View style={styles.headerDecoration}>
+            <Ionicons name="analytics" size={100} color="#FFFFFF" />
+          </View>
+        </LinearGradient>
+      </Animated.View>
 
-        {/* Rating Distribution */}
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#9F2241"
+            colors={['#9F2241']}
+          />
+        }
+      >
+        {/* ✨ Overview Metrics Premium */}
+        <Animated.View style={[styles.section, {
+          opacity: overviewAnim,
+          transform: [{ translateY: overviewSlide }]
+        }]}>
+          <View style={styles.sectionHeader}>
+            <LinearGradient
+              colors={['#9F2241', '#BE3356']}
+              style={styles.sectionIconContainer}
+            >
+              <Ionicons name="grid" size={18} color="#FFFFFF" />
+            </LinearGradient>
+            <View>
+              <Text style={styles.sectionTitle}>Resumen General</Text>
+              <Text style={styles.sectionSubtitle}>Métricas principales del sistema</Text>
+            </View>
+          </View>
+          
+          <View style={styles.metricsGrid}>
+            {metricConfigs.map((config, index) => (
+              <Animated.View 
+                key={index} 
+                style={[styles.metricCardWrapper, { transform: [{ scale: cardScales[index] }] }]}
+              >
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onPressIn={() => animateCardPress(index, true)}
+                  onPressOut={() => animateCardPress(index, false)}
+                >
+                  <LinearGradient
+                    colors={config.gradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.metricCardGradient}
+                  >
+                    <View style={styles.metricGlassOverlay} />
+                    <View style={styles.metricShine} />
+                    <View style={styles.metricIconWrapper}>
+                      <Ionicons name={config.icon} size={24} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.metricLabel}>{config.label}</Text>
+                    <Text style={styles.metricValue}>{config.value}</Text>
+                    <Text style={styles.metricSubvalue}>{config.subvalue}</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </Animated.View>
+            ))}
+          </View>
+        </Animated.View>
+
+        {/* ✨ Rating Distribution Premium */}
         {totalRated > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Quality Rating Distribution</Text>
-            <View style={styles.ratingContainer}>
+          <Animated.View style={[styles.section, {
+            opacity: ratingsAnim,
+            transform: [{ translateY: ratingsSlide }]
+          }]}>
+            <LinearGradient
+              colors={isDark ? ['#7C3AED', '#5B21B6'] : ['#8B5CF6', '#7C3AED']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.ratingContainer}
+            >
+              <View style={styles.ratingHeader}>
+                <View style={styles.ratingIconBg}>
+                  <Ionicons name="star" size={24} color="#FBBF24" />
+                </View>
+                <View>
+                  <Text style={styles.ratingTitleText}>Distribución de Calificaciones</Text>
+                  <Text style={styles.ratingSubtext}>{totalRated} reportes calificados</Text>
+                </View>
+              </View>
+              
               {[5, 4, 3, 2, 1].map((rating) => (
                 <View key={rating} style={styles.ratingBar}>
-                  <Text style={styles.ratingLabel}>{rating}⭐</Text>
+                  <View style={styles.ratingStarContainer}>
+                    <Text style={styles.ratingStarNum}>{rating}</Text>
+                    <Ionicons name="star" size={14} color="#FBBF24" />
+                  </View>
                   <View style={styles.ratingBarBackground}>
-                    <View
+                    <Animated.View
                       style={[
                         styles.ratingBarFill,
-                        {
-                          width: `${(ratingDist[rating] / totalRated) * 100}%`,
-                        },
+                        { width: `${totalRated > 0 ? (ratingDist[rating] / totalRated) * 100 : 0}%` },
                       ]}
                     />
                   </View>
-                  <Text style={styles.ratingCount}>
-                    {ratingDist[rating]}
-                  </Text>
+                  <Text style={styles.ratingCount}>{ratingDist[rating]}</Text>
                 </View>
               ))}
-            </View>
-          </View>
+            </LinearGradient>
+          </Animated.View>
         )}
 
-        {/* Task Status Distribution */}
+        {/* ✨ Task Status Premium */}
         {taskMetrics && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Task Status</Text>
-            <View style={styles.chartContainer}>
-              <View style={styles.chartBar}>
-                <View style={styles.chartBarLabel}>
-                  <Text style={styles.chartBarLabel}>
-                    Completed: {taskMetrics.completed}
-                  </Text>
+          <Animated.View style={[styles.section, {
+            opacity: statusAnim,
+            transform: [{ translateY: statusSlide }]
+          }]}>
+            <LinearGradient
+              colors={isDark ? ['#0F766E', '#065F46'] : ['#14B8A6', '#0D9488']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.statusContainer}
+            >
+              <View style={styles.statusHeader}>
+                <View style={styles.statusIconBg}>
+                  <Ionicons name="pie-chart" size={24} color="#FFFFFF" />
                 </View>
-                <View style={styles.chartBarBackground}>
-                  <View
+                <View>
+                  <Text style={styles.statusTitleText}>Estado de Tareas</Text>
+                  <Text style={styles.statusSubtext}>{taskMetrics.total || 0} tareas en total</Text>
+                </View>
+              </View>
+              
+              {/* Completadas */}
+              <View style={styles.statusItem}>
+                <View style={styles.statusItemHeader}>
+                  <View style={styles.statusItemLabel}>
+                    <View style={[styles.statusDot, { backgroundColor: '#10B981' }]} />
+                    <Text style={styles.statusText}>Completadas</Text>
+                  </View>
+                  <Text style={styles.statusValue}>{taskMetrics.completed || 0}</Text>
+                </View>
+                <View style={styles.statusBarBg}>
+                  <Animated.View
                     style={[
-                      styles.chartBarSegment,
-                      {
-                        width: `${(taskMetrics.completed / taskMetrics.total) * 100}%`,
-                        backgroundColor: '#4CAF50',
+                      styles.statusBarFill,
+                      { 
+                        backgroundColor: '#10B981',
+                        width: completedProgress.interpolate({
+                          inputRange: [0, 100],
+                          outputRange: ['0%', '100%']
+                        })
                       },
                     ]}
                   />
                 </View>
               </View>
-
-              <View style={styles.chartBar}>
-                <View style={styles.chartBarLabel}>
-                  <Text style={styles.chartBarLabel}>
-                    In Progress: {taskMetrics.inProgress}
-                  </Text>
+              
+              {/* En Progreso */}
+              <View style={styles.statusItem}>
+                <View style={styles.statusItemHeader}>
+                  <View style={styles.statusItemLabel}>
+                    <View style={[styles.statusDot, { backgroundColor: '#F59E0B' }]} />
+                    <Text style={styles.statusText}>En Progreso</Text>
+                  </View>
+                  <Text style={styles.statusValue}>{taskMetrics.inProgress || 0}</Text>
                 </View>
-                <View style={styles.chartBarBackground}>
-                  <View
+                <View style={styles.statusBarBg}>
+                  <Animated.View
                     style={[
-                      styles.chartBarSegment,
-                      {
-                        width: `${(taskMetrics.inProgress / taskMetrics.total) * 100}%`,
-                        backgroundColor: '#FF9800',
+                      styles.statusBarFill,
+                      { 
+                        backgroundColor: '#F59E0B',
+                        width: inProgressProgress.interpolate({
+                          inputRange: [0, 100],
+                          outputRange: ['0%', '100%']
+                        })
                       },
                     ]}
                   />
                 </View>
               </View>
-
-              <View style={styles.chartBar}>
-                <View style={styles.chartBarLabel}>
-                  <Text style={styles.chartBarLabel}>
-                    Pending: {taskMetrics.pending}
-                  </Text>
+              
+              {/* Pendientes */}
+              <View style={[styles.statusItem, { marginBottom: 0 }]}>
+                <View style={styles.statusItemHeader}>
+                  <View style={styles.statusItemLabel}>
+                    <View style={[styles.statusDot, { backgroundColor: '#A855F7' }]} />
+                    <Text style={styles.statusText}>Pendientes</Text>
+                  </View>
+                  <Text style={styles.statusValue}>{taskMetrics.pending || 0}</Text>
                 </View>
-                <View style={styles.chartBarBackground}>
-                  <View
+                <View style={styles.statusBarBg}>
+                  <Animated.View
                     style={[
-                      styles.chartBarSegment,
-                      {
-                        width: `${(taskMetrics.pending / taskMetrics.total) * 100}%`,
-                        backgroundColor: '#9C27B0',
+                      styles.statusBarFill,
+                      { 
+                        backgroundColor: '#A855F7',
+                        width: pendingProgress.interpolate({
+                          inputRange: [0, 100],
+                          outputRange: ['0%', '100%']
+                        })
                       },
                     ]}
                   />
                 </View>
               </View>
-            </View>
-          </View>
+            </LinearGradient>
+          </Animated.View>
         )}
 
-        {/* Top Rated Tasks */}
+        {/* ✨ Top Rated Tasks Premium */}
         {tasks.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Top Rated Tasks</Text>
+          <Animated.View style={[styles.section, {
+            opacity: topTasksAnim,
+            transform: [{ translateY: topTasksSlide }]
+          }]}>
             <View style={styles.topTasksContainer}>
-              {tasks.map((task, idx) => (
-                <View
-                  key={task.id}
-                  style={[
-                    styles.topTaskItem,
-                    idx === tasks.length - 1 && { borderBottomWidth: 0 },
-                  ]}
-                >
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      marginBottom: 4,
-                    }}
+              <View style={styles.topTasksHeader}>
+                <View style={styles.topTasksHeaderContent}>
+                  <LinearGradient
+                    colors={['#FBBF24', '#F59E0B']}
+                    style={styles.topTasksIconBg}
                   >
-                    <Text style={styles.topTaskTitle}>
-                      {idx + 1}. {task.titulo}
-                    </Text>
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 2,
-                      }}
+                    <Ionicons name="trophy" size={20} color="#FFFFFF" />
+                  </LinearGradient>
+                  <View>
+                    <Text style={styles.topTasksTitle}>Tareas Mejor Calificadas</Text>
+                    <Text style={styles.topTasksSubtitle}>Top 5 por rating de calidad</Text>
+                  </View>
+                </View>
+              </View>
+              
+              {tasks.map((task, idx) => {
+                const rankColors = [
+                  ['#FBBF24', '#F59E0B'], // Gold
+                  ['#94A3B8', '#64748B'], // Silver
+                  ['#CD7F32', '#A0522D'], // Bronze
+                  ['#9F2241', '#BE3356'], // Primary
+                  ['#9F2241', '#BE3356'], // Primary
+                ];
+                
+                return (
+                  <TouchableOpacity
+                    key={task.id}
+                    activeOpacity={0.7}
+                    style={[
+                      styles.topTaskItem,
+                      idx === tasks.length - 1 && { borderBottomWidth: 0 },
+                    ]}
+                  >
+                    <LinearGradient
+                      colors={rankColors[idx] || rankColors[4]}
+                      style={styles.topTaskRank}
                     >
-                      <Ionicons
-                        name="star"
-                        size={14}
-                        color="#FFD700"
-                      />
-                      <Text
-                        style={{
-                          fontSize: 13,
-                          fontWeight: '600',
-                          color: isDark ? '#fff' : '#000',
-                        }}
-                      >
+                      <Text style={styles.topTaskRankText}>{idx + 1}</Text>
+                    </LinearGradient>
+                    
+                    <View style={styles.topTaskInfo}>
+                      <Text style={styles.topTaskTitle} numberOfLines={1}>
+                        {task.titulo}
+                      </Text>
+                      <Text style={styles.topTaskMeta}>
+                        {task.area} • {task.prioridad}
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.topTaskRating}>
+                      <Ionicons name="star" size={14} color="#FBBF24" />
+                      <Text style={styles.topTaskRatingText}>
                         {task.qualityRating}
                       </Text>
                     </View>
-                  </View>
-                  <Text style={styles.topTaskMeta}>
-                    {task.area} • {task.prioridad}
-                  </Text>
-                </View>
-              ))}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          </View>
+          </Animated.View>
         )}
 
-        <View style={{ height: 20 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );

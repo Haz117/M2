@@ -44,6 +44,8 @@ import {
   getCachedAnalytics 
 } from '../services/AreaAnalytics';
 import { exportAreaReport, exportProductivityReport } from '../services/ReportsExport';
+import { subscribeToAreas } from '../services/area/areaManagement';
+import { getAreaType, SECRETARIAS, DIRECCIONES } from '../config/areas';
 import { MAX_WIDTHS } from '../theme/tokens';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -86,6 +88,13 @@ export default function ReportsScreen({ navigation }) {
   const [areasNeedingAttention, setAreasNeedingAttention] = useState([]);
   const [filteredAreas, setFilteredAreas] = useState([]);
   
+  // Estados para jerarquía de áreas
+  const [firestoreAreas, setFirestoreAreas] = useState([]);
+  const [metricsByType, setMetricsByType] = useState({
+    secretaria: { total: 0, completed: 0, pending: 0, overdue: 0, avgRate: 0, areas: [] },
+    direccion: { total: 0, completed: 0, pending: 0, overdue: 0, avgRate: 0, areas: [] }
+  });
+  
   // Subtasks stats
   const [subtasksStats, setSubtasksStats] = useState({
     completed: 0,
@@ -115,6 +124,16 @@ export default function ReportsScreen({ navigation }) {
   const filterSlide = useRef(new Animated.Value(20)).current;
   const emptyStateAnim = useRef(new Animated.Value(0)).current;
   const emptyStateSlide = useRef(new Animated.Value(20)).current;
+  
+  // ✨ Nuevas animaciones premium
+  const hierarchyAnim = useRef(new Animated.Value(0)).current;
+  const hierarchySlide = useRef(new Animated.Value(40)).current;
+  const secretariaProgress = useRef(new Animated.Value(0)).current;
+  const direccionProgress = useRef(new Animated.Value(0)).current;
+  const secretariaScale = useRef(new Animated.Value(0.9)).current;
+  const direccionScale = useRef(new Animated.Value(0.9)).current;
+  const glowAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // Load current user
   useEffect(() => {
@@ -212,7 +231,6 @@ export default function ReportsScreen({ navigation }) {
         unsubscribe = await subscribeToTasks((updatedTasks) => {
           if (mounted) {
             setTasks(updatedTasks);
-            calculateStats(updatedTasks);
             setLoading(false);
           }
         });
@@ -229,6 +247,36 @@ export default function ReportsScreen({ navigation }) {
           unsubscribe();
         } catch (error) {
           console.warn('Error unsubscribing from tasks:', error);
+        }
+      }
+    };
+  }, []);
+
+  // Recalcular estadísticas cuando cambian las tareas O el usuario
+  useEffect(() => {
+    if (tasks.length > 0) {
+      calculateStats(tasks);
+    }
+  }, [tasks, currentUser]);
+
+  // Suscribirse a áreas de Firestore para la estructura jerárquica
+  useEffect(() => {
+    let unsubscribe = null;
+    
+    try {
+      unsubscribe = subscribeToAreas((areas) => {
+        setFirestoreAreas(areas);
+      });
+    } catch (error) {
+      console.warn('Error subscribing to areas:', error);
+    }
+    
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        try {
+          unsubscribe();
+        } catch (error) {
+          console.warn('Error unsubscribing from areas:', error);
         }
       }
     };
@@ -275,22 +323,77 @@ export default function ReportsScreen({ navigation }) {
     }
   }, [loading]);
 
+  // ✨ Animaciones para sección jerárquica cuando hay datos
+  useEffect(() => {
+    if (metricsByType.secretaria.total > 0 || metricsByType.direccion.total > 0) {
+      // Reset
+      hierarchyAnim.setValue(0);
+      hierarchySlide.setValue(40);
+      secretariaScale.setValue(0.9);
+      direccionScale.setValue(0.9);
+      secretariaProgress.setValue(0);
+      direccionProgress.setValue(0);
+      
+      // Animación de entrada
+      Animated.sequence([
+        Animated.delay(300),
+        Animated.parallel([
+          Animated.timing(hierarchyAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+          Animated.spring(hierarchySlide, { toValue: 0, tension: 60, friction: 10, useNativeDriver: true }),
+        ]),
+        // Animación de tarjetas con escala
+        Animated.stagger(150, [
+          Animated.spring(secretariaScale, { toValue: 1, tension: 80, friction: 8, useNativeDriver: true }),
+          Animated.spring(direccionScale, { toValue: 1, tension: 80, friction: 8, useNativeDriver: true }),
+        ]),
+      ]).start();
+      
+      // Animar barras de progreso
+      Animated.parallel([
+        Animated.timing(secretariaProgress, { 
+          toValue: metricsByType.secretaria.avgRate, 
+          duration: 1200, 
+          useNativeDriver: false 
+        }),
+        Animated.timing(direccionProgress, { 
+          toValue: metricsByType.direccion.avgRate, 
+          duration: 1200, 
+          useNativeDriver: false 
+        }),
+      ]).start();
+      
+      // Efecto de pulso continuo para indicadores
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1.05, duration: 1000, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+        ])
+      ).start();
+    }
+  }, [metricsByType]);
+
   const calculateStats = (allTasks) => {
+    // Esperar a que currentUser esté disponible
+    if (!currentUser) {
+      console.log('Esperando usuario para calcular estadísticas...');
+      return;
+    }
+    
     const now = Date.now();
     const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
     const monthAgo = now - 30 * 24 * 60 * 60 * 1000;
 
     // Mostrar todas las tareas para admin, filtrar por área para secretario, por creador para otros
     let userTasks;
-    if (currentUser?.role === 'admin') {
+    if (currentUser.role === 'admin') {
       userTasks = allTasks;
-    } else if (currentUser?.role === 'secretario') {
+    } else if (currentUser.role === 'secretario') {
       // Secretario ve tareas de su área o que haya creado
       userTasks = allTasks.filter(t => {
-        if (t.createdBy === currentUser?.email) return true;
-        if (t.area === currentUser?.area) return true;
+        if (t.createdBy === currentUser.email) return true;
+        if (t.area === currentUser.area) return true;
         // Verificar si la tarea está en alguna de sus direcciones
-        if (currentUser?.direcciones && Array.isArray(currentUser.direcciones)) {
+        if (currentUser.direcciones && Array.isArray(currentUser.direcciones)) {
           return currentUser.direcciones.some(dir => 
             (t.area || '').toLowerCase().includes(dir.toLowerCase())
           );
@@ -300,7 +403,7 @@ export default function ReportsScreen({ navigation }) {
     } else {
       userTasks = allTasks.filter(t => {
         if (!t.createdBy) return true;
-        return t.createdBy === currentUser?.email;
+        return t.createdBy === currentUser.email;
       });
     }
 
@@ -388,6 +491,7 @@ export default function ReportsScreen({ navigation }) {
         overdue: metrics.overdue,
         userCount: metrics.userCount,
         avgCompletionTime: metrics.avgCompletionTime,
+        completionRate: metrics.completionRate || 0,
       };
     });
     setAreaMetrics(byArea);
@@ -399,6 +503,65 @@ export default function ReportsScreen({ navigation }) {
     // Identificar áreas que necesitan atención
     const needingAttention = getAreasNeedingAttention(detailedMetrics, 60);
     setAreasNeedingAttention(needingAttention);
+
+    // ✨ Calcular métricas agrupadas por tipo (Secretaría vs Dirección)
+    calculateMetricsByType(detailedMetrics);
+  };
+
+  // Nueva función para calcular métricas por tipo de área
+  const calculateMetricsByType = (detailedMetrics) => {
+    const byType = {
+      secretaria: { total: 0, completed: 0, pending: 0, overdue: 0, avgRate: 0, areas: [] },
+      direccion: { total: 0, completed: 0, pending: 0, overdue: 0, avgRate: 0, areas: [] }
+    };
+
+    let secretariaRates = [];
+    let direccionRates = [];
+
+    Object.entries(detailedMetrics).forEach(([areaName, metrics]) => {
+      // Determinar el tipo de área usando la configuración o Firestore
+      let tipo = 'direccion'; // default
+      
+      // Primero intentar obtener de las áreas de Firestore
+      const firestoreArea = firestoreAreas.find(a => a.nombre === areaName);
+      if (firestoreArea) {
+        tipo = firestoreArea.tipo;
+      } else {
+        // Fallback: usar la función de config/areas.js
+        tipo = getAreaType(areaName);
+        if (tipo === 'unknown') {
+          // Si no se encuentra, inferir del nombre
+          tipo = areaName.toLowerCase().includes('secretaría') ? 'secretaria' : 'direccion';
+        }
+      }
+
+      // Agregar a la categoría correspondiente
+      byType[tipo].total += metrics.total || 0;
+      byType[tipo].completed += metrics.completed || 0;
+      byType[tipo].pending += metrics.pending || 0;
+      byType[tipo].overdue += metrics.overdue || 0;
+      byType[tipo].areas.push({
+        name: areaName,
+        ...metrics
+      });
+
+      // Guardar rates para promediar
+      if (tipo === 'secretaria') {
+        secretariaRates.push(metrics.completionRate || 0);
+      } else {
+        direccionRates.push(metrics.completionRate || 0);
+      }
+    });
+
+    // Calcular promedios
+    byType.secretaria.avgRate = secretariaRates.length > 0
+      ? Math.round(secretariaRates.reduce((a, b) => a + b, 0) / secretariaRates.length)
+      : 0;
+    byType.direccion.avgRate = direccionRates.length > 0
+      ? Math.round(direccionRates.reduce((a, b) => a + b, 0) / direccionRates.length)
+      : 0;
+
+    setMetricsByType(byType);
   };
 
   // Función auxiliar para filtrar métricas por áreas seleccionadas
@@ -550,27 +713,40 @@ export default function ReportsScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <View style={[styles.contentWrapper, { maxWidth: isDesktop ? MAX_WIDTHS.content : '100%' }]}>
-        {/* Header */}
-        <Animated.View style={[styles.headerGradient, { opacity: headerOpacity, transform: [{ translateY: headerSlide }] }]}>
+        {/* Header Premium Compacto */}
+        <Animated.View style={{ opacity: headerOpacity, transform: [{ translateY: headerSlide }] }}>
           <LinearGradient
-            colors={isDark ? ['#2A1520', '#1A1A1A'] : ['#9F2241', '#7F1D35']}
+            colors={isDark ? ['#9F2241', '#7A1A33'] : ['#9F2241', '#BC2E52']}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+            end={{ x: 1, y: 0.8 }}
             style={styles.headerGradientInner}
           >
-            <View style={[styles.header, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
-              <TouchableOpacity
-                onPress={() => navigation.goBack()}
-                style={{ padding: 8 }}
-              >
-                <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
-              </TouchableOpacity>
-              <View style={{ flex: 1 }}>
-                <View style={styles.greetingContainer}>
-                  <Ionicons name="stats-chart" size={20} color="#FFFFFF" />
-                  <Text style={styles.greeting}>Reportes y Análisis</Text>
+            <View style={styles.header}>
+              <View style={styles.headerLeftSection}>
+                <TouchableOpacity
+                  onPress={() => navigation.goBack()}
+                  style={styles.backButton}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+                </TouchableOpacity>
+                <View style={styles.headerTitleGroup}>
+                  <Text style={styles.headerLabel}>REPORTES</Text>
+                  <Text style={styles.heading}>Evolución</Text>
                 </View>
-                <Text style={styles.heading}>Evolución de Progreso</Text>
+              </View>
+              
+              <View style={styles.headerRightSection}>
+                {currentStats.overdue > 0 && (
+                  <View style={styles.headerAlertBadge}>
+                    <Ionicons name="alert" size={14} color="#FFFFFF" />
+                    <Text style={styles.headerAlertText}>{currentStats.overdue}</Text>
+                  </View>
+                )}
+                <View style={styles.headerStatMini}>
+                  <Text style={styles.headerStatMiniValue}>{tasks.length}</Text>
+                  <Text style={styles.headerStatMiniLabel}>tareas</Text>
+                </View>
               </View>
             </View>
           </LinearGradient>
@@ -582,26 +758,35 @@ export default function ReportsScreen({ navigation }) {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
           showsVerticalScrollIndicator={false}
         >
-          {/* Period Selector */}
-          <View style={styles.periodSelector}>
-            {['week', 'month', 'quarter'].map((p) => (
-              <RippleButton
-                key={p}
-                onPress={() => setPeriod(p)}
-                style={[
-                  styles.periodButton,
-                  period === p && styles.periodButtonActive
-                ]}
-                rippleColor={period === p ? 'rgba(159,34,65,0.3)' : 'rgba(0,0,0,0.1)'}
-              >
-                <Text style={[
-                  styles.periodButtonText,
-                  period === p && styles.periodButtonTextActive
-                ]}>
-                  {p === 'week' ? 'Semana' : p === 'month' ? 'Mes' : 'Trimestre'}
-                </Text>
-              </RippleButton>
-            ))}
+          {/* Period Selector - Tabs Premium */}
+          <View style={[styles.periodCard, { backgroundColor: theme.card, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+            <View style={styles.periodTabs}>
+              {[
+                { key: 'week', label: '7D', fullLabel: 'Semana', icon: 'today-outline' },
+                { key: 'month', label: '30D', fullLabel: 'Mes', icon: 'calendar-outline' },
+                { key: 'quarter', label: '90D', fullLabel: 'Trimestre', icon: 'calendar' }
+              ].map((p, idx) => (
+                <TouchableOpacity
+                  key={p.key}
+                  onPress={() => setPeriod(p.key)}
+                  style={[
+                    styles.periodTab,
+                    period === p.key && styles.periodTabActive,
+                    { backgroundColor: period === p.key ? (isDark ? '#9F2241' : '#9F2241') : 'transparent' }
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.periodTabLabel,
+                    { color: period === p.key ? '#FFFFFF' : theme.textSecondary }
+                  ]}>{p.label}</Text>
+                  <Text style={[
+                    styles.periodTabFullLabel,
+                    { color: period === p.key ? 'rgba(255,255,255,0.8)' : theme.textTertiary }
+                  ]}>{p.fullLabel}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
           {/* Area Filter */}
@@ -688,59 +873,70 @@ export default function ReportsScreen({ navigation }) {
             </Animated.View>
           )}
 
-          {/* Key Stats */}
+          {/* Key Stats - Dashboard Premium */}
           <Animated.View style={{ 
             opacity: statsOpacity,
             transform: [{ translateY: statsSlide }]
           }}>
-            <View style={styles.statsGrid}>
-              <SpringCard style={styles.stat}>
-                <View style={styles.statContent}>
-                  <View style={[styles.statIcon, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
-                    <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+            {/* Tarjeta Principal de Resumen */}
+            <View style={[styles.summaryCard, { backgroundColor: theme.card, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+              <View style={styles.summaryHeader}>
+                <View style={styles.summaryLeft}>
+                  <View style={[styles.summaryIconBg, { backgroundColor: '#9F2241' }]}>
+                    <Ionicons name="pie-chart" size={20} color="#FFFFFF" />
                   </View>
-                  <Text style={[styles.statValue, { color: '#10B981' }]}>
-                    {currentStats.completed}
-                  </Text>
-                  <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Completadas</Text>
+                  <View>
+                    <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Tasa de Finalización</Text>
+                    <View style={styles.summaryValueRow}>
+                      <Text style={[styles.summaryValue, { color: theme.text }]}>{currentStats.completionRate}</Text>
+                      <Text style={[styles.summaryPercent, { color: '#9F2241' }]}>%</Text>
+                    </View>
+                  </View>
                 </View>
-              </SpringCard>
+                <View style={[styles.summaryTrend, { backgroundColor: currentStats.completionRate >= 50 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)' }]}>
+                  <Ionicons 
+                    name={currentStats.completionRate >= 50 ? "trending-up" : "trending-down"} 
+                    size={18} 
+                    color={currentStats.completionRate >= 50 ? '#10B981' : '#EF4444'} 
+                  />
+                </View>
+              </View>
+              
+              {/* Barra de Progreso */}
+              <View style={[styles.progressBarBg, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }]}>
+                <View style={[styles.progressBarFill, { width: `${currentStats.completionRate}%` }]} />
+              </View>
+            </View>
 
-              <SpringCard style={styles.stat}>
-                <View style={styles.statContent}>
-                  <View style={[styles.statIcon, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
-                    <Ionicons name="play-circle" size={24} color="#3B82F6" />
-                  </View>
-                  <Text style={[styles.statValue, { color: '#3B82F6' }]}>
-                    {currentStats.inProgress}
-                  </Text>
-                  <Text style={[styles.statLabel, { color: theme.textSecondary }]}>En Progreso</Text>
-                </View>
-              </SpringCard>
+            {/* Grid de Métricas Compactas */}
+            <View style={styles.metricsRow}>
+              {/* Completadas */}
+              <View style={[styles.metricItem, { backgroundColor: theme.card, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+                <View style={[styles.metricDot, { backgroundColor: '#10B981' }]} />
+                <Text style={[styles.metricNumber, { color: theme.text }]}>{currentStats.completed}</Text>
+                <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Listas</Text>
+              </View>
 
-              <SpringCard style={styles.stat}>
-                <View style={styles.statContent}>
-                  <View style={[styles.statIcon, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
-                    <Ionicons name="time" size={24} color="#F59E0B" />
-                  </View>
-                  <Text style={[styles.statValue, { color: '#F59E0B' }]}>
-                    {currentStats.completionRate}%
-                  </Text>
-                  <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Tasa Finalización</Text>
-                </View>
-              </SpringCard>
+              {/* En Progreso */}
+              <View style={[styles.metricItem, { backgroundColor: theme.card, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+                <View style={[styles.metricDot, { backgroundColor: '#3B82F6' }]} />
+                <Text style={[styles.metricNumber, { color: theme.text }]}>{currentStats.inProgress}</Text>
+                <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Activas</Text>
+              </View>
 
-              <SpringCard style={styles.stat}>
-                <View style={styles.statContent}>
-                  <View style={[styles.statIcon, { backgroundColor: 'rgba(220, 38, 38, 0.15)' }]}>
-                    <Ionicons name="alert-circle" size={24} color="#DC2626" />
-                  </View>
-                  <Text style={[styles.statValue, { color: '#DC2626' }]}>
-                    {currentStats.overdue}
-                  </Text>
-                  <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Vencidas</Text>
-                </View>
-              </SpringCard>
+              {/* Pendientes */}
+              <View style={[styles.metricItem, { backgroundColor: theme.card, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+                <View style={[styles.metricDot, { backgroundColor: '#F59E0B' }]} />
+                <Text style={[styles.metricNumber, { color: theme.text }]}>{currentStats.pending}</Text>
+                <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Espera</Text>
+              </View>
+
+              {/* Vencidas */}
+              <View style={[styles.metricItem, styles.metricItemAlert, { backgroundColor: currentStats.overdue > 0 ? 'rgba(239,68,68,0.08)' : theme.card, borderColor: currentStats.overdue > 0 ? 'rgba(239,68,68,0.3)' : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
+                <View style={[styles.metricDot, { backgroundColor: '#EF4444' }]} />
+                <Text style={[styles.metricNumber, { color: currentStats.overdue > 0 ? '#EF4444' : theme.text }]}>{currentStats.overdue}</Text>
+                <Text style={[styles.metricLabel, { color: currentStats.overdue > 0 ? '#EF4444' : theme.textSecondary }]}>Vencidas</Text>
+              </View>
             </View>
           </Animated.View>
 
@@ -786,7 +982,7 @@ export default function ReportsScreen({ navigation }) {
               <View style={styles.subtasksStatsSection}>
                 <SpringCard style={styles.subtaskCard}>
                   <View style={styles.subtaskHeader}>
-                    <Ionicons name="checkmark-done-all" size={24} color="#9F2241" style={{ marginRight: 8 }} />
+                    <Ionicons name="checkmark-done" size={24} color="#9F2241" style={{ marginRight: 8 }} />
                     <Text style={[styles.subtaskTitle, { color: theme.text }]}>Progreso de Subtareas</Text>
                   </View>
                   
@@ -954,6 +1150,250 @@ export default function ReportsScreen({ navigation }) {
               </View>
             )}
 
+            {/* ✨ NUEVO: Resumen Jerárquico Premium por Tipo de Área */}
+            {(metricsByType.secretaria.total > 0 || metricsByType.direccion.total > 0) && (
+              <Animated.View style={{
+                opacity: hierarchyAnim,
+                transform: [{ translateY: hierarchySlide }]
+              }}>
+                <View style={[styles.hierarchySectionWrapper, { backgroundColor: theme.card }]}>
+                  {/* Header de sección */}
+                  <View style={styles.hierarchySectionHeader}>
+                    <LinearGradient
+                      colors={isDark ? ['#9F2241', '#691830'] : ['#9F2241', '#BE3356']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.hierarchySectionIcon}
+                    >
+                      <Ionicons name="git-network" size={24} color="#FFF" />
+                    </LinearGradient>
+                    <View style={styles.hierarchySectionTitleContainer}>
+                      <Text style={[styles.hierarchySectionTitle, { color: theme.text }]}>
+                        Rendimiento por Jerarquía
+                      </Text>
+                      <Text style={[styles.hierarchySectionSubtitle, { color: theme.textSecondary }]}>
+                        Comparativa Secretarías vs Direcciones
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.hierarchyCardsRow}>
+                    {/* Tarjeta Secretarías - Premium Design */}
+                    <Animated.View style={[
+                      styles.hierarchyCardWrapper,
+                      { transform: [{ scale: secretariaScale }] }
+                    ]}>
+                      <TouchableOpacity 
+                        onPress={() => setFilteredAreas(metricsByType.secretaria.areas.map(a => a.name))}
+                        activeOpacity={0.85}
+                        style={styles.hierarchyCardTouchable}
+                      >
+                        <LinearGradient
+                          colors={isDark ? ['#9F2241', '#691830'] : ['#9F2241', '#BE3356']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.hierarchyCardGradient}
+                        >
+                          {/* Overlay para efecto glassmorphism */}
+                          <View style={[styles.hierarchyGlassOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.1)' }]} />
+                          
+                          {/* Header de tarjeta */}
+                          <View style={styles.hierarchyCardHeader}>
+                            <View style={styles.hierarchyCardIconContainer}>
+                              <View style={styles.hierarchyCardIconBg}>
+                                <Ionicons name="briefcase" size={28} color="#FFF" />
+                              </View>
+                            </View>
+                            <View style={styles.hierarchyCardTitleArea}>
+                              <Text style={styles.hierarchyCardTitle}>Secretarías</Text>
+                              <Text style={styles.hierarchyCardCount}>
+                                {metricsByType.secretaria.areas.length} áreas activas
+                              </Text>
+                            </View>
+                            <Animated.View style={[styles.hierarchyRateBadge, { transform: [{ scale: pulseAnim }] }]}>
+                              <Text style={styles.hierarchyRateBadgeText}>
+                                {metricsByType.secretaria.avgRate}%
+                              </Text>
+                            </Animated.View>
+                          </View>
+                          
+                          {/* Barra de progreso animada */}
+                          <View style={styles.hierarchyProgressWrapper}>
+                            <View style={styles.hierarchyProgressTrack}>
+                              <Animated.View 
+                                style={[
+                                  styles.hierarchyProgressFill,
+                                  { 
+                                    width: secretariaProgress.interpolate({
+                                      inputRange: [0, 100],
+                                      outputRange: ['0%', '100%']
+                                    }),
+                                    backgroundColor: 'rgba(255,255,255,0.9)'
+                                  }
+                                ]} 
+                              />
+                            </View>
+                          </View>
+                          
+                          {/* Métricas en grid */}
+                          <View style={styles.hierarchyMetricsGrid}>
+                            <View style={styles.hierarchyMetricBox}>
+                              <Text style={styles.hierarchyMetricValue}>{metricsByType.secretaria.total}</Text>
+                              <Text style={styles.hierarchyMetricLabel}>Total</Text>
+                            </View>
+                            <View style={styles.hierarchyMetricDivider} />
+                            <View style={styles.hierarchyMetricBox}>
+                              <Text style={[styles.hierarchyMetricValue, { color: '#A7F3D0' }]}>
+                                {metricsByType.secretaria.completed}
+                              </Text>
+                              <Text style={styles.hierarchyMetricLabel}>Completadas</Text>
+                            </View>
+                            <View style={styles.hierarchyMetricDivider} />
+                            <View style={styles.hierarchyMetricBox}>
+                              <Text style={[styles.hierarchyMetricValue, { color: '#FDE68A' }]}>
+                                {metricsByType.secretaria.pending}
+                              </Text>
+                              <Text style={styles.hierarchyMetricLabel}>Pendientes</Text>
+                            </View>
+                            {metricsByType.secretaria.overdue > 0 && (
+                              <>
+                                <View style={styles.hierarchyMetricDivider} />
+                                <View style={styles.hierarchyMetricBox}>
+                                  <Text style={[styles.hierarchyMetricValue, { color: '#FCA5A5' }]}>
+                                    {metricsByType.secretaria.overdue}
+                                  </Text>
+                                  <Text style={styles.hierarchyMetricLabel}>Vencidas</Text>
+                                </View>
+                              </>
+                            )}
+                          </View>
+                          
+                          {/* Footer con indicador de tap */}
+                          <View style={styles.hierarchyCardFooter}>
+                            <Text style={styles.hierarchyTapHint}>Toca para filtrar</Text>
+                            <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.6)" />
+                          </View>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </Animated.View>
+
+                    {/* Tarjeta Direcciones - Premium Design */}
+                    <Animated.View style={[
+                      styles.hierarchyCardWrapper,
+                      { transform: [{ scale: direccionScale }] }
+                    ]}>
+                      <TouchableOpacity 
+                        onPress={() => setFilteredAreas(metricsByType.direccion.areas.map(a => a.name))}
+                        activeOpacity={0.85}
+                        style={styles.hierarchyCardTouchable}
+                      >
+                        <LinearGradient
+                          colors={isDark ? ['#0EA5E9', '#0369A1'] : ['#0EA5E9', '#38BDF8']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.hierarchyCardGradient}
+                        >
+                          {/* Overlay para efecto glassmorphism */}
+                          <View style={[styles.hierarchyGlassOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.1)' }]} />
+                          
+                          {/* Header de tarjeta */}
+                          <View style={styles.hierarchyCardHeader}>
+                            <View style={styles.hierarchyCardIconContainer}>
+                              <View style={styles.hierarchyCardIconBg}>
+                                <Ionicons name="folder-open" size={28} color="#FFF" />
+                              </View>
+                            </View>
+                            <View style={styles.hierarchyCardTitleArea}>
+                              <Text style={styles.hierarchyCardTitle}>Direcciones</Text>
+                              <Text style={styles.hierarchyCardCount}>
+                                {metricsByType.direccion.areas.length} áreas activas
+                              </Text>
+                            </View>
+                            <Animated.View style={[styles.hierarchyRateBadge, { transform: [{ scale: pulseAnim }] }]}>
+                              <Text style={styles.hierarchyRateBadgeText}>
+                                {metricsByType.direccion.avgRate}%
+                              </Text>
+                            </Animated.View>
+                          </View>
+                          
+                          {/* Barra de progreso animada */}
+                          <View style={styles.hierarchyProgressWrapper}>
+                            <View style={styles.hierarchyProgressTrack}>
+                              <Animated.View 
+                                style={[
+                                  styles.hierarchyProgressFill,
+                                  { 
+                                    width: direccionProgress.interpolate({
+                                      inputRange: [0, 100],
+                                      outputRange: ['0%', '100%']
+                                    }),
+                                    backgroundColor: 'rgba(255,255,255,0.9)'
+                                  }
+                                ]} 
+                              />
+                            </View>
+                          </View>
+                          
+                          {/* Métricas en grid */}
+                          <View style={styles.hierarchyMetricsGrid}>
+                            <View style={styles.hierarchyMetricBox}>
+                              <Text style={styles.hierarchyMetricValue}>{metricsByType.direccion.total}</Text>
+                              <Text style={styles.hierarchyMetricLabel}>Total</Text>
+                            </View>
+                            <View style={styles.hierarchyMetricDivider} />
+                            <View style={styles.hierarchyMetricBox}>
+                              <Text style={[styles.hierarchyMetricValue, { color: '#A7F3D0' }]}>
+                                {metricsByType.direccion.completed}
+                              </Text>
+                              <Text style={styles.hierarchyMetricLabel}>Completadas</Text>
+                            </View>
+                            <View style={styles.hierarchyMetricDivider} />
+                            <View style={styles.hierarchyMetricBox}>
+                              <Text style={[styles.hierarchyMetricValue, { color: '#FDE68A' }]}>
+                                {metricsByType.direccion.pending}
+                              </Text>
+                              <Text style={styles.hierarchyMetricLabel}>Pendientes</Text>
+                            </View>
+                            {metricsByType.direccion.overdue > 0 && (
+                              <>
+                                <View style={styles.hierarchyMetricDivider} />
+                                <View style={styles.hierarchyMetricBox}>
+                                  <Text style={[styles.hierarchyMetricValue, { color: '#FCA5A5' }]}>
+                                    {metricsByType.direccion.overdue}
+                                  </Text>
+                                  <Text style={styles.hierarchyMetricLabel}>Vencidas</Text>
+                                </View>
+                              </>
+                            )}
+                          </View>
+                          
+                          {/* Footer con indicador de tap */}
+                          <View style={styles.hierarchyCardFooter}>
+                            <Text style={styles.hierarchyTapHint}>Toca para filtrar</Text>
+                            <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.6)" />
+                          </View>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  </View>
+                  
+                  {/* Botón de limpiar filtro */}
+                  {filteredAreas.length > 0 && (
+                    <TouchableOpacity 
+                      style={[styles.clearFilterButton, { backgroundColor: theme.primary + '15', borderColor: theme.primary }]}
+                      onPress={() => setFilteredAreas([])}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="close-circle" size={18} color={theme.primary} />
+                      <Text style={[styles.clearFilterButtonText, { color: theme.primary }]}>
+                        Limpiar filtro ({filteredAreas.length} áreas seleccionadas)
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </Animated.View>
+            )}
+
             {/* Area Metrics - Detailed Cards */}
             {Object.keys(displayDetailedMetrics).length > 0 ? (
               <SpringCard style={styles.chartCard}>
@@ -1116,35 +1556,90 @@ export default function ReportsScreen({ navigation }) {
               </SpringCard>
             )}
 
-            {/* Area Metrics */}
+            {/* Area Metrics - Premium Quick View */}
             {Object.keys(displayAreaMetrics).length > 0 && (
               <SpringCard style={styles.chartCard}>
-                <Text style={[styles.chartTitle, { color: theme.text }]}>Métrica Rápida por Área</Text>
-                <View style={styles.areaMetricsGrid}>
-                  {Object.entries(displayAreaMetrics).map(([area, metrics]) => (
-                    <View key={area} style={styles.areaMetricItem}>
-                      <Text style={[styles.areaName, { color: theme.text }]}>{area}</Text>
-                      <View style={styles.areaProgressBar}>
-                        <View 
-                          style={[
-                            styles.areaProgressFill,
-                            { 
-                              width: `${metrics.total > 0 ? (metrics.completed / metrics.total) * 100 : 0}%`,
-                              backgroundColor: metrics.total > 0 && (metrics.completed / metrics.total) > 0.75 ? '#10B981' : (metrics.completed / metrics.total) > 0.5 ? '#F59E0B' : '#DC2626'
-                            }
-                          ]}
-                        />
-                      </View>
-                      <View style={styles.areaStats}>
-                        <Text style={[styles.areaCount, { color: theme.textSecondary }]}>
-                          {metrics.completed}/{metrics.total}
+                {/* Header premium */}
+                <View style={styles.quickMetricsHeader}>
+                  <View style={[styles.quickMetricsIconBg, { backgroundColor: theme.primary + '15' }]}>
+                    <Ionicons name="speedometer" size={22} color={theme.primary} />
+                  </View>
+                  <View style={styles.quickMetricsTitleContainer}>
+                    <Text style={[styles.quickMetricsTitle, { color: theme.text }]}>
+                      Rendimiento por Área
+                    </Text>
+                    <Text style={[styles.quickMetricsSubtitle, { color: theme.textSecondary }]}>
+                      {Object.keys(displayAreaMetrics).length} áreas monitoreadas
+                    </Text>
+                  </View>
+                </View>
+                
+                <View style={styles.quickMetricsGrid}>
+                  {Object.entries(displayAreaMetrics).map(([area, metrics], index) => {
+                    const rate = metrics.total > 0 ? (metrics.completed / metrics.total) * 100 : 0;
+                    const statusColor = rate >= 75 ? '#10B981' : rate >= 50 ? '#F59E0B' : '#DC2626';
+                    const statusBg = rate >= 75 ? '#10B98115' : rate >= 50 ? '#F59E0B15' : '#DC262615';
+                    const statusIcon = rate >= 75 ? 'checkmark-circle' : rate >= 50 ? 'time' : 'alert-circle';
+                    
+                    return (
+                      <TouchableOpacity 
+                        key={area} 
+                        style={[styles.quickMetricCard, { backgroundColor: isDark ? theme.card : '#F8FAFC', borderColor: theme.border }]}
+                        onPress={() => setSelectedArea(area)}
+                        activeOpacity={0.7}
+                      >
+                        {/* Badge de estado */}
+                        <View style={[styles.quickMetricStatusBadge, { backgroundColor: statusBg }]}>
+                          <Ionicons name={statusIcon} size={14} color={statusColor} />
+                        </View>
+                        
+                        {/* Nombre del área */}
+                        <Text style={[styles.quickMetricAreaName, { color: theme.text }]} numberOfLines={2}>
+                          {area.replace('Secretaría de ', '').replace('Dirección de ', '')}
                         </Text>
-                        <Text style={[styles.areaPercent, { color: theme.textSecondary }]}>
-                          {metrics.total > 0 ? Math.round((metrics.completed / metrics.total) * 100) : 0}%
-                        </Text>
-                      </View>
-                    </View>
-                  ))}
+                        
+                        {/* Barra de progreso premium */}
+                        <View style={styles.quickMetricProgressContainer}>
+                          <View style={[styles.quickMetricProgressTrack, { backgroundColor: theme.border }]}>
+                            <Animated.View 
+                              style={[
+                                styles.quickMetricProgressBar,
+                                { 
+                                  width: `${rate}%`,
+                                  backgroundColor: statusColor
+                                }
+                              ]}
+                            />
+                          </View>
+                        </View>
+                        
+                        {/* Stats row */}
+                        <View style={styles.quickMetricStatsRow}>
+                          <View style={styles.quickMetricStatItem}>
+                            <Text style={[styles.quickMetricStatValue, { color: statusColor }]}>
+                              {Math.round(rate)}%
+                            </Text>
+                          </View>
+                          <View style={[styles.quickMetricStatDivider, { backgroundColor: theme.border }]} />
+                          <View style={styles.quickMetricStatItem}>
+                            <Text style={[styles.quickMetricStatLabel, { color: theme.textSecondary }]}>
+                              {metrics.completed}/{metrics.total}
+                            </Text>
+                          </View>
+                        </View>
+                        
+                        {/* Indicador de vencidas si hay */}
+                        {metrics.overdue > 0 && (
+                          <View style={styles.quickMetricOverdueTag}>
+                            <Ionicons name="warning" size={10} color="#DC2626" />
+                            <Text style={styles.quickMetricOverdueText}>
+                              {metrics.overdue} vencida{metrics.overdue > 1 ? 's' : ''}
+                            </Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </SpringCard>
             )}
@@ -1179,36 +1674,82 @@ const createStyles = (theme, isDark, isDesktop, isTablet, isDesktopLarge, width,
       marginTop: 12,
       fontSize: 16,
     },
-    headerGradient: {
-      borderBottomLeftRadius: isDesktop ? 32 : 24,
-      borderBottomRightRadius: isDesktop ? 32 : 24,
-      overflow: 'hidden',
-    },
     headerGradientInner: {
       paddingHorizontal: responsiveHeaderPadding,
-      paddingVertical: isTablet ? 28 : 24,
+      paddingTop: isDesktop ? 28 : 48,
+      paddingBottom: 20,
+      borderBottomLeftRadius: 28,
+      borderBottomRightRadius: 0,
     },
     header: {
       flexDirection: 'row',
+      alignItems: 'center',
       justifyContent: 'space-between',
-      alignItems: 'flex-start',
     },
-    greetingContainer: {
+    headerLeftSection: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: 12,
-      gap: 8,
+      gap: 14,
     },
-    greeting: {
-      fontSize: isDesktop ? 16 : 14,
+    backButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: 'rgba(255,255,255,0.18)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    headerTitleGroup: {
+      gap: 2,
+    },
+    headerLabel: {
+      fontSize: 11,
       fontWeight: '700',
-      color: 'rgba(255,255,255,0.9)',
+      color: 'rgba(255,255,255,0.7)',
+      letterSpacing: 1.5,
     },
     heading: {
-      fontSize: isDesktop ? 40 : 36,
-      fontWeight: '900',
+      fontSize: isDesktop ? 28 : 24,
+      fontWeight: '800',
       color: '#FFFFFF',
-      letterSpacing: -1.5,
+      letterSpacing: -0.5,
+    },
+    headerRightSection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    headerAlertBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#EF4444',
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 20,
+      gap: 4,
+    },
+    headerAlertText: {
+      color: '#FFFFFF',
+      fontSize: 13,
+      fontWeight: '800',
+    },
+    headerStatMini: {
+      alignItems: 'center',
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 12,
+    },
+    headerStatMiniValue: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: '#FFFFFF',
+    },
+    headerStatMiniLabel: {
+      fontSize: 10,
+      fontWeight: '600',
+      color: 'rgba(255,255,255,0.75)',
+      letterSpacing: 0.5,
     },
     scroll: {
       flex: 1,
@@ -1219,39 +1760,140 @@ const createStyles = (theme, isDark, isDesktop, isTablet, isDesktopLarge, width,
       paddingTop: 20,
       paddingBottom: 80,
     },
-    periodSelector: {
-      flexDirection: 'row',
-      gap: 12,
-      marginBottom: 32,
-      justifyContent: 'center',
+    // ✨ Period Card Premium
+    periodCard: {
+      borderRadius: 16,
+      padding: 6,
+      marginBottom: 20,
+      borderWidth: 1,
     },
-    periodButton: {
-      paddingHorizontal: 20,
-      paddingVertical: 10,
+    periodTabs: {
+      flexDirection: 'row',
+      gap: 6,
+    },
+    periodTab: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: 14,
+      paddingHorizontal: 12,
       borderRadius: 12,
-      backgroundColor: theme.card,
-      borderWidth: 2,
-      borderColor: 'transparent',
     },
-    periodButtonActive: {
-      backgroundColor: theme.primary,
-      borderColor: theme.primary,
+    periodTabActive: {
+      shadowColor: '#9F2241',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 4,
     },
-    periodButtonText: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: theme.textSecondary,
+    periodTabLabel: {
+      fontSize: 18,
+      fontWeight: '800',
+      letterSpacing: -0.5,
     },
-    periodButtonTextActive: {
-      color: '#FFFFFF',
+    periodTabFullLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      marginTop: 2,
+      letterSpacing: 0.3,
     },
-    statsGrid: {
+    // ✨ Stats Grid Premium
+    // ✨ Summary Card Premium
+    summaryCard: {
+      borderRadius: 20,
+      padding: 20,
+      marginBottom: 14,
+      borderWidth: 1,
+    },
+    summaryHeader: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: isDesktop ? 16 : 12,
-      marginBottom: 32,
+      alignItems: 'center',
       justifyContent: 'space-between',
+      marginBottom: 16,
     },
+    summaryLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+    },
+    summaryIconBg: {
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    summaryLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      letterSpacing: 0.3,
+      marginBottom: 2,
+    },
+    summaryValueRow: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+    },
+    summaryValue: {
+      fontSize: 36,
+      fontWeight: '800',
+      letterSpacing: -1,
+    },
+    summaryPercent: {
+      fontSize: 22,
+      fontWeight: '700',
+      marginLeft: 2,
+    },
+    summaryTrend: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    progressBarBg: {
+      height: 8,
+      borderRadius: 4,
+      overflow: 'hidden',
+    },
+    progressBarFill: {
+      height: '100%',
+      backgroundColor: '#9F2241',
+      borderRadius: 4,
+    },
+    // ✨ Metrics Row Compacto
+    metricsRow: {
+      flexDirection: 'row',
+      gap: 10,
+      marginBottom: 24,
+    },
+    metricItem: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: 16,
+      paddingHorizontal: 8,
+      borderRadius: 14,
+      borderWidth: 1,
+    },
+    metricItemAlert: {
+      // For overdue special styling
+    },
+    metricDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      marginBottom: 8,
+    },
+    metricNumber: {
+      fontSize: 22,
+      fontWeight: '800',
+      letterSpacing: -0.5,
+    },
+    metricLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      marginTop: 4,
+      letterSpacing: 0.2,
+    },
+    // Legacy stat styles (for compatibility)
     stat: {
       width: isDesktop ? '23%' : '48%',
       backgroundColor: theme.card,
@@ -1586,6 +2228,393 @@ const createStyles = (theme, isDark, isDesktop, isTablet, isDesktopLarge, width,
       color: '#FFFFFF',
       fontWeight: '700',
       fontSize: 14,
+    },
+    // ✨ NUEVOS Estilos Premium para sección jerárquica
+    hierarchySectionWrapper: {
+      borderRadius: 24,
+      padding: 20,
+      marginBottom: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: isDark ? 0.3 : 0.1,
+      shadowRadius: 16,
+      elevation: 8,
+    },
+    hierarchySectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+      marginBottom: 24,
+    },
+    hierarchySectionIcon: {
+      width: 56,
+      height: 56,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#9F2241',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    hierarchySectionTitleContainer: {
+      flex: 1,
+    },
+    hierarchySectionTitle: {
+      fontSize: 22,
+      fontWeight: '800',
+      letterSpacing: -0.5,
+    },
+    hierarchySectionSubtitle: {
+      fontSize: 13,
+      marginTop: 4,
+      fontWeight: '500',
+    },
+    hierarchyCardsRow: {
+      flexDirection: isDesktop ? 'row' : 'column',
+      gap: 16,
+    },
+    hierarchyCardWrapper: {
+      flex: 1,
+    },
+    hierarchyCardTouchable: {
+      borderRadius: 20,
+      overflow: 'hidden',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.2,
+      shadowRadius: 12,
+      elevation: 6,
+    },
+    hierarchyCardGradient: {
+      padding: 20,
+      borderRadius: 20,
+      minHeight: 240,
+    },
+    hierarchyGlassOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      borderRadius: 20,
+    },
+    hierarchyCardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 20,
+      zIndex: 1,
+    },
+    hierarchyCardIconContainer: {
+      marginRight: 14,
+    },
+    hierarchyCardIconBg: {
+      width: 52,
+      height: 52,
+      borderRadius: 14,
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    hierarchyCardTitleArea: {
+      flex: 1,
+    },
+    hierarchyCardTitle: {
+      fontSize: 20,
+      fontWeight: '800',
+      color: '#FFFFFF',
+      letterSpacing: -0.3,
+    },
+    hierarchyCardCount: {
+      fontSize: 12,
+      fontWeight: '500',
+      color: 'rgba(255,255,255,0.75)',
+      marginTop: 4,
+    },
+    hierarchyRateBadge: {
+      backgroundColor: 'rgba(255,255,255,0.25)',
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 12,
+    },
+    hierarchyRateBadgeText: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: '#FFFFFF',
+    },
+    hierarchyProgressWrapper: {
+      marginBottom: 20,
+      zIndex: 1,
+    },
+    hierarchyProgressTrack: {
+      height: 10,
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      borderRadius: 5,
+      overflow: 'hidden',
+    },
+    hierarchyProgressFill: {
+      height: '100%',
+      borderRadius: 5,
+    },
+    hierarchyMetricsGrid: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      backgroundColor: 'rgba(0,0,0,0.15)',
+      borderRadius: 14,
+      paddingVertical: 16,
+      paddingHorizontal: 8,
+      marginBottom: 16,
+      zIndex: 1,
+    },
+    hierarchyMetricBox: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    hierarchyMetricValue: {
+      fontSize: 22,
+      fontWeight: '800',
+      color: '#FFFFFF',
+    },
+    hierarchyMetricLabel: {
+      fontSize: 10,
+      fontWeight: '600',
+      color: 'rgba(255,255,255,0.7)',
+      marginTop: 4,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    hierarchyMetricDivider: {
+      width: 1,
+      height: 36,
+      backgroundColor: 'rgba(255,255,255,0.2)',
+    },
+    hierarchyCardFooter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      zIndex: 1,
+    },
+    hierarchyTapHint: {
+      fontSize: 12,
+      fontWeight: '500',
+      color: 'rgba(255,255,255,0.6)',
+    },
+    clearFilterButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      marginTop: 20,
+      paddingVertical: 12,
+      paddingHorizontal: 20,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      alignSelf: 'center',
+    },
+    clearFilterButtonText: {
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    // Legacy styles (mantener compatibilidad)
+    hierarchyContainer: {
+      flexDirection: isDesktop ? 'row' : 'column',
+      gap: 16,
+      marginTop: 16,
+    },
+    hierarchyCard: {
+      flex: 1,
+      borderRadius: 16,
+      borderWidth: 2,
+      padding: 16,
+    },
+    hierarchyHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 16,
+    },
+    hierarchyIconBadge: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    hierarchyTitleContainer: {
+      flex: 1,
+    },
+    hierarchyTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+    },
+    hierarchySubtitle: {
+      fontSize: 12,
+      marginTop: 2,
+    },
+    hierarchyStats: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      marginBottom: 16,
+      paddingVertical: 12,
+      borderRadius: 12,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+    },
+    hierarchyStat: {
+      alignItems: 'center',
+    },
+    hierarchyStatValue: {
+      fontSize: 20,
+      fontWeight: '700',
+    },
+    hierarchyStatLabel: {
+      fontSize: 11,
+      marginTop: 4,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    hierarchyProgressContainer: {
+      gap: 8,
+    },
+    hierarchyProgressBg: {
+      height: 8,
+      borderRadius: 4,
+      overflow: 'hidden',
+    },
+    hierarchyProgress: {
+      height: '100%',
+      borderRadius: 4,
+    },
+    hierarchyRateText: {
+      fontSize: 13,
+      fontWeight: '600',
+      textAlign: 'center',
+    },
+    clearFilterBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      marginTop: 16,
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: 8,
+      borderWidth: 1,
+      alignSelf: 'center',
+    },
+    clearFilterText: {
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    // ✨ Quick Metrics Premium Styles
+    quickMetricsHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 20,
+      gap: 14,
+    },
+    quickMetricsIconBg: {
+      width: 48,
+      height: 48,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    quickMetricsTitleContainer: {
+      flex: 1,
+    },
+    quickMetricsTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+      letterSpacing: -0.3,
+    },
+    quickMetricsSubtitle: {
+      fontSize: 12,
+      marginTop: 3,
+      fontWeight: '500',
+    },
+    quickMetricsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 14,
+    },
+    quickMetricCard: {
+      width: isDesktop ? 'calc(33.33% - 10px)' : isTablet ? 'calc(50% - 7px)' : '100%',
+      minWidth: isDesktop ? 200 : isTablet ? 180 : 'auto',
+      padding: 16,
+      borderRadius: 16,
+      borderWidth: 1,
+      position: 'relative',
+      overflow: 'hidden',
+    },
+    quickMetricStatusBadge: {
+      position: 'absolute',
+      top: 12,
+      right: 12,
+      width: 28,
+      height: 28,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    quickMetricAreaName: {
+      fontSize: 14,
+      fontWeight: '700',
+      marginBottom: 14,
+      paddingRight: 36,
+      lineHeight: 20,
+    },
+    quickMetricProgressContainer: {
+      marginBottom: 12,
+    },
+    quickMetricProgressTrack: {
+      height: 8,
+      borderRadius: 4,
+      overflow: 'hidden',
+    },
+    quickMetricProgressBar: {
+      height: '100%',
+      borderRadius: 4,
+    },
+    quickMetricStatsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+    },
+    quickMetricStatItem: {
+      alignItems: 'center',
+    },
+    quickMetricStatValue: {
+      fontSize: 18,
+      fontWeight: '800',
+    },
+    quickMetricStatLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    quickMetricStatDivider: {
+      width: 1,
+      height: 20,
+    },
+    quickMetricOverdueTag: {
+      position: 'absolute',
+      bottom: 8,
+      left: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: '#DC262615',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
+    },
+    quickMetricOverdueText: {
+      fontSize: 10,
+      fontWeight: '600',
+      color: '#DC2626',
     },
   });
 };

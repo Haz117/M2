@@ -701,26 +701,32 @@ export default function MyInboxScreen({ navigation }) {
           </View>
         </View>
 
-        <View style={styles.actionsRow}>
-          <TouchableOpacity style={[styles.actionBtn, { marginRight: isTablet ? 8 : 0 }]} onPress={() => markClosed(item)}>
-            <Ionicons name="checkmark-circle-outline" size={16} color="#9F2241" style={{ marginRight: 4 }} />
-            <Text style={styles.actionText} numberOfLines={1}>Cerrar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionBtn, { marginRight: isTablet ? 8 : 0 }]} onPress={() => postponeOneDay(item)}>
-            <Ionicons name="time-outline" size={16} color="#DAA520" style={{ marginRight: 4 }} />
-            <Text style={styles.actionText} numberOfLines={1}>Posponer</Text>
+        {/* Acciones compactas con iconos */}
+        <View style={styles.quickActionsRow}>
+          <TouchableOpacity 
+            style={[styles.quickActionBtn, { backgroundColor: '#10B981' }]} 
+            onPress={() => markClosed(item)}
+          >
+            <Ionicons name="checkmark" size={18} color="#FFFFFF" />
           </TouchableOpacity>
           <TouchableOpacity 
-            style={[styles.actionBtn, { marginRight: isTablet ? 8 : 0, backgroundColor: '#00B4D8' }]} 
+            style={[styles.quickActionBtn, { backgroundColor: '#F59E0B' }]} 
+            onPress={() => postponeOneDay(item)}
+          >
+            <Ionicons name="time" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.quickActionBtn, { backgroundColor: '#3B82F6' }]} 
             onPress={() => openChat(item)}
           >
-            <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
-            <Text style={[styles.actionText, {color: '#fff'}]} numberOfLines={1}>Comentar</Text>
+            <Ionicons name="chatbubble" size={18} color="#FFFFFF" />
           </TouchableOpacity>
           {isAdmin && (
-            <TouchableOpacity style={[styles.actionBtn, styles.actionBtnDanger]} onPress={() => deleteTask(item.id)}>
-              <Ionicons name="trash-outline" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
-              <Text style={[styles.actionText, {color: '#fff'}]} numberOfLines={1}>Borrar</Text>
+            <TouchableOpacity 
+              style={[styles.quickActionBtn, { backgroundColor: '#EF4444' }]} 
+              onPress={() => deleteTask(item.id)}
+            >
+              <Ionicons name="trash" size={18} color="#FFFFFF" />
             </TouchableOpacity>
           )}
         </View>
@@ -733,13 +739,8 @@ export default function MyInboxScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <View style={[styles.contentWrapper, { maxWidth: isDesktop ? MAX_WIDTHS.content : '100%' }]}>
-      {/* Alerta de tareas vencidas */}
-      <OverdueAlert 
-        tasks={filtered} 
-        currentUserEmail={currentUser?.email}
-        role={currentUser?.role}
-      />
       
+      {/* Header Premium Compacto */}
       <Animated.View style={{ opacity: headerOpacity, transform: [{ translateY: headerSlide }] }}>
         <LinearGradient
           colors={isDark ? ['#2A1520', '#1A1A1A'] : ['#9F2241', '#7F1D35']}
@@ -748,84 +749,83 @@ export default function MyInboxScreen({ navigation }) {
           style={styles.headerGradient}
         >
           <View style={styles.header}>
-            <View>
-              <View style={styles.greetingContainer}>
-                <Ionicons name="file-tray-full" size={20} color="#FFFFFF" style={{ marginRight: 8, opacity: 0.9 }} />
-                <Text style={styles.greeting}>Tus tareas pendientes</Text>
+            <View style={styles.headerLeft}>
+              <View style={styles.headerIconWrapper}>
+                <Ionicons name="file-tray-full" size={22} color="#FFFFFF" />
               </View>
-              <Text style={styles.heading}>Mi Bandeja</Text>
+              <View>
+                <Text style={styles.greeting}>Mi Bandeja</Text>
+                <Text style={styles.heading}>
+                  {filtered.length} {filtered.length === 1 ? 'tarea' : 'tareas'}
+                </Text>
+              </View>
             </View>
-            <View style={{ flexDirection: 'row' }}>
-              {/* Botón de mensajes con badge */}
+            
+            <View style={styles.headerRight}>
+              {/* Badge vencidas */}
+              {filtered.filter(t => t.dueAt < Date.now() && t.status !== 'cerrada').length > 0 && (
+                <TouchableOpacity 
+                  style={styles.overdueBadge}
+                  onPress={() => setFilters(prev => ({ ...prev, overdue: !prev.overdue }))}
+                >
+                  <Ionicons name="warning" size={14} color="#FFFFFF" />
+                  <Text style={styles.overdueBadgeText}>
+                    {filtered.filter(t => t.dueAt < Date.now() && t.status !== 'cerrada').length}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              
+              {/* Botón mensajes */}
               {recentMessages.length > 0 && (
                 <TouchableOpacity 
-                  style={[styles.messagesButton, { marginRight: 12 }]} 
+                  style={styles.headerIconBtn} 
                   onPress={() => {
                     hapticMedium();
                     setShowMessagesModal(true);
                   }}
                 >
-                  <View style={[styles.addButtonGradient, { backgroundColor: '#FFFFFF' }]}>
-                    <Ionicons name="chatbubbles" size={24} color="#DAA520" />
-                    {recentMessages.length > 0 && (
-                      <View style={styles.messageBadge}>
-                        <Text style={styles.messageBadgeText}>{recentMessages.length}</Text>
-                      </View>
-                    )}
+                  <Ionicons name="chatbubbles" size={20} color="#FFFFFF" />
+                  <View style={styles.msgBadge}>
+                    <Text style={styles.msgBadgeText}>{recentMessages.length}</Text>
                   </View>
                 </TouchableOpacity>
               )}
+              
+              {/* Botón crear */}
               <TouchableOpacity style={styles.addButton} onPress={goToCreate}>
-                <View style={[styles.addButtonGradient, { backgroundColor: '#FFFFFF' }]}>
-                  <Ionicons name="add" size={32} color="#9F2241" />
-                </View>
+                <Ionicons name="add" size={26} color="#9F2241" />
               </TouchableOpacity>
             </View>
           </View>
         </LinearGradient>
       </Animated.View>
 
+      {/* Tarjeta de Usuario y Búsqueda Unificada */}
       <Animated.View style={{ opacity: userCardOpacity, transform: [{ translateY: userCardSlide }] }}>
-        <View style={[
-          styles.userSection,
-          {
-            backgroundColor: isDark ? 'rgba(30, 30, 35, 0.95)' : 'rgba(255, 255, 255, 0.98)',
-            borderColor: isDark ? 'rgba(159, 34, 65, 0.3)' : 'rgba(159, 34, 65, 0.15)',
-          }
-        ]}>
-          <LinearGradient
-            colors={[theme.primary, isDark ? '#7F1D35' : '#C53860']}
-            style={styles.userIconBadge}
-          >
-            <Ionicons name="person" size={20} color="#FFFFFF" />
-          </LinearGradient>
-          <View style={styles.userInfoContent}>
-            <Text style={styles.userLabel}>
-              {currentUser?.role === 'admin' ? 'TODAS LAS TAREAS' : 
-               currentUser?.role === 'jefe' ? 'TAREAS DE MI ÁREA' : 
-               'MIS TAREAS ASIGNADAS'}
-            </Text>
-            <Text style={[styles.currentUserName, { color: theme.text }]} numberOfLines={1} ellipsizeMode="tail">
-              {currentUser?.displayName || 'Cargando...'}
-            </Text>
-            <Text style={[styles.currentUserHint, { color: theme.textSecondary }]} numberOfLines={1} ellipsizeMode="tail">
-              {currentUser?.email || 'Iniciando sesión...'}
-            </Text>
+        <View style={[styles.userSearchCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          {/* Info usuario */}
+          <View style={styles.userRow}>
+            <LinearGradient
+              colors={[theme.primary, isDark ? '#7F1D35' : '#C53860']}
+              style={styles.userAvatar}
+            >
+              <Ionicons name="person" size={18} color="#FFFFFF" />
+            </LinearGradient>
+            <View style={styles.userInfo}>
+              <Text style={[styles.userName, { color: theme.text }]} numberOfLines={1}>
+                {currentUser?.displayName || 'Cargando...'}
+              </Text>
+              <Text style={[styles.userRole, { color: theme.textSecondary }]}>
+                {currentUser?.role === 'admin' ? 'Administrador • Todas las tareas' : 
+                 currentUser?.role === 'jefe' ? 'Jefe • Tareas de mi área' : 
+                 'Operativo • Mis tareas'}
+              </Text>
+            </View>
           </View>
-        </View>
-      </Animated.View>
-
-      {/* 🔍 BÚSQUEDA Y FILTROS */}
-      <Animated.View style={{ opacity: searchOpacity, transform: [{ translateY: searchSlide }] }}>
-        <View style={[
-          styles.filterSection, 
-          { 
-            backgroundColor: isDark ? 'rgba(30, 30, 35, 0.95)' : 'rgba(255, 255, 255, 0.98)',
-            borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
-          }
-        ]}>
-          <View style={[styles.searchContainer, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
-            <Ionicons name="search" size={20} color={theme.textSecondary} />
+          
+          {/* Búsqueda */}
+          <View style={[styles.searchRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
+            <Ionicons name="search" size={18} color={theme.textSecondary} />
             <TextInput
               style={[styles.searchInput, { color: theme.text }]}
               placeholder="Buscar tareas..."
@@ -835,22 +835,17 @@ export default function MyInboxScreen({ navigation }) {
             />
             {searchText !== '' && (
               <TouchableOpacity onPress={() => setSearchText('')}>
-                <Ionicons name="close-circle" size={20} color={theme.textSecondary} />
+                <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
               </TouchableOpacity>
             )}
+            <View style={[styles.searchDivider, { backgroundColor: theme.border }]} />
+            <TouchableOpacity 
+              style={[styles.filterIconBtn, showFilters && { backgroundColor: theme.primary }]}
+              onPress={() => setShowFilters(!showFilters)}
+            >
+              <Ionicons name="options" size={18} color={showFilters ? '#FFFFFF' : theme.textSecondary} />
+            </TouchableOpacity>
           </View>
-
-        {/* Botón de filtros */}
-        <TouchableOpacity 
-          style={[styles.filterButton, { backgroundColor: showFilters ? theme.primary : theme.card }]}
-          onPress={() => setShowFilters(!showFilters)}
-        >
-          <Ionicons 
-            name="funnel" 
-            size={18} 
-            color={showFilters ? '#FFFFFF' : theme.text} 
-          />
-        </TouchableOpacity>
         </View>
       </Animated.View>
 
@@ -1082,32 +1077,45 @@ export default function MyInboxScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* Contador de tareas + Botón de borrar múltiples */}
-      <View style={[styles.counterSection, { backgroundColor: theme.backgroundSecondary, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.counterText, { color: theme.text }]}>
-            {filtered.length} {filtered.length === 1 ? 'tarea' : 'tareas'} 
-            {searchText && ` encontradas`}
-            {Object.values(filters).some(v => (Array.isArray(v) && v.length > 0) || v === true) && ` (filtradas)`}
-          </Text>
-          {selectedTaskIds.size > 0 && (
-            <Text style={[styles.counterText, { color: theme.primary, fontSize: 12, marginTop: 4 }]}>
-              {selectedTaskIds.size} seleccionada{selectedTaskIds.size > 1 ? 's' : ''}
-            </Text>
+      {/* Barra de acciones y contador elegante */}
+      <View style={[styles.actionsBar, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <View style={styles.actionsBarLeft}>
+          {selectedTaskIds.size > 0 ? (
+            <View style={styles.selectionInfo}>
+              <View style={[styles.selectionBadge, { backgroundColor: theme.primary }]}>
+                <Text style={styles.selectionBadgeText}>{selectedTaskIds.size}</Text>
+              </View>
+              <Text style={[styles.selectionText, { color: theme.text }]}>
+                {selectedTaskIds.size === 1 ? 'tarea seleccionada' : 'tareas seleccionadas'}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.counterInfo}>
+              <Text style={[styles.counterNumber, { color: theme.text }]}>{filtered.length}</Text>
+              <Text style={[styles.counterLabel, { color: theme.textSecondary }]}>
+                {filtered.length === 1 ? 'tarea' : 'tareas'}
+                {searchText ? ' encontradas' : ''}
+              </Text>
+            </View>
           )}
         </View>
-
-        {/* Botón para borrar seleccionadas */}
+        
+        {/* Acciones cuando hay selección */}
         {selectedTaskIds.size > 0 && (
-          <TouchableOpacity
-            style={[styles.deleteSelectedBtn, { backgroundColor: '#FF3B30' }]}
-            onPress={deleteSelectedTasks}
-          >
-            <Ionicons name="trash-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 12 }}>
-              BORRAR ({selectedTaskIds.size})
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.bulkActions}>
+            <TouchableOpacity
+              style={[styles.bulkActionBtn, { backgroundColor: '#EF4444' }]}
+              onPress={deleteSelectedTasks}
+            >
+              <Ionicons name="trash" size={16} color="#FFFFFF" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.bulkActionBtn, { backgroundColor: theme.textSecondary }]}
+              onPress={() => setSelectedTaskIds(new Set())}
+            >
+              <Ionicons name="close" size={16} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 
@@ -1230,45 +1238,253 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     width: '100%'
   },
   headerGradient: {
-    borderBottomLeftRadius: RADIUS.xl,
-    borderBottomRightRadius: RADIUS.xl,
+    borderBottomLeftRadius: 24,
     shadowColor: '#9F2241',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 12
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 10
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     paddingHorizontal: padding,
-    paddingTop: isDesktop ? SPACING.xxxl : 48,
-    paddingBottom: SPACING.lg
+    paddingTop: isDesktop ? 32 : 48,
+    paddingBottom: 20
   },
-  greetingContainer: {
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: SPACING.sm
+    gap: 12,
+  },
+  headerIconWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   greeting: {
-    fontSize: isDesktop ? 16 : isTablet ? 15 : 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    opacity: 0.95,
-    letterSpacing: 0.4
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.8)',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   heading: { 
-    fontSize: isDesktop ? 36 : isTablet ? 32 : 36, 
-    fontWeight: '900',
+    fontSize: 26, 
+    fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: -1,
-    marginTop: 4
+    letterSpacing: -0.5,
+  },
+  overdueBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 4,
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  overdueBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  headerIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  msgBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#F59E0B',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#9F2241',
+  },
+  msgBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
   },
   addButton: {
-    borderRadius: RADIUS.xl,
-    overflow: 'hidden',
-    ...SHADOWS.md
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  // Tarjeta usuario y búsqueda unificada
+  userSearchCard: {
+    marginHorizontal: padding,
+    marginTop: -12,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  userAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  userInfo: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  userRole: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    paddingVertical: 0,
+  },
+  searchDivider: {
+    width: 1,
+    height: 20,
+  },
+  filterIconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Barra de acciones
+  actionsBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: padding,
+    marginTop: 16,
+    marginBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  actionsBarLeft: {
+    flex: 1,
+  },
+  counterInfo: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+  },
+  counterNumber: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  counterLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  selectionInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  selectionBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectionBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  selectionText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  bulkActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  bulkActionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Acciones rápidas de tarea (iconos)
+  quickActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+  },
+  quickActionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
   },
   messagesButton: {
     borderRadius: RADIUS.xl,

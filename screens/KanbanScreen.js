@@ -2,8 +2,9 @@
 // Tablero Kanban con columnas por estado. Implementa Drag & Drop para cambiar estado de tareas.
 // Estados: pendiente, en_proceso, en_revision, cerrada - Compatible con web
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, RefreshControl, Animated, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, RefreshControl, Animated, Dimensions, Platform, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { getGestureHandlerRootView } from '../utils/platformComponents';
 // Temporarily disabled Animated imports that may cause issues
 // import Animated, {
@@ -45,7 +46,7 @@ export default function KanbanScreen({ navigation }) {
   const { tasks, setTasks } = useTasks();
   const [currentUserRole, setCurrentUserRole] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
-  const [filters, setFilters] = useState({ searchText: '', area: '', responsible: '', priority: '', overdue: false });
+  const [filters, setFilters] = useState({ searchText: '', area: '', responsible: '', priority: '', overdue: false, dueToday: false, dueThisWeek: false });
   const [refreshing, setRefreshing] = useState(false);
   const [draggingTask, setDraggingTask] = useState(null);
   const [showStats, setShowStats] = useState(false);
@@ -55,7 +56,8 @@ export default function KanbanScreen({ navigation }) {
   const [dimensions, setDimensions] = useState(Dimensions.get('window'));
   const [compactView, setCompactView] = useState(false);
   const [sortBy, setSortBy] = useState('date'); // 'date' o 'priority'
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [contextMenu, setContextMenu] = useState({ visible: false, task: null, position: { x: 0, y: 0 } });
   
   // Animaciones
@@ -443,6 +445,23 @@ export default function KanbanScreen({ navigation }) {
       if (filters.responsible && task.assignedTo !== filters.responsible) return false;
       if (filters.priority && task.priority !== filters.priority) return false;
       if (filters.overdue && task.dueAt >= Date.now()) return false;
+      
+      // Filtro: Para hoy
+      if (filters.dueToday) {
+        const dueDate = new Date(task.dueAt);
+        const today = new Date();
+        if (dueDate.toDateString() !== today.toDateString() || task.status === 'cerrada') return false;
+      }
+      
+      // Filtro: Esta semana
+      if (filters.dueThisWeek) {
+        const dueDate = new Date(task.dueAt);
+        const today = new Date();
+        const weekEnd = new Date(today);
+        weekEnd.setDate(weekEnd.getDate() + 7);
+        if (dueDate < today || dueDate > weekEnd || task.status === 'cerrada') return false;
+      }
+      
       return true;
     });
   }, [filters]);
@@ -642,6 +661,37 @@ export default function KanbanScreen({ navigation }) {
               </View>
               <Text style={styles.heading}>Kanban</Text>
             </View>
+            
+            {/* Indicador de Vencidas Premium en el Header */}
+            {tasks.filter(t => t.dueAt < Date.now() && t.status !== 'cerrada').length > 0 && (
+              <TouchableOpacity
+                onPress={() => {
+                  setFilters({ ...filters, overdue: !filters.overdue });
+                  hapticLight();
+                }}
+                style={[
+                  styles.overdueHeaderBadge,
+                  filters.overdue && styles.overdueHeaderBadgeActive
+                ]}
+                activeOpacity={0.8}
+              >
+                <View style={styles.overdueHeaderPulse}>
+                  <Ionicons name="warning" size={16} color="#FFFFFF" />
+                </View>
+                <View style={styles.overdueHeaderContent}>
+                  <Text style={styles.overdueHeaderCount}>
+                    {tasks.filter(t => t.dueAt < Date.now() && t.status !== 'cerrada').length}
+                  </Text>
+                  <Text style={styles.overdueHeaderLabel}>vencidas</Text>
+                </View>
+                {filters.overdue && (
+                  <View style={styles.overdueHeaderCheck}>
+                    <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                  </View>
+                )}
+              </TouchableOpacity>
+            )}
+            
             <View style={styles.headerActions}>
               {/* Toggle vista compacta */}
               <TouchableOpacity 
@@ -683,168 +733,380 @@ export default function KanbanScreen({ navigation }) {
             </View>
           </View>
         </View>
-
-        {/* Alerta de tareas vencidas - Compacta */}
-        <OverdueAlert 
-          tasks={tasks} 
-          currentUserEmail={currentUser?.email}
-          role={currentUser?.role}
-          onTaskPress={(task) => {
-            hapticLight();
-            openDetail(task);
-          }}
-        />
         
-        {/* Barra de control de filtros - Toggle */}
-        <View style={[styles.filterToggleBar, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+        {/* Barra compacta de filtros */}
+        <View style={[styles.filterCompactBar, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+          {/* Chips de filtros activos */}
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false} 
+            contentContainerStyle={styles.activeFiltersRow}
+            style={{ flex: 1 }}
+          >
+            {/* Chip Mis tareas */}
+            {currentUser && (
+              <TouchableOpacity
+                onPress={() => {
+                  setFilters({ 
+                    ...filters, 
+                    responsible: filters.responsible === currentUser.email ? '' : currentUser.email 
+                  });
+                  hapticLight();
+                }}
+                style={[
+                  styles.filterChipCompact,
+                  { 
+                    backgroundColor: filters.responsible === currentUser.email ? theme.primary : 'transparent',
+                    borderColor: filters.responsible === currentUser.email ? theme.primary : theme.primary
+                  }
+                ]}
+              >
+                <Ionicons 
+                  name="person" 
+                  size={14} 
+                  color={filters.responsible === currentUser.email ? '#FFFFFF' : theme.primary} 
+                />
+                <Text style={[
+                  styles.filterChipCompactText, 
+                  { color: filters.responsible === currentUser.email ? '#FFFFFF' : theme.primary }
+                ]}>
+                  Mis tareas
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Chip de prioridad activa */}
+            {filters.priority && (
+              <View style={[styles.filterChipCompact, { backgroundColor: '#EF4444', borderColor: '#EF4444' }]}>
+                <Ionicons name="flash" size={14} color="#FFFFFF" />
+                <Text style={[styles.filterChipCompactText, { color: '#FFFFFF' }]}>
+                  {filters.priority === 'alta' ? 'Urgente' : filters.priority === 'media' ? 'Media' : 'Baja'}
+                </Text>
+                <TouchableOpacity onPress={() => setFilters({ ...filters, priority: '' })}>
+                  <Ionicons name="close-circle" size={14} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Chip de búsqueda activa */}
+            {filters.searchText && (
+              <View style={[styles.filterChipCompact, { backgroundColor: theme.primary, borderColor: theme.primary }]}>
+                <Ionicons name="search" size={14} color="#FFFFFF" />
+                <Text style={[styles.filterChipCompactText, { color: '#FFFFFF' }]} numberOfLines={1}>
+                  "{filters.searchText.substring(0, 15)}"
+                </Text>
+                <TouchableOpacity onPress={() => setFilters({ ...filters, searchText: '' })}>
+                  <Ionicons name="close-circle" size={14} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            )}
+          </ScrollView>
+
+          {/* Botón abrir modal de filtros */}
           <TouchableOpacity
             onPress={() => {
-              setShowFilters(!showFilters);
+              setShowFiltersModal(true);
               hapticLight();
             }}
-            style={styles.filterToggleButton}
+            style={[styles.filterModalButton, { borderColor: theme.border }]}
           >
-            <Ionicons 
-              name={showFilters ? 'chevron-up' : 'chevron-down'} 
-              size={20} 
-              color={theme.primary} 
-            />
-            <Text style={[styles.filterToggleText, { color: theme.text }]}>
-              {showFilters ? 'Ocultar filtros' : 'Mostrar filtros'}
-            </Text>
+            <Ionicons name="options" size={20} color={theme.textSecondary} />
           </TouchableOpacity>
         </View>
         
-        {/* Barra unificada: Filtros rápidos + Búsqueda - Collapsible */}
-        <Animated.View 
-          style={[
-            styles.unifiedFilterBarContainer,
-            {
-              opacity: filterHeightAnim,
-              maxHeight: filterHeightAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 200]
-              }),
-              overflow: 'hidden'
-            }
-          ]}
+        {/* Modal de Filtros Premium */}
+        <Modal
+          visible={showFiltersModal}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowFiltersModal(false)}
         >
-          <View style={[styles.unifiedFilterBar, { backgroundColor: theme.surface }]}>
-            {/* Chips de filtro rápido horizontal */}
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false} 
-              contentContainerStyle={styles.quickFiltersRow}
-            >
-              {/* Filtro: Vencidas */}
-              {tasks.filter(t => t.dueAt < Date.now() && t.status !== 'cerrada').length > 0 && (
-                <TouchableOpacity
-                  onPress={() => {
-                    setFilters({ ...filters, overdue: !filters.overdue });
-                    hapticLight();
-                  }}
-                  style={[
-                    styles.quickFilterChip,
-                    { 
-                      backgroundColor: filters.overdue ? '#DC2626' : theme.cardBackground,
-                      borderColor: filters.overdue ? '#DC2626' : theme.border
-                    }
-                  ]}
-                >
-                  <Ionicons 
-                    name="alert-circle" 
-                    size={14} 
-                    color={filters.overdue ? '#FFFFFF' : '#DC2626'} 
-                  />
-                  <Text style={[
-                    styles.quickFilterText, 
-                    { color: filters.overdue ? '#FFFFFF' : '#DC2626' }
-                  ]}>
-                    Vencidas ({tasks.filter(t => t.dueAt < Date.now() && t.status !== 'cerrada').length})
-                  </Text>
-                </TouchableOpacity>
-              )}
+          <View style={styles.filterModalOverlay}>
+            <View style={[styles.filterModalContainer, { backgroundColor: theme.background }]}>
+              {/* Header del Modal */}
+              <LinearGradient
+                colors={['#9F2241', '#BE3356']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.filterModalHeader}
+              >
+                <View style={styles.filterModalHeaderContent}>
+                  <View>
+                    <Text style={styles.filterModalTitle}>Filtros</Text>
+                    <Text style={styles.filterModalSubtitle}>Personaliza tu vista</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setShowFiltersModal(false)}
+                    style={styles.filterModalCloseBtn}
+                  >
+                    <Ionicons name="close" size={24} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              </LinearGradient>
 
-              {/* Filtro: Alta Prioridad */}
-              {tasks.filter(t => t.priority === 'alta').length > 0 && (
-                <TouchableOpacity
-                  onPress={() => {
-                    setFilters({ ...filters, priority: filters.priority === 'alta' ? '' : 'alta' });
-                    hapticLight();
-                  }}
-                  style={[
-                    styles.quickFilterChip,
-                    { 
-                      backgroundColor: filters.priority === 'alta' ? '#EF4444' : theme.cardBackground,
-                      borderColor: filters.priority === 'alta' ? '#EF4444' : theme.border
-                    }
-                  ]}
-                >
-                  <Ionicons 
-                    name="flash" 
-                    size={14} 
-                    color={filters.priority === 'alta' ? '#FFFFFF' : '#EF4444'} 
-                  />
-                  <Text style={[
-                    styles.quickFilterText, 
-                    { color: filters.priority === 'alta' ? '#FFFFFF' : '#EF4444' }
-                  ]}>
-                    Urgente ({tasks.filter(t => t.priority === 'alta').length})
+              <ScrollView style={styles.filterModalBody} showsVerticalScrollIndicator={false}>
+                {/* Búsqueda */}
+                <View style={styles.filterSection}>
+                  <Text style={[styles.filterSectionTitle, { color: theme.text }]}>
+                    <Ionicons name="search" size={16} color={theme.primary} /> Buscar tareas
                   </Text>
-                </TouchableOpacity>
-              )}
+                  <View style={[styles.searchInputContainer, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+                    <Ionicons name="search-outline" size={20} color={theme.textSecondary} />
+                    <View style={styles.searchInputWrapper}>
+                      <TouchableOpacity
+                        style={styles.searchInputTouchable}
+                        onPress={() => {
+                          // Enfocar el FilterBar cuando se toca
+                        }}
+                      >
+                        <Text style={[styles.searchInputPlaceholder, { color: filters.searchText ? theme.text : theme.textSecondary }]}>
+                          {filters.searchText || 'Buscar tareas...'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    {filters.searchText && (
+                      <TouchableOpacity onPress={() => setFilters({ ...filters, searchText: '' })}>
+                        <Ionicons name="close-circle" size={20} color={theme.textSecondary} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
 
-              {/* Filtro: Mis tareas */}
-              {currentUser && (
-                <TouchableOpacity
-                  onPress={() => {
-                    setFilters({ 
-                      ...filters, 
-                      responsible: filters.responsible === currentUser.email ? '' : currentUser.email 
-                    });
-                    hapticLight();
-                  }}
-                  style={[
-                    styles.quickFilterChip,
-                    { 
-                      backgroundColor: filters.responsible === currentUser.email ? theme.primary : theme.cardBackground,
-                      borderColor: filters.responsible === currentUser.email ? theme.primary : theme.border
-                    }
-                  ]}
-                >
-                  <Ionicons 
-                    name="person" 
-                    size={14} 
-                    color={filters.responsible === currentUser.email ? '#FFFFFF' : theme.primary} 
-                  />
-                  <Text style={[
-                    styles.quickFilterText, 
-                    { color: filters.responsible === currentUser.email ? '#FFFFFF' : theme.primary }
-                  ]}>
-                    Mis tareas
+                {/* Prioridad */}
+                <View style={styles.filterSection}>
+                  <Text style={[styles.filterSectionTitle, { color: theme.text }]}>
+                    <Ionicons name="flag" size={16} color={theme.primary} /> Prioridad
                   </Text>
-                </TouchableOpacity>
-              )}
-              
-              {/* Botón limpiar filtros si hay alguno activo */}
-              {(filters.overdue || filters.priority || filters.responsible) && (
+                  <View style={styles.priorityButtonsRow}>
+                    {[
+                      { key: 'alta', label: 'Urgente', color: '#EF4444', icon: 'flash' },
+                      { key: 'media', label: 'Media', color: '#F59E0B', icon: 'remove' },
+                      { key: 'baja', label: 'Normal', color: '#10B981', icon: 'arrow-down' }
+                    ].map((p) => (
+                      <TouchableOpacity
+                        key={p.key}
+                        onPress={() => {
+                          setFilters({ ...filters, priority: filters.priority === p.key ? '' : p.key });
+                          hapticLight();
+                        }}
+                        style={[
+                          styles.priorityButton,
+                          { 
+                            backgroundColor: filters.priority === p.key ? p.color : theme.cardBackground,
+                            borderColor: p.color
+                          }
+                        ]}
+                      >
+                        <Ionicons 
+                          name={p.icon} 
+                          size={18} 
+                          color={filters.priority === p.key ? '#FFFFFF' : p.color} 
+                        />
+                        <Text style={[
+                          styles.priorityButtonText,
+                          { color: filters.priority === p.key ? '#FFFFFF' : p.color }
+                        ]}>
+                          {p.label}
+                        </Text>
+                        {tasks.filter(t => t.priority === p.key).length > 0 && (
+                          <View style={[styles.priorityBadge, { backgroundColor: filters.priority === p.key ? 'rgba(255,255,255,0.3)' : p.color }]}>
+                            <Text style={[styles.priorityBadgeText, { color: filters.priority === p.key ? '#FFFFFF' : '#FFFFFF' }]}>
+                              {tasks.filter(t => t.priority === p.key).length}
+                            </Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Filtros rápidos */}
+                <View style={styles.filterSection}>
+                  <Text style={[styles.filterSectionTitle, { color: theme.text }]}>
+                    <Ionicons name="options" size={16} color={theme.primary} /> Filtros rápidos
+                  </Text>
+                  <View style={styles.quickFilterGrid}>
+                    {/* Vencidas */}
+                    {tasks.filter(t => t.dueAt < Date.now() && t.status !== 'cerrada').length > 0 && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          setFilters({ ...filters, overdue: !filters.overdue });
+                          hapticLight();
+                        }}
+                        style={[
+                          styles.quickFilterCard,
+                          { 
+                            backgroundColor: filters.overdue ? '#FEE2E2' : theme.cardBackground,
+                            borderColor: filters.overdue ? '#DC2626' : theme.border
+                          }
+                        ]}
+                      >
+                        <View style={[styles.quickFilterIconBg, { backgroundColor: '#DC2626' }]}>
+                          <Ionicons name="alert-circle" size={20} color="#FFFFFF" />
+                        </View>
+                        <View style={styles.quickFilterCardContent}>
+                          <Text style={[styles.quickFilterCardTitle, { color: theme.text }]}>Vencidas</Text>
+                          <Text style={[styles.quickFilterCardCount, { color: '#DC2626' }]}>
+                            {tasks.filter(t => t.dueAt < Date.now() && t.status !== 'cerrada').length} tareas
+                          </Text>
+                        </View>
+                        {filters.overdue && (
+                          <Ionicons name="checkmark-circle" size={24} color="#DC2626" />
+                        )}
+                      </TouchableOpacity>
+                    )}
+
+                    {/* Mis tareas */}
+                    {currentUser && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          setFilters({ 
+                            ...filters, 
+                            responsible: filters.responsible === currentUser.email ? '' : currentUser.email 
+                          });
+                          hapticLight();
+                        }}
+                        style={[
+                          styles.quickFilterCard,
+                          { 
+                            backgroundColor: filters.responsible === currentUser.email ? '#EDE9FE' : theme.cardBackground,
+                            borderColor: filters.responsible === currentUser.email ? theme.primary : theme.border
+                          }
+                        ]}
+                      >
+                        <View style={[styles.quickFilterIconBg, { backgroundColor: theme.primary }]}>
+                          <Ionicons name="person" size={20} color="#FFFFFF" />
+                        </View>
+                        <View style={styles.quickFilterCardContent}>
+                          <Text style={[styles.quickFilterCardTitle, { color: theme.text }]}>Mis tareas</Text>
+                          <Text style={[styles.quickFilterCardCount, { color: theme.primary }]}>
+                            {tasks.filter(t => 
+                              t.responsables?.some(r => r.email === currentUser.email) ||
+                              t.responsable === currentUser.email
+                            ).length} asignadas
+                          </Text>
+                        </View>
+                        {filters.responsible === currentUser.email && (
+                          <Ionicons name="checkmark-circle" size={24} color={theme.primary} />
+                        )}
+                      </TouchableOpacity>
+                    )}
+
+                    {/* Hoy */}
+                    <TouchableOpacity
+                      onPress={() => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const tomorrow = new Date(today);
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        // Toggle: si ya está activo, desactivar
+                        if (filters.dueToday) {
+                          setFilters({ ...filters, dueToday: false });
+                        } else {
+                          setFilters({ ...filters, dueToday: true });
+                        }
+                        hapticLight();
+                      }}
+                      style={[
+                        styles.quickFilterCard,
+                        { 
+                          backgroundColor: filters.dueToday ? '#FEF3C7' : theme.cardBackground,
+                          borderColor: filters.dueToday ? '#F59E0B' : theme.border
+                        }
+                      ]}
+                    >
+                      <View style={[styles.quickFilterIconBg, { backgroundColor: '#F59E0B' }]}>
+                        <Ionicons name="today" size={20} color="#FFFFFF" />
+                      </View>
+                      <View style={styles.quickFilterCardContent}>
+                        <Text style={[styles.quickFilterCardTitle, { color: theme.text }]}>Para hoy</Text>
+                        <Text style={[styles.quickFilterCardCount, { color: '#F59E0B' }]}>
+                          {tasks.filter(t => {
+                            const dueDate = new Date(t.dueAt);
+                            const today = new Date();
+                            return dueDate.toDateString() === today.toDateString() && t.status !== 'cerrada';
+                          }).length} tareas
+                        </Text>
+                      </View>
+                      {filters.dueToday && (
+                        <Ionicons name="checkmark-circle" size={24} color="#F59E0B" />
+                      )}
+                    </TouchableOpacity>
+
+                    {/* Esta semana */}
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (filters.dueThisWeek) {
+                          setFilters({ ...filters, dueThisWeek: false });
+                        } else {
+                          setFilters({ ...filters, dueThisWeek: true });
+                        }
+                        hapticLight();
+                      }}
+                      style={[
+                        styles.quickFilterCard,
+                        { 
+                          backgroundColor: filters.dueThisWeek ? '#DBEAFE' : theme.cardBackground,
+                          borderColor: filters.dueThisWeek ? '#3B82F6' : theme.border
+                        }
+                      ]}
+                    >
+                      <View style={[styles.quickFilterIconBg, { backgroundColor: '#3B82F6' }]}>
+                        <Ionicons name="calendar" size={20} color="#FFFFFF" />
+                      </View>
+                      <View style={styles.quickFilterCardContent}>
+                        <Text style={[styles.quickFilterCardTitle, { color: theme.text }]}>Esta semana</Text>
+                        <Text style={[styles.quickFilterCardCount, { color: '#3B82F6' }]}>
+                          {tasks.filter(t => {
+                            const dueDate = new Date(t.dueAt);
+                            const today = new Date();
+                            const weekEnd = new Date(today);
+                            weekEnd.setDate(weekEnd.getDate() + 7);
+                            return dueDate >= today && dueDate <= weekEnd && t.status !== 'cerrada';
+                          }).length} tareas
+                        </Text>
+                      </View>
+                      {filters.dueThisWeek && (
+                        <Ionicons name="checkmark-circle" size={24} color="#3B82F6" />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </ScrollView>
+
+              {/* Footer con botones */}
+              <View style={[styles.filterModalFooter, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
                 <TouchableOpacity
                   onPress={() => {
-                    setFilters({ searchText: '', area: '', responsible: '', priority: '', overdue: false });
+                    setFilters({ searchText: '', area: '', responsible: '', priority: '', overdue: false, dueToday: false, dueThisWeek: false });
                     hapticLight();
                   }}
-                  style={[
-                    styles.clearFilterButton,
-                    { backgroundColor: theme.border }
-                  ]}
+                  style={[styles.filterModalClearBtn, { borderColor: theme.border }]}
                 >
-                  <Ionicons name="close-circle" size={16} color={theme.textSecondary} />
-                  <Text style={[styles.clearFilterText, { color: theme.textSecondary }]}>Limpiar</Text>
+                  <Ionicons name="refresh" size={18} color={theme.textSecondary} />
+                  <Text style={[styles.filterModalClearText, { color: theme.textSecondary }]}>Limpiar</Text>
                 </TouchableOpacity>
-              )}
-            </ScrollView>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowFiltersModal(false);
+                    hapticLight();
+                  }}
+                  style={styles.filterModalApplyBtn}
+                >
+                  <LinearGradient
+                    colors={['#9F2241', '#BE3356']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.filterModalApplyGradient}
+                  >
+                    <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                    <Text style={styles.filterModalApplyText}>Aplicar filtros</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
-        </Animated.View>
+        </Modal>
         
         {/* FilterBar solo para búsqueda avanzada - oculto por defecto */}
         <FilterBar onFilterChange={setFilters} />
@@ -1089,6 +1351,62 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
   },
   iconButtonActive: {
     backgroundColor: 'rgba(255,255,255,0.3)'
+  },
+  // Badge de vencidas en header
+  overdueHeaderBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DC2626',
+    paddingLeft: 8,
+    paddingRight: 12,
+    paddingVertical: 8,
+    borderRadius: 24,
+    marginRight: 12,
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  overdueHeaderBadgeActive: {
+    backgroundColor: '#B91C1C',
+    borderColor: '#FFFFFF',
+  },
+  overdueHeaderPulse: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  overdueHeaderContent: {
+    alignItems: 'center',
+  },
+  overdueHeaderCount: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    lineHeight: 20,
+  },
+  overdueHeaderLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.9)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  overdueHeaderCheck: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
   fab: {
     position: 'absolute',
@@ -1639,6 +1957,211 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
     fontSize: 14,
     color: theme.textSecondary,
     fontWeight: '600',
+  },
+  // Estilos para barra compacta de filtros
+  filterCompactBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    gap: 8,
+  },
+  activeFiltersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingRight: 8,
+  },
+  filterChipCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1.5,
+  },
+  filterChipCompactText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  filterModalButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Estilos del Modal de Filtros
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  filterModalContainer: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '85%',
+    overflow: 'hidden',
+  },
+  filterModalHeader: {
+    paddingTop: 20,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+  },
+  filterModalHeaderContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  filterModalTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  filterModalSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 2,
+  },
+  filterModalCloseBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterModalBody: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
+  },
+  filterSection: {
+    marginBottom: 24,
+  },
+  filterSectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 12,
+    letterSpacing: 0.3,
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 10,
+  },
+  searchInputWrapper: {
+    flex: 1,
+  },
+  searchInputTouchable: {
+    flex: 1,
+  },
+  searchInputPlaceholder: {
+    fontSize: 15,
+  },
+  priorityButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  priorityButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 2,
+    gap: 6,
+  },
+  priorityButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  priorityBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 4,
+  },
+  priorityBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  quickFilterGrid: {
+    gap: 12,
+  },
+  quickFilterCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    gap: 12,
+  },
+  quickFilterIconBg: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quickFilterCardContent: {
+    flex: 1,
+  },
+  quickFilterCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  quickFilterCardCount: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  filterModalFooter: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
+    borderTopWidth: 1,
+  },
+  filterModalClearBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+  },
+  filterModalClearText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  filterModalApplyBtn: {
+    flex: 2,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  filterModalApplyGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 8,
+  },
+  filterModalApplyText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   });
 };

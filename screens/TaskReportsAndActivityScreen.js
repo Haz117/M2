@@ -34,6 +34,7 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
   const [toastMessage, setToastMessage] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
   const [expandedReportId, setExpandedReportId] = useState(null);
+  const [hoverRating, setHoverRating] = useState({});  // Para feedback visual de estrellas
 
   const styles = StyleSheet.create({
     container: {
@@ -54,7 +55,15 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
       fontSize: 16,
       fontWeight: '600',
       color: isDark ? '#fff' : '#000',
-      marginBottom: 8,
+      marginBottom: 4,
+    },
+    backButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     tabsContainer: {
       flexDirection: 'row',
@@ -211,15 +220,19 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
     },
     starsContainer: {
       flexDirection: 'row',
-      gap: 6,
+      gap: 8,
+      justifyContent: 'center',
+      paddingVertical: 8,
     },
     starButton: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: isDark ? '#272727' : '#f0f0f0',
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: isDark ? '#272727' : '#f5f5f5',
       justifyContent: 'center',
       alignItems: 'center',
+      borderWidth: 2,
+      borderColor: isDark ? '#333' : '#e0e0e0',
     },
     starActive: {
       backgroundColor: '#FFD700',
@@ -292,29 +305,17 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
     loadData();
   }, [taskId]);
 
-  const handleRateReport = (reportId, rating) => {
-    Alert.alert(
-      'Rate Report',
-      'Provide additional feedback',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Submit',
-          onPress: async () => {
-            try {
-              await rateTaskReport(taskId, reportId, rating, '', currentUser.userId);
-              setToastMessage('Report rated successfully!');
-              setExpandedReportId(null);
-            } catch (error) {
-              setToastMessage('Error rating report: ' + error.message);
-            }
-          },
-        },
-      ]
-    );
+  const handleRateReport = async (reportId, rating) => {
+    // En web Alert.alert no funciona bien, calificamos directamente
+    try {
+      await rateTaskReport(taskId, reportId, rating, '', currentUser.userId);
+      setToastMessage(`¡Reporte calificado con ${rating} estrellas!`);
+      setExpandedReportId(null);
+      setHoverRating({});
+    } catch (error) {
+      console.error('Error al calificar:', error);
+      setToastMessage('Error al calificar: ' + error.message);
+    }
   };
 
   const getActivityIcon = (action) => {
@@ -392,7 +393,7 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
           {item.images && item.images.length > 0 && (
             <View style={styles.imagesContainer}>
               <Text style={[styles.ratingLabel, { marginBottom: 8 }]}>
-                Evidence Photos ({item.images.length})
+                Fotos de Evidencia ({item.images.length})
               </Text>
               <View style={styles.imageGrid}>
                 {item.images.map((image, idx) => (
@@ -408,21 +409,27 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
 
           {!item.rating && currentUser?.role === 'admin' && (
             <View style={styles.ratingSection}>
-              <Text style={styles.ratingLabel}>Rate this report</Text>
+              <Text style={styles.ratingLabel}>Calificar este reporte</Text>
               <View style={styles.starsContainer}>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <TouchableOpacity
-                    key={star}
-                    style={styles.starButton}
-                    onPress={() => handleRateReport(item.id, star)}
-                  >
-                    <Ionicons
-                      name={star <= item.rating ? 'star' : 'star-outline'}
-                      size={18}
-                      color={star <= (item.rating || 0) ? '#000' : isDark ? '#666' : '#ccc'}
-                    />
-                  </TouchableOpacity>
-                ))}
+                {[1, 2, 3, 4, 5].map((star) => {
+                  const isHovered = (hoverRating[item.id] || 0) >= star;
+                  return (
+                    <TouchableOpacity
+                      key={star}
+                      style={styles.starButton}
+                      onPress={() => handleRateReport(item.id, star)}
+                      onPressIn={() => setHoverRating({ ...hoverRating, [item.id]: star })}
+                      onPressOut={() => setHoverRating({ ...hoverRating, [item.id]: 0 })}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={isHovered ? 'star' : 'star-outline'}
+                        size={28}
+                        color={isHovered ? '#FFD700' : isDark ? '#666' : '#ccc'}
+                      />
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
           )}
@@ -464,13 +471,25 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
     );
   }
 
+  // El admin no puede agregar reportes, solo verlos y calificarlos
+  const isAdmin = currentUser?.role === 'admin';
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        {/* Botón de regresar */}
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-back" size={24} color={isDark ? '#fff' : '#333'} />
+        </TouchableOpacity>
+        
         <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>{taskTitle}</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>{taskTitle}</Text>
           <Text style={{ fontSize: 13, color: isDark ? '#888' : '#666' }}>
-            Reports & Activity History
+            Reportes e Historial
           </Text>
         </View>
         {reports.length > 0 && (
@@ -504,7 +523,7 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
               tab === 'reports' && styles.activeTabText,
             ]}
           >
-            Reports ({reports.length})
+            Reportes ({reports.length})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -517,7 +536,7 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
               tab === 'activity' && styles.activeTabText,
             ]}
           >
-            Activity ({activities.length})
+            Actividad ({activities.length})
           </Text>
         </TouchableOpacity>
       </View>
@@ -532,17 +551,21 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
                 color={isDark ? '#333' : '#ddd'}
                 style={styles.emptyIcon}
               />
-              <Text style={styles.emptyText}>No Reports Yet</Text>
+              <Text style={styles.emptyText}>Sin Reportes Aún</Text>
               <Text style={styles.emptySubtext}>
-                Submit a report with photos and details about task completion
+                {isAdmin 
+                  ? 'Los usuarios asignados a esta tarea pueden enviar reportes'
+                  : 'Envía un reporte con fotos y detalles sobre el avance'}
               </Text>
-              <TouchableOpacity
-                style={styles.addButton}
-                onPress={() => setShowReportForm(true)}
-              >
-                <Ionicons name="add" size={18} color="#fff" />
-                <Text style={styles.addButtonText}>Add Report</Text>
-              </TouchableOpacity>
+              {!isAdmin && (
+                <TouchableOpacity
+                  style={styles.addButton}
+                  onPress={() => setShowReportForm(true)}
+                >
+                  <Ionicons name="add" size={18} color="#fff" />
+                  <Text style={styles.addButtonText}>Agregar Reporte</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
             <FlatList
@@ -551,20 +574,22 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
               keyExtractor={(item) => item.id}
               contentContainerStyle={{ paddingVertical: 8 }}
               ListFooterComponent={
-                <TouchableOpacity
-                  style={[
-                    styles.addButton,
-                    {
-                      marginHorizontal: 12,
-                      marginVertical: 12,
-                      justifyContent: 'center',
-                    },
-                  ]}
-                  onPress={() => setShowReportForm(true)}
-                >
-                  <Ionicons name="add" size={18} color="#fff" />
-                  <Text style={styles.addButtonText}>Add Another Report</Text>
-                </TouchableOpacity>
+                !isAdmin ? (
+                  <TouchableOpacity
+                    style={[
+                      styles.addButton,
+                      {
+                        marginHorizontal: 12,
+                        marginVertical: 12,
+                        justifyContent: 'center',
+                      },
+                    ]}
+                    onPress={() => setShowReportForm(true)}
+                  >
+                    <Ionicons name="add" size={18} color="#fff" />
+                    <Text style={styles.addButtonText}>Agregar Otro Reporte</Text>
+                  </TouchableOpacity>
+                ) : null
               }
             />
           )
@@ -584,9 +609,9 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
                   color={isDark ? '#333' : '#ddd'}
                   style={styles.emptyIcon}
                 />
-                <Text style={styles.emptyText}>No Activity Yet</Text>
+                <Text style={styles.emptyText}>Sin Actividad Aún</Text>
                 <Text style={styles.emptySubtext}>
-                  Activity history will appear here
+                  El historial de actividad aparecerá aquí
                 </Text>
               </View>
             }
@@ -599,7 +624,7 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
         onClose={() => setShowReportForm(false)}
         taskId={taskId}
         onSuccess={() => {
-          setToastMessage('Report submitted successfully!');
+          setToastMessage('¡Reporte enviado exitosamente!');
         }}
       />
 
