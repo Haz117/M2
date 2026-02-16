@@ -145,14 +145,18 @@ export default function TaskDetailScreen({ route, navigation }) {
         secretarioAreas.push(...currentUser.direcciones);
       }
       
-      // Filtrar AREAS para solo mostrar las que coinciden con el secretario
+      // También usar areasPermitidas si está definido
+      if (currentUser.areasPermitidas && Array.isArray(currentUser.areasPermitidas)) {
+        currentUser.areasPermitidas.forEach(area => {
+          if (!secretarioAreas.includes(area)) {
+            secretarioAreas.push(area);
+          }
+        });
+      }
+      
+      // Filtrar AREAS para solo mostrar las que coinciden EXACTAMENTE
       if (secretarioAreas.length > 0) {
-        return AREAS.filter(area => 
-          secretarioAreas.some(secArea => 
-            area.toLowerCase().includes(secArea.toLowerCase()) ||
-            secArea.toLowerCase().includes(area.toLowerCase())
-          )
-        );
+        return AREAS.filter(area => secretarioAreas.includes(area));
       }
       
       // Si no tiene áreas definidas, solo mostrar su área principal

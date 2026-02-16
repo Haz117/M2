@@ -115,6 +115,7 @@ export async function subscribeToTasks(callback) {
     const userDepartment = session.department;
     const userArea = session.area || '';
     const userDirecciones = session.direcciones || [];
+    const userAreasPermitidas = session.areasPermitidas || [...(session.area ? [session.area] : []), ...userDirecciones];
 
     let tasksQuery;
 
@@ -173,19 +174,13 @@ export async function subscribeToTasks(callback) {
         if (userRole === 'operativo') {
           tasks = tasks.filter(task => isTaskAssignedToUser(task, userEmail));
         } else if (userRole === 'secretario') {
-          // Secretario solo ve tareas de su área o direcciones
+          // Secretario solo ve tareas de sus áreas permitidas
           tasks = tasks.filter(task => {
-            // Si la tarea es del área del secretario
-            if (task.area === userArea) return true;
+            const taskArea = task.area || '';
+            // Si la tarea está en alguna de las áreas permitidas (coincidencia exacta)
+            if (userAreasPermitidas.includes(taskArea)) return true;
             // Si la tarea fue creada por este secretario
             if (task.createdBy === userEmail) return true;
-            // Si la tarea está asignada a alguna de sus direcciones
-            if (userDirecciones.length > 0) {
-              const taskArea = task.area || '';
-              if (userDirecciones.some(dir => taskArea.toLowerCase().includes(dir.toLowerCase()))) {
-                return true;
-              }
-            }
             return false;
           });
         }

@@ -47,6 +47,23 @@ export const TYPOGRAPHY = {
     fontWeight: '600',
     lineHeight: 24,
   },
+  // Tamaños de fuente para uso directo
+  sizes: {
+    xs: 10,
+    sm: 12,
+    md: 14,
+    lg: 16,
+    xl: 18,
+    xxl: 22,
+    xxxl: 28,
+  },
+  // Pesos de fuente
+  weights: {
+    regular: '400',
+    medium: '500',
+    semibold: '600',
+    bold: '700',
+  },
 };
 
 export const RADIUS = {
