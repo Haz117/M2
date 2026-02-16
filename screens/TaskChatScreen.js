@@ -235,7 +235,7 @@ export default function TaskChatScreen({ route, navigation }) {
           </Text>
         </View>
       ) : (
-        <>
+        <View style={styles.chatContent}>
           <FlatList
             ref={flatRef}
             data={messages}
@@ -281,7 +281,7 @@ export default function TaskChatScreen({ route, navigation }) {
               <Ionicons name="send" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
-        </>
+        </View>
       )}
     </KeyboardAvoidingView>
   );
@@ -291,6 +291,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F9FA'
+  },
+  chatContent: {
+    flex: 1,
+    flexDirection: 'column'
   },
   headerBar: {
     flexDirection: 'row',

@@ -49,6 +49,11 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
       paddingHorizontal: 16,
       paddingTop: 24,
       paddingBottom: 24,
+      flexDirection: 'column',
+      display: 'flex',
+    },
+    scrollView: {
+      flex: 1,
     },
     header: {
       marginBottom: 16,
@@ -304,7 +309,7 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
         />
 
         <View style={styles.sheet}>
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
             <View style={styles.header}>
               <Text style={styles.title}>Task Report</Text>
               <Text style={styles.subtitle}>
