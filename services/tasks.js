@@ -1,5 +1,6 @@
 // services/tasks.js
 // Servicio para gestionar tareas con Firebase Firestore en tiempo real
+// Con soporte OFFLINE-FIRST
 import { 
   collection, 
   addDoc, 
@@ -18,6 +19,15 @@ import { db } from '../firebase';
 import { getCurrentSession } from './authFirestore';
 import { notifyTaskAssigned } from './emailNotifications';
 import { getGeneralMetrics } from './analytics';
+import { 
+  cacheTasksLocally, 
+  getCachedTasks, 
+  getConnectionState,
+  subscribeToConnectionState,
+  queueOperation,
+  OPERATION_TYPES,
+  syncPendingOperations
+} from './offlineSync';
 
 const COLLECTION_NAME = 'tasks';
 
@@ -89,7 +99,7 @@ async function waitForSession(maxRetries = 30, initialDelay = 100) {
 
 /**
  * Suscribirse a cambios en tiempo real de las tareas del usuario autenticado
- * ⚠️ IMPORTANTE: NO LLAMA onSnapshot hasta que haya sesión VÁLIDA confirmada
+ * ⚠️ OFFLINE-FIRST: Carga primero del cache, luego sincroniza con Firebase
  * @param {Function} callback - Función que recibe el array de tareas actualizado
  * @returns {Function} Función para cancelar la suscripción
  */
@@ -106,10 +116,6 @@ export async function subscribeToTasks(callback) {
       return () => {};
     }
     
-    // 🔍 PASO 2: Esperar un poco más para asegurar que Firestore está listo
-    // Esto previene el race condition donde onSnapshot falla por sesión no lista
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
     const userRole = session.role;
     const userEmail = session.email;
     const userDepartment = session.department;
@@ -117,115 +123,147 @@ export async function subscribeToTasks(callback) {
     const userDirecciones = session.direcciones || [];
     const userAreasPermitidas = session.areasPermitidas || [...(session.area ? [session.area] : []), ...userDirecciones];
 
-    let tasksQuery;
+    // Función para filtrar tareas según rol
+    const filterTasksByRole = (tasks) => {
+      let filtered = tasks;
+      
+      if (userRole === 'operativo') {
+        filtered = tasks.filter(task => isTaskAssignedToUser(task, userEmail));
+      } else if (userRole === 'secretario') {
+        filtered = tasks.filter(task => {
+          const taskArea = task.area || '';
+          if (userAreasPermitidas.includes(taskArea)) return true;
+          if (task.createdBy === userEmail) return true;
+          return false;
+        });
+      }
+      
+      // Deduplicación
+      const seenIds = new Set();
+      const uniqueTasks = [];
+      for (const task of filtered) {
+        if (!seenIds.has(task.id)) {
+          seenIds.add(task.id);
+          uniqueTasks.push(task);
+        }
+      }
+      
+      return uniqueTasks;
+    };
 
-    // Construir query según el rol del usuario
-    if (userRole === 'admin') {
-      // Admin ve TODAS las tareas
-      tasksQuery = query(
-        collection(db, COLLECTION_NAME),
-        orderBy('createdAt', 'desc')
-      );
-    } else if (userRole === 'secretario') {
-      // Secretario ve tareas de su área específica
-      // Usamos query general y filtramos después por área/direcciones
-      tasksQuery = query(
-        collection(db, COLLECTION_NAME),
-        orderBy('createdAt', 'desc')
-      );
-    } else if (userRole === 'jefe') {
-      tasksQuery = query(
-        collection(db, COLLECTION_NAME),
-        where('area', '==', userDepartment),
-        orderBy('createdAt', 'desc')
-      );
-    } else if (userRole === 'operativo') {
-      tasksQuery = query(
-        collection(db, COLLECTION_NAME),
-        orderBy('createdAt', 'desc')
-      );
-    } else {
-      callback([]);
-      return () => {};
+    // 📦 PASO 2: Cargar del cache local inmediatamente
+    const cachedTasks = await getCachedTasks();
+    if (cachedTasks.length > 0) {
+      console.log('📦 Cargando', cachedTasks.length, 'tareas del cache local');
+      callback(filterTasksByRole(cachedTasks));
     }
 
-    // 🔍 PASO 3: Ahora SÍ, crear el listener de Firestore
-    // En este punto, onSnapshot debería funcionar correctamente
-    let isSubscribed = true;
+    // 🌐 PASO 3: Si hay conexión, suscribirse a Firebase
     let unsubscribeListener = null;
-    
-    unsubscribeListener = onSnapshot(
-      tasksQuery,
-      (snapshot) => {
-        if (!isSubscribed) return;
-        
-        let tasks = snapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : data.createdAt || Date.now(),
-            updatedAt: data.updatedAt?.toMillis ? data.updatedAt.toMillis() : data.updatedAt || Date.now(),
-            dueAt: data.dueAt?.toMillis ? data.dueAt.toMillis() : data.dueAt || Date.now()
+    let isSubscribed = true;
+
+    if (getConnectionState()) {
+      // Esperar un poco para asegurar que Firestore está listo
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      let tasksQuery;
+
+      // Construir query según el rol del usuario
+      if (userRole === 'admin') {
+        tasksQuery = query(
+          collection(db, COLLECTION_NAME),
+          orderBy('createdAt', 'desc')
+        );
+      } else if (userRole === 'secretario') {
+        tasksQuery = query(
+          collection(db, COLLECTION_NAME),
+          orderBy('createdAt', 'desc')
+        );
+      } else if (userRole === 'jefe') {
+        tasksQuery = query(
+          collection(db, COLLECTION_NAME),
+          where('area', '==', userDepartment),
+          orderBy('createdAt', 'desc')
+        );
+      } else if (userRole === 'operativo') {
+        tasksQuery = query(
+          collection(db, COLLECTION_NAME),
+          orderBy('createdAt', 'desc')
+        );
+      } else {
+        return () => {};
+      }
+
+      unsubscribeListener = onSnapshot(
+        tasksQuery,
+        (snapshot) => {
+          if (!isSubscribed) return;
+          
+          let tasks = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              ...data,
+              createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : data.createdAt || Date.now(),
+              updatedAt: data.updatedAt?.toMillis ? data.updatedAt.toMillis() : data.updatedAt || Date.now(),
+              dueAt: data.dueAt?.toMillis ? data.dueAt.toMillis() : data.dueAt || Date.now()
           };
         });
         
-        // Filtrar según rol
-        if (userRole === 'operativo') {
-          tasks = tasks.filter(task => isTaskAssignedToUser(task, userEmail));
-        } else if (userRole === 'secretario') {
-          // Secretario solo ve tareas de sus áreas permitidas
-          tasks = tasks.filter(task => {
-            const taskArea = task.area || '';
-            // Si la tarea está en alguna de las áreas permitidas (coincidencia exacta)
-            if (userAreasPermitidas.includes(taskArea)) return true;
-            // Si la tarea fue creada por este secretario
-            if (task.createdBy === userEmail) return true;
-            return false;
-          });
-        }
+        const filteredTasks = filterTasksByRole(tasks);
         
-        // Deduplicación
-        const seenIds = new Set();
-        const uniqueTasks = [];
-        for (const task of tasks) {
-          if (!seenIds.has(task.id)) {
-            seenIds.add(task.id);
-            uniqueTasks.push(task);
-          }
-        }
+        // 💾 Guardar en cache local
+        cacheTasksLocally(filteredTasks);
         
-        callback(uniqueTasks);
+        callback(filteredTasks);
       },
       (error) => {
-        // No loguear errores - el context reintentará
-        if (isSubscribed) {
-          // Silencio absoluto
-        }
+        console.error('❌ Error en listener de tareas:', error);
+        // En caso de error, usar cache
+        getCachedTasks().then(cached => {
+          if (cached.length > 0) {
+            callback(filterTasksByRole(cached));
+          }
+        });
       }
     );
+    } else {
+      console.log('📴 Sin conexión - usando solo cache local');
+    }
 
-    // Retornar función de limpieza
-    return () => {
-      activeSubscriptions--;
-      isSubscribed = false;
-      if (unsubscribeListener) {
-        try {
-          unsubscribeListener();
-        } catch (e) {
-          // Silent
-        }
+    // 🔄 Suscribirse a cambios de conexión
+    const unsubscribeConnection = subscribeToConnectionState((online) => {
+      if (online && !unsubscribeListener) {
+        console.log('🔄 Reconectado - reiniciando suscripción a Firebase');
+        // Reiniciar suscripción cuando vuelva la conexión
+        subscribeToTasks(callback);
       }
+    });
+
+    // Retornar función de cleanup
+    return () => {
+      isSubscribed = false;
+      activeSubscriptions--;
+      if (unsubscribeListener) {
+        unsubscribeListener();
+      }
+      unsubscribeConnection();
     };
   } catch (error) {
+    console.error('❌ Error crítico en subscribeToTasks:', error);
     activeSubscriptions--;
-    callback([]);
+    
+    // Intentar cargar del cache en caso de error
+    const cached = await getCachedTasks();
+    callback(cached);
+    
     return () => {};
   }
 }
 
 /**
  * Crear una nueva tarea en Firebase con información del usuario
+ * OFFLINE-FIRST: Si no hay conexión, guarda localmente y sincroniza después
  * @param {Object} task - Objeto con datos de la tarea
  * @returns {Promise<string>} ID de la tarea creada
  */
@@ -235,76 +273,132 @@ export async function createTask(task) {
     const sessionResult = await getCurrentSession();
     const currentUserUID = sessionResult.success ? sessionResult.session.userId : 'anonymous';
     const currentUserName = sessionResult.success ? sessionResult.session.displayName : 'Usuario Anónimo';
+    const currentUserEmail = sessionResult.success ? sessionResult.session.email : '';
 
     const taskData = {
       ...task,
-      createdBy: currentUserUID,
+      createdBy: currentUserEmail || currentUserUID,
       createdByName: currentUserName,
       department: task.department || '',
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      dueAt: Timestamp.fromMillis(task.dueAt),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      dueAt: task.dueAt || Date.now(),
       tags: task.tags || [],
       estimatedHours: task.estimatedHours || null
     };
 
-    const docRef = await addDoc(collection(db, COLLECTION_NAME), taskData);
-    
-    // Enviar notificación por email al asignado
-    if (task.assignedTo) {
-      notifyTaskAssigned({...task, id: docRef.id}, task.assignedTo)
-        .catch(err => {});
-    }
-    
-    return docRef.id;
-  } catch (error) {
-    
-    // Lanzar error con mensaje específico
-    if (error.code === 'permission-denied') {
-      throw new Error('No tienes permisos para crear tareas');
-    } else if (error.code === 'unavailable') {
-      throw new Error('Sin conexión. Verifica tu red e intenta nuevamente');
-    } else if (error.code === 'resource-exhausted') {
-      throw new Error('Límite de operaciones excedido. Intenta más tarde');
+    // Si hay conexión, crear directamente en Firebase
+    if (getConnectionState()) {
+      const firestoreData = {
+        ...taskData,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        dueAt: Timestamp.fromMillis(task.dueAt || Date.now())
+      };
+
+      const docRef = await addDoc(collection(db, COLLECTION_NAME), firestoreData);
+      
+      // Enviar notificación por email al asignado
+      if (task.assignedTo) {
+        notifyTaskAssigned({...task, id: docRef.id}, task.assignedTo)
+          .catch(err => {});
+      }
+      
+      return docRef.id;
     } else {
-      throw new Error(`Error al crear tarea: ${error.message}`);
+      // MODO OFFLINE: Guardar localmente y encolar para sincronización
+      console.log('📴 Creando tarea offline');
+      
+      const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const offlineTask = {
+        ...taskData,
+        id: tempId,
+        isOffline: true
+      };
+      
+      // Agregar al cache local
+      const cached = await getCachedTasks();
+      cached.unshift(offlineTask);
+      await cacheTasksLocally(cached);
+      
+      // Encolar para sincronización
+      await queueOperation(OPERATION_TYPES.CREATE, taskData, tempId);
+      
+      return tempId;
     }
+  } catch (error) {
+    // Si falla por cualquier razón, intentar modo offline
+    console.log('⚠️ Error creando tarea, guardando offline:', error.message);
+    
+    const tempId = `temp_${Date.now()}`;
+    const taskData = {
+      ...task,
+      id: tempId,
+      isOffline: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    
+    const cached = await getCachedTasks();
+    cached.unshift(taskData);
+    await cacheTasksLocally(cached);
+    await queueOperation(OPERATION_TYPES.CREATE, task, tempId);
+    
+    return tempId;
   }
 }
 
 /**
  * Actualizar una tarea existente
+ * OFFLINE-FIRST: Actualiza localmente y sincroniza cuando hay conexión
  * @param {string} taskId - ID de la tarea
  * @param {Object} updates - Campos a actualizar
  * @returns {Promise<void>}
  */
 export async function updateTask(taskId, updates) {
   try {
-    const taskRef = doc(db, COLLECTION_NAME, taskId);
-    const updateData = {
-      ...updates,
-      updatedAt: serverTimestamp()
-    };
-
-    // Convertir dueAt a Timestamp si existe
-    if (updates.dueAt) {
-      updateData.dueAt = Timestamp.fromMillis(updates.dueAt);
-    }
-
-    await updateDoc(taskRef, updateData);
-
-  } catch (error) {
+    // Actualizar cache local primero
+    const cached = await getCachedTasks();
+    const taskIndex = cached.findIndex(t => t.id === taskId);
     
-    // Lanzar error con mensaje específico
-    if (error.code === 'permission-denied') {
-      throw new Error('No tienes permisos para modificar esta tarea');
-    } else if (error.code === 'not-found') {
-      throw new Error('La tarea no existe o fue eliminada');
-    } else if (error.code === 'unavailable') {
-      throw new Error('Sin conexión. Verifica tu red e intenta nuevamente');
-    } else {
-      throw new Error(`Error al actualizar: ${error.message}`);
+    if (taskIndex !== -1) {
+      cached[taskIndex] = {
+        ...cached[taskIndex],
+        ...updates,
+        updatedAt: Date.now()
+      };
+      await cacheTasksLocally(cached);
     }
+
+    // Si es una tarea temporal (offline), solo encolar
+    if (taskId.startsWith('temp_')) {
+      console.log('📴 Tarea temporal - actualizando solo localmente');
+      return;
+    }
+
+    // Si hay conexión, actualizar en Firebase
+    if (getConnectionState()) {
+      const taskRef = doc(db, COLLECTION_NAME, taskId);
+      const updateData = {
+        ...updates,
+        updatedAt: serverTimestamp()
+      };
+
+      // Convertir dueAt a Timestamp si existe
+      if (updates.dueAt) {
+        updateData.dueAt = Timestamp.fromMillis(updates.dueAt);
+      }
+
+      await updateDoc(taskRef, updateData);
+    } else {
+      // MODO OFFLINE: Encolar para sincronización
+      console.log('📴 Actualizando tarea offline');
+      await queueOperation(OPERATION_TYPES.UPDATE, updates, taskId);
+    }
+  } catch (error) {
+    // Si falla Firebase, encolar para después
+    console.log('⚠️ Error actualizando, encolando para después:', error.message);
+    await queueOperation(OPERATION_TYPES.UPDATE, updates, taskId);
   }
 }
 
@@ -360,6 +454,7 @@ export async function diagnoseTaskDelete(taskId) {
 
 /**
  * Eliminar una tarea
+ * OFFLINE-FIRST: Elimina localmente y sincroniza cuando hay conexión
  * @param {string} taskId - ID de la tarea a eliminar
  * @returns {Promise<void>}
  */
@@ -369,23 +464,33 @@ export async function deleteTask(taskId) {
   }
   
   try {
-    const taskRef = doc(db, COLLECTION_NAME, taskId);
-    await deleteDoc(taskRef);
-    await new Promise(resolve => setTimeout(resolve, 200));
+    // Eliminar del cache local primero
+    const cached = await getCachedTasks();
+    const filtered = cached.filter(t => t.id !== taskId);
+    await cacheTasksLocally(filtered);
+
+    // Si es una tarea temporal, solo eliminar del cache
+    if (taskId.startsWith('temp_')) {
+      console.log('📴 Tarea temporal eliminada del cache');
+      return;
+    }
+
+    // Si hay conexión, eliminar de Firebase
+    if (getConnectionState()) {
+      const taskRef = doc(db, COLLECTION_NAME, taskId);
+      await deleteDoc(taskRef);
+      await new Promise(resolve => setTimeout(resolve, 200));
+    } else {
+      // MODO OFFLINE: Encolar para sincronización
+      console.log('📴 Eliminación encolada para sincronización');
+      await queueOperation(OPERATION_TYPES.DELETE, {}, taskId);
+    }
     return;
     
   } catch (error) {
-    if (error?.code === 'permission-denied') {
-      throw new Error('No tienes permiso para eliminar.');
-    } else if (error?.code === 'not-found') {
-      return;
-    } else if (error?.code === 'unavailable') {
-      throw new Error('Sin conexión a Firestore.');
-    } else if (error?.code === 'unauthenticated') {
-      throw new Error('No autenticado. Inicia sesión.');
-    } else {
-      throw error;
-    }
+    // Si falla Firebase, encolar para después
+    console.log('⚠️ Error eliminando, encolando para después:', error.message);
+    await queueOperation(OPERATION_TYPES.DELETE, {}, taskId);
   }
 }
 

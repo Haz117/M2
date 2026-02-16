@@ -32,6 +32,8 @@ import { getCurrentSession, logoutUser } from './services/authFirestore';
 import { startConnectivityMonitoring } from './services/offlineQueue';
 import { setupNotificationResponseListener } from './services/notifications';
 import { registerPushToken, setupPushNotificationListener } from './services/pushNotifications';
+import { initConnectionListener, syncPendingOperations, clearOfflineData } from './services/offlineSync';
+import OfflineIndicator from './components/OfflineIndicator';
 
 // Vercel Analytics y Speed Insights (solo en web)
 let Analytics, SpeedInsights;
@@ -284,6 +286,9 @@ export default function App() {
       // Limpiar sesión de AsyncStorage
       await logoutUser();
       
+      // Limpiar cache offline
+      await clearOfflineData();
+      
       // Forzar actualización completa
       setIsAuthenticated(false);
       setIsLoading(false);
@@ -310,6 +315,9 @@ export default function App() {
     
     // Iniciar monitoreo de conectividad para sincronización offline
     const unsubscribeConnectivity = startConnectivityMonitoring();
+    
+    // 🌐 Inicializar listener de conexión para sincronización offline-first
+    const unsubscribeConnection = initConnectionListener();
     
     // 🔔 Setup del listener de respuestas de notificaciones
     const notificationSubscription = setupNotificationResponseListener();
@@ -341,6 +349,7 @@ export default function App() {
       mounted = false;
       clearTimeout(timeout);
       if (unsubscribeConnectivity) unsubscribeConnectivity();
+      if (unsubscribeConnection) unsubscribeConnection();
       if (notificationSubscription) notificationSubscription.remove();
     };
   }, []);
@@ -357,6 +366,9 @@ export default function App() {
   return (
     <ThemeProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
+        {/* Indicador de estado offline */}
+        {isAuthenticated && <OfflineIndicator />}
+        
         <NavigationContainer ref={navigationRef} key={`navigation-${forceUpdate}`}>
           <Stack.Navigator 
             screenOptions={{ 
