@@ -1,9 +1,44 @@
 // services/ReportsExport.js
 // Utilidad para exportar reportes a CSV, con soporte para datos grandes
 // Optimizado para no bloquear el thread principal
+// Compatible con Web, iOS y Android
 
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
+import { Platform } from 'react-native';
+
+// Imports condicionales para Expo modules (no disponibles en web)
+let FileSystem = null;
+let Sharing = null;
+
+if (Platform.OS !== 'web') {
+  try {
+    FileSystem = require('expo-file-system');
+    Sharing = require('expo-sharing');
+  } catch (e) {
+    console.warn('Expo modules not available');
+  }
+}
+
+/**
+ * Descarga CSV en Web usando blob
+ */
+function downloadCSVWeb(csvContent, filename) {
+  try {
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    return true;
+  } catch (error) {
+    console.error('Error downloading CSV:', error);
+    return false;
+  }
+}
 
 /**
  * Genera CSV desde datos
@@ -85,8 +120,20 @@ export async function exportAreaReport(areaMetrics, allTasks, period = 'month') 
 
     const csvContent = sections.join('');
     
-    // Guardar en documentos
+    // Nombre del archivo
     const filename = `Reporte-Areas-${new Date().toISOString().split('T')[0]}.csv`;
+    
+    // En Web, descargar directamente
+    if (Platform.OS === 'web') {
+      const success = downloadCSVWeb(csvContent, filename);
+      return { success, filename };
+    }
+    
+    // En móvil, usar FileSystem y Sharing
+    if (!FileSystem || !Sharing) {
+      return { success: false, error: 'Módulos de exportación no disponibles' };
+    }
+    
     const filePath = `${FileSystem.documentDirectory}${filename}`;
     
     await FileSystem.writeAsStringAsync(filePath, csvContent, {
@@ -124,6 +171,18 @@ export async function exportProductivityReport(heatmapData, user = 'usuario') {
 
     const csvContent = generateCSV(headers, rows);
     const filename = `Productividad-${user}-${new Date().toISOString().split('T')[0]}.csv`;
+
+    // En Web, descargar directamente
+    if (Platform.OS === 'web') {
+      const success = downloadCSVWeb(csvContent, filename);
+      return { success, filename };
+    }
+
+    // En móvil
+    if (!FileSystem || !Sharing) {
+      return { success: false, error: 'Módulos de exportación no disponibles' };
+    }
+
     const filePath = `${FileSystem.documentDirectory}${filename}`;
 
     await FileSystem.writeAsStringAsync(filePath, csvContent, {
@@ -148,9 +207,35 @@ export async function exportProductivityReport(heatmapData, user = 'usuario') {
 export async function exportToJSON(data, reportName = 'reporte') {
   try {
     const filename = `${reportName}-${new Date().toISOString().split('T')[0]}.json`;
+    const jsonContent = JSON.stringify(data, null, 2);
+    
+    // En Web, descargar directamente
+    if (Platform.OS === 'web') {
+      try {
+        const blob = new Blob([jsonContent], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        return { success: true, filename };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+    }
+
+    // En móvil
+    if (!FileSystem || !Sharing) {
+      return { success: false, error: 'Módulos de exportación no disponibles' };
+    }
+
     const filePath = `${FileSystem.documentDirectory}${filename}`;
     
-    await FileSystem.writeAsStringAsync(filePath, JSON.stringify(data, null, 2), {
+    await FileSystem.writeAsStringAsync(filePath, jsonContent, {
       encoding: FileSystem.EncodingType.UTF8
     });
 

@@ -18,6 +18,7 @@ import {
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 import { useTheme } from '../contexts/ThemeContext';
 import { useResponsive } from '../utils/responsive';
 import { subscribeToTasks } from '../services/tasks';
@@ -670,12 +671,40 @@ export default function ReportsScreen({ navigation }) {
     try {
       const result = await exportAreaReport(areaMetrics, tasks, period);
       if (result.success) {
-        Alert.alert('✅ Éxito', `Reporte guardado: ${result.filename}`);
+        if (Platform.OS === 'web') {
+          // En web, el archivo se descarga automáticamente
+          Toast.show({
+            type: 'success',
+            text1: '✅ Reporte Descargado',
+            text2: result.filename,
+            position: 'top',
+          });
+        } else {
+          Alert.alert('✅ Éxito', `Reporte guardado: ${result.filename}`);
+        }
       } else {
-        Alert.alert('❌ Error', result.error);
+        if (Platform.OS === 'web') {
+          Toast.show({
+            type: 'error',
+            text1: '❌ Error',
+            text2: result.error || 'No se pudo exportar',
+            position: 'top',
+          });
+        } else {
+          Alert.alert('❌ Error', result.error);
+        }
       }
     } catch (error) {
-      Alert.alert('❌ Error', 'No se pudo exportar el reporte');
+      if (Platform.OS === 'web') {
+        Toast.show({
+          type: 'error',
+          text1: '❌ Error',
+          text2: 'No se pudo exportar el reporte',
+          position: 'top',
+        });
+      } else {
+        Alert.alert('❌ Error', 'No se pudo exportar el reporte');
+      }
     } finally {
       setExporting(false);
     }

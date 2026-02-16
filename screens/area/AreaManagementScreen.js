@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -65,30 +66,28 @@ export default function AreaManagementScreen({ navigation }) {
     setModalVisible(true);
   };
 
-  const handleDeleteArea = (area) => {
-    Alert.alert(
-      'Eliminar Área',
-      `¿Seguro que deseas eliminar "${area.nombre}"?\n\nEsto solo funcionará si no tiene tareas activas.`,
-      [
-        {
-          text: 'Cancelar',
-          onPress: () => {},
-          style: 'cancel',
-        },
-        {
-          text: 'Eliminar',
-          onPress: async () => {
-            const result = await deleteArea(area.id);
-            if (result.success) {
-              showToast(`Área "${area.nombre}" eliminada correctamente`, 'success');
-            } else {
-              showToast(result.error || 'Error al eliminar el área', 'error');
-            }
-          },
-          style: 'destructive',
-        },
-      ]
-    );
+  const handleDeleteArea = async (area) => {
+    const confirmDelete = Platform.OS === 'web'
+      ? window.confirm(`¿Seguro que deseas eliminar "${area.nombre}"?\n\nEsto solo funcionará si no tiene tareas activas.`)
+      : await new Promise((resolve) => {
+          Alert.alert(
+            'Eliminar Área',
+            `¿Seguro que deseas eliminar "${area.nombre}"?\n\nEsto solo funcionará si no tiene tareas activas.`,
+            [
+              { text: 'Cancelar', onPress: () => resolve(false), style: 'cancel' },
+              { text: 'Eliminar', onPress: () => resolve(true), style: 'destructive' },
+            ]
+          );
+        });
+
+    if (confirmDelete) {
+      const result = await deleteArea(area.id);
+      if (result.success) {
+        showToast(`Área "${area.nombre}" eliminada correctamente`, 'success');
+      } else {
+        showToast(result.error || 'Error al eliminar el área', 'error');
+      }
+    }
   };
 
   const onRefresh = async () => {
