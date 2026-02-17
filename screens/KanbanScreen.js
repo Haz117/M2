@@ -32,6 +32,7 @@ import { hapticMedium, hapticHeavy, hapticLight, hapticSuccess, hapticWarning } 
 import Toast from '../components/Toast';
 import TaskStatusButtons from '../components/TaskStatusButtons';
 import { useTheme } from '../contexts/ThemeContext';
+import { canChangeTaskStatus } from '../services/permissions';
 
 const STATUSES = [
   { key: 'pendiente', label: 'Pendiente', color: '#FF9800', icon: 'hourglass-outline' },
@@ -94,26 +95,35 @@ export default function KanbanScreen({ navigation }) {
     const screenWidth = dimensions.width;
     const isWeb = Platform.OS === 'web';
     const padding = isWeb ? 16 : 8;
-    const gap = isWeb ? 8 : 12;
+    const gap = isWeb ? 12 : 12;
     
-    if (isWeb && screenWidth > 1600) {
-      // Desktop muy grande: 4 columnas
+    if (isWeb && screenWidth > 1400) {
+      // Desktop muy grande: 4 columnas visibles
       return (screenWidth - padding * 2 - gap * 3) / 4;
-    } else if (isWeb && screenWidth > 1200) {
+    } else if (isWeb && screenWidth > 1100) {
       // Desktop grande: 4 columnas
       return (screenWidth - padding * 2 - gap * 3) / 4;
-    } else if (isWeb && screenWidth > 900) {
-      // Desktop mediano: 3 columnas
+    } else if (isWeb && screenWidth > 850) {
+      // Desktop mediano: 3 columnas visibles
       return (screenWidth - padding * 2 - gap * 2) / 3;
+    } else if (isWeb && screenWidth > 600) {
+      // Tablet web: 2 columnas visibles
+      return (screenWidth - padding * 2 - gap) / 2;
+    } else if (isWeb && screenWidth > 400) {
+      // Móvil web: scroll horizontal - columna de 280px
+      return 280;
+    } else if (isWeb) {
+      // Móvil web pequeño: scroll horizontal - columna de 260px
+      return 260;
     } else if (screenWidth > 768) {
-      // Tablet: 2 columnas
+      // Tablet nativa: 2 columnas
       return (screenWidth - padding * 2 - gap) / 2;
     } else if (screenWidth > 480) {
-      // Móvil grande: scroll horizontal optimizado
-      return screenWidth - 32;
+      // Móvil grande nativo: scroll horizontal
+      return screenWidth * 0.85;
     } else {
-      // Móvil pequeño: scroll horizontal compacto
-      return screenWidth - 24;
+      // Móvil pequeño nativo: scroll horizontal compacto
+      return screenWidth * 0.88;
     }
   };
 
@@ -193,6 +203,19 @@ export default function KanbanScreen({ navigation }) {
 
   const changeStatus = useCallback(async (taskId, newStatus) => {
     try {
+      // Verificar permisos
+      const task = tasks.find(t => t.id === taskId);
+      if (task) {
+        const statusPermission = canChangeTaskStatus(currentUser, task);
+        if (!statusPermission.canChange) {
+          setToastMessage(statusPermission.reason);
+          setToastType('warning');
+          setToastVisible(true);
+          hapticWarning();
+          return;
+        }
+      }
+      
       hapticMedium(); // Haptic on status change
       
       // 🎨 ANIMACIÓN: Feedback visual de transición
@@ -217,22 +240,17 @@ export default function KanbanScreen({ navigation }) {
       setToastVisible(true);
       hapticWarning();
     }
-  }, []);
+  }, [currentUser, tasks]);
 
   const handleStatusChange = useCallback(async (taskId, newStatus) => {
     await changeStatus(taskId, newStatus);
   }, [changeStatus]);
 
   const openDetail = useCallback((task) => {
-    // Solo admin y jefe pueden editar tareas
-    if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'jefe')) {
-      setToastMessage('Solo administradores y jefes pueden editar tareas');
-      setToastType('info');
-      setToastVisible(true);
-      return;
-    }
+    // Todos pueden ver detalles, pero con permisos limitados según rol
+    // El TaskDetailScreen se encarga de mostrar las opciones correctas
     navigation.navigate('TaskDetail', { task });
-  }, [navigation, currentUser, setToastMessage, setToastType, setToastVisible]);
+  }, [navigation]);
 
   // Función para detectar en qué columna se soltó la tarjeta
   const getColumnAtPosition = (x) => {
@@ -411,6 +429,20 @@ export default function KanbanScreen({ navigation }) {
                 </Text>
               </View>
             </View>
+            
+            {/* Etiquetas */}
+            {item.tags && item.tags.length > 0 && (
+              <View style={styles.cardTagsContainer}>
+                {item.tags.slice(0, 3).map((tag, idx) => (
+                  <View key={idx} style={[styles.cardTag, { backgroundColor: isDark ? 'rgba(159,34,65,0.2)' : 'rgba(159,34,65,0.1)' }]}>
+                    <Text style={[styles.cardTagText, { color: theme.primary }]}>#{tag}</Text>
+                  </View>
+                ))}
+                {item.tags.length > 3 && (
+                  <Text style={[styles.cardTagMore, { color: theme.textSecondary }]}>+{item.tags.length - 3}</Text>
+                )}
+              </View>
+            )}
             
             {/* Indicador de días en estado actual */}
             {daysInStatus > 0 && (
@@ -1510,28 +1542,44 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
   board: { 
     paddingHorizontal: Platform.OS === 'web' ? 12 : (dimensions.width > 480 ? 12 : 8), 
     paddingVertical: Platform.OS === 'web' ? 8 : (dimensions.width > 768 ? 12 : 8),
-    ...(Platform.OS === 'web' ? {
-      display: 'flex',
+    ...(Platform.OS === 'web' ? (
+      // En web: si pantalla > 600px, usar flexbox; sino scroll horizontal
+      dimensions.width > 600 ? {
+        display: 'flex',
+        flexDirection: 'row',
+        gap: dimensions.width > 1200 ? 12 : 10,
+        alignItems: 'stretch',
+        width: '100%',
+        flex: 1
+      } : {
+        display: 'flex',
+        flexDirection: 'row',
+        gap: 12,
+        alignItems: 'stretch',
+        overflowX: 'auto',
+        paddingBottom: 8
+      }
+    ) : {
       flexDirection: 'row',
-      gap: dimensions.width > 1200 ? 12 : 8,
-      alignItems: 'stretch',
-      width: '100%',
-      flex: 1
-    } : {
-      flexDirection: 'row',
-      gap: dimensions.width > 768 ? 12 : 8
+      gap: dimensions.width > 768 ? 12 : 10
     })
   },
   column: { 
-    ...(Platform.OS === 'web' ? {
-      flex: 1,
-      minWidth: 0,
-      minHeight: 'auto',
-      maxHeight: '100%'
-    } : {
+    ...(Platform.OS === 'web' ? (
+      dimensions.width > 600 ? {
+        flex: 1,
+        minWidth: 200,
+        minHeight: 'auto',
+        maxHeight: '100%'
+      } : {
+        width: columnWidth,
+        minWidth: columnWidth,
+        flexShrink: 0
+      }
+    ) : {
       width: columnWidth,
       minWidth: columnWidth,
-      marginRight: Platform.OS === 'web' ? 0 : 0
+      marginRight: 0
     }),
     borderRadius: dimensions.width > 768 ? 20 : 16,
     backgroundColor: theme.card,
@@ -1779,9 +1827,9 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
     color: '#FFFFFF'
   },
   card: { 
-    margin: 12,
-    padding: 14,
-    borderRadius: 20,
+    margin: dimensions.width > 600 ? 10 : 8,
+    padding: dimensions.width > 600 ? 14 : 12,
+    borderRadius: dimensions.width > 600 ? 18 : 14,
     backgroundColor: theme.surface,
     borderWidth: 2,
     borderColor: theme.border,
@@ -1859,12 +1907,12 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
     textTransform: 'uppercase'
   },
   cardTitle: { 
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: dimensions.width > 600 ? 16 : 14,
+    fontWeight: '700',
     color: theme.text,
-    marginBottom: 16,
-    lineHeight: 24,
-    letterSpacing: -0.3,
+    marginBottom: dimensions.width > 600 ? 12 : 10,
+    lineHeight: dimensions.width > 600 ? 22 : 20,
+    letterSpacing: -0.2,
     textShadowColor: 'rgba(0,0,0,0.08)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 1
@@ -1887,6 +1935,26 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
     fontWeight: '700',
     flex: 1,
     letterSpacing: -0.2
+  },
+  cardTagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 10
+  },
+  cardTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8
+  },
+  cardTagText: {
+    fontSize: 11,
+    fontWeight: '600'
+  },
+  cardTagMore: {
+    fontSize: 11,
+    fontWeight: '600',
+    paddingVertical: 4
   },
   dragIndicator: {
     position: 'absolute',

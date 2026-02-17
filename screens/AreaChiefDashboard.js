@@ -263,6 +263,12 @@ export default function AreaChiefDashboard({ navigation }) {
             <Text style={styles.title}>Dashboard</Text>
             <Text style={styles.subtitle}>Tus tareas y equipo</Text>
           </View>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('MyAreaReports')}
+            style={{ padding: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 8 }}
+          >
+            <Ionicons name="document-text" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
         </WebSafeBlur>
       </LinearGradient>
 
@@ -327,6 +333,28 @@ export default function AreaChiefDashboard({ navigation }) {
             </Text>
           </View>
         )}
+
+        {/* Acceso a Reportes */}
+        <TouchableOpacity
+          onPress={() => navigation.navigate('MyAreaReports')}
+          style={[styles.reportsButton, { backgroundColor: isDark ? '#2a2a2e' : '#f5f5f7', borderColor: theme.primary }]}
+          activeOpacity={0.7}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <View style={[styles.reportIconBg, { backgroundColor: theme.primary + '20' }]}>
+              <Ionicons name="document-text" size={24} color={theme.primary} />
+            </View>
+            <View style={{ marginLeft: 12, flex: 1 }}>
+              <Text style={[styles.reportsButtonTitle, { color: theme.text }]}>
+                Reportes de Mi Área
+              </Text>
+              <Text style={[styles.reportsButtonDesc, { color: theme.textSecondary }]}>
+                Ver y enviar reportes de avance
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+        </TouchableOpacity>
 
         {/* Filtros */}
         <View style={styles.filterContainer}>
@@ -462,6 +490,30 @@ const styles = StyleSheet.create({
   progressDetails: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  reportsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+  },
+  reportIconBg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reportsButtonTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  reportsButtonDesc: {
+    fontSize: 12,
+    marginTop: 2,
   },
   filterContainer: {
     flexDirection: 'row',

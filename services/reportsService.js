@@ -19,18 +19,23 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 const storage = getStorage();
 
 /**
- * Notificar a los admins sobre un nuevo reporte
+ * Notificar a los admins y secretarios sobre un nuevo reporte
  */
-const notifyAdminsOfNewReport = async (taskId, reportId, reportTitle, createdByName) => {
+const notifyAdminsOfNewReport = async (taskId, reportId, reportTitle, createdByName, reportArea = '') => {
   try {
     // Obtener info de la tarea
     const taskDoc = await getDoc(doc(db, 'tasks', taskId));
     const taskData = taskDoc.exists() ? taskDoc.data() : {};
     const taskTitle = taskData.title || 'Tarea sin título';
+    const taskArea = taskData.area || reportArea;
 
     // Obtener todos los admins
     const adminsQuery = query(collection(db, 'users'), where('role', '==', 'admin'));
     const adminsSnapshot = await getDocs(adminsQuery);
+
+    // Obtener secretarios del área correspondiente
+    const secretariosQuery = query(collection(db, 'users'), where('role', '==', 'secretario'));
+    const secretariosSnapshot = await getDocs(secretariosQuery);
 
     // Crear notificación para cada admin
     const notifications = [];
@@ -40,13 +45,36 @@ const notifyAdminsOfNewReport = async (taskId, reportId, reportTitle, createdByN
         userId: adminDoc.id,
         userEmail: adminData.email,
         type: 'new_report',
-        title: '📋 Nuevo Reporte Enviado',
-        body: `${createdByName} envió un reporte: "${reportTitle}" para la tarea "${taskTitle}"`,
+        title: '📋 Nuevo Reporte',
+        body: `${createdByName} envió un reporte: "${reportTitle}" para la tarea "${taskTitle}" (${taskArea})`,
         taskId,
         reportId,
+        area: taskArea,
         read: false,
         createdAt: serverTimestamp(),
       });
+    });
+
+    // Notificar a secretarios si el reporte viene de su área
+    secretariosSnapshot.forEach((secDoc) => {
+      const secData = secDoc.data();
+      const secAreasPermitidas = secData.areasPermitidas || [secData.area];
+      
+      // Si la tarea pertenece a una de las áreas del secretario
+      if (secAreasPermitidas.includes(taskArea)) {
+        notifications.push({
+          userId: secDoc.id,
+          userEmail: secData.email,
+          type: 'new_report',
+          title: '📋 Nuevo Reporte en tu Área',
+          body: `${createdByName} envió un reporte: "${reportTitle}" para la tarea "${taskTitle}"`,
+          taskId,
+          reportId,
+          area: taskArea,
+          read: false,
+          createdAt: serverTimestamp(),
+        });
+      }
     });
 
     // Guardar todas las notificaciones
@@ -54,7 +82,7 @@ const notifyAdminsOfNewReport = async (taskId, reportId, reportTitle, createdByN
       await addDoc(collection(db, 'notifications'), notification);
     }
 
-    console.log(`✅ Notificación enviada a ${notifications.length} admin(s)`);
+    console.log(`✅ Notificación enviada a ${notifications.length} usuario(s)`);
   } catch (error) {
     console.error('Error notificando a admins:', error);
     // No lanzar error para no interrumpir el flujo del reporte
@@ -76,10 +104,16 @@ export const createTaskReport = async (taskId, userId, reportData) => {
     
     let createdByName = 'Usuario';
     let userEmail = '';
+    let userRole = 'operativo';
+    let userArea = '';
+    let userSecretaria = '';
     
     if (sessionResult.success && sessionResult.session) {
       createdByName = sessionResult.session.displayName || sessionResult.session.email || 'Usuario';
       userEmail = sessionResult.session.email || '';
+      userRole = sessionResult.session.role || 'operativo';
+      userArea = sessionResult.session.area || '';
+      userSecretaria = sessionResult.session.secretaria || sessionResult.session.area || '';
     } else {
       // Fallback: buscar por userId en la colección users
       const userDoc = await getDoc(doc(db, 'users', userId));
@@ -87,13 +121,25 @@ export const createTaskReport = async (taskId, userId, reportData) => {
         const userData = userDoc.data();
         createdByName = userData.displayName || userData.email || 'Usuario';
         userEmail = userData.email || '';
+        userRole = userData.role || 'operativo';
+        userArea = userData.area || '';
+        userSecretaria = userData.secretaria || userData.area || '';
       }
     }
+
+    // Obtener info de la tarea para incluir el área de la tarea
+    const taskDoc = await getDoc(doc(db, 'tasks', taskId));
+    const taskData = taskDoc.exists() ? taskDoc.data() : {};
+    const taskArea = taskData.area || userArea;
 
     const report = {
       taskId,
       createdBy: userEmail || userId,
       createdByName: createdByName,
+      createdByRole: userRole,
+      createdByArea: userArea,
+      createdBySecretaria: userSecretaria,
+      area: taskArea, // Área de la tarea
       title: reportData.title,
       description: reportData.description,
       images: reportData.images || [],
@@ -122,8 +168,8 @@ export const createTaskReport = async (taskId, userId, reportData) => {
       title: report.title,
     });
 
-    // Notificar a los admins
-    await notifyAdminsOfNewReport(taskId, docRef.id, reportData.title, createdByName);
+    // Notificar a los admins y secretarios
+    await notifyAdminsOfNewReport(taskId, docRef.id, reportData.title, createdByName, taskArea);
 
     return docRef.id;
   } catch (error) {
@@ -397,4 +443,255 @@ export const getReportStatistics = async (area = null) => {
     console.error('Error getting report statistics:', error);
     throw error;
   }
+};
+
+/**
+ * Subscribe to ALL reports in real-time (for admin view)
+ * Includes area/origin information
+ * @param {Function} callback - Callback function
+ * @returns {Function} Unsubscribe function
+ */
+export const subscribeToAllReports = (callback) => {
+  const q = query(collection(db, 'task_reports'));
+
+  return onSnapshot(q, async (snapshot) => {
+    const reports = [];
+    const taskIds = new Set();
+    
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      if (!data.deleted) {
+        reports.push({
+          id: doc.id,
+          ...data,
+        });
+        if (data.taskId) {
+          taskIds.add(data.taskId);
+        }
+      }
+    });
+
+    // Get task info to add area data
+    const tasksInfo = {};
+    for (const taskId of taskIds) {
+      try {
+        const taskDoc = await getDoc(doc(db, 'tasks', taskId));
+        if (taskDoc.exists()) {
+          const taskData = taskDoc.data();
+          tasksInfo[taskId] = {
+            title: taskData.title || 'Sin título',
+            area: taskData.area || 'Sin área',
+            assignedTo: taskData.assignedTo || [],
+          };
+        }
+      } catch (err) {
+        console.log('Error getting task info:', err);
+      }
+    }
+
+    // Enrich reports with task info
+    const enrichedReports = reports.map(report => ({
+      ...report,
+      taskInfo: tasksInfo[report.taskId] || { title: 'Tarea no encontrada', area: 'Desconocida' },
+    }));
+
+    // Sort by creation date descending
+    enrichedReports.sort((a, b) => {
+      const dateA = a.createdAt?.toMillis ? a.createdAt.toMillis() : a.createdAt || 0;
+      const dateB = b.createdAt?.toMillis ? b.createdAt.toMillis() : b.createdAt || 0;
+      return dateB - dateA;
+    });
+
+    callback(enrichedReports);
+  });
+};
+
+/**
+ * Get reports grouped by area/origin
+ * @returns {Promise<Object>} Reports grouped by area
+ */
+export const getReportsGroupedByArea = async () => {
+  try {
+    const snapshot = await getDocs(collection(db, 'task_reports'));
+    const reports = [];
+    const taskIds = new Set();
+
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      if (!data.deleted) {
+        reports.push({
+          id: doc.id,
+          ...data,
+        });
+        if (data.taskId) {
+          taskIds.add(data.taskId);
+        }
+      }
+    });
+
+    // Get task info
+    const tasksInfo = {};
+    for (const taskId of taskIds) {
+      try {
+        const taskDoc = await getDoc(doc(db, 'tasks', taskId));
+        if (taskDoc.exists()) {
+          const taskData = taskDoc.data();
+          tasksInfo[taskId] = {
+            title: taskData.title || 'Sin título',
+            area: taskData.area || 'Sin área',
+          };
+        }
+      } catch (err) {
+        console.log('Error getting task info:', err);
+      }
+    }
+
+    // Group by area
+    const grouped = {};
+    reports.forEach(report => {
+      const area = tasksInfo[report.taskId]?.area || 'Sin área';
+      if (!grouped[area]) {
+        grouped[area] = [];
+      }
+      grouped[area].push({
+        ...report,
+        taskTitle: tasksInfo[report.taskId]?.title || 'Tarea sin título',
+      });
+    });
+
+    return grouped;
+  } catch (error) {
+    console.error('Error getting grouped reports:', error);
+    throw error;
+  }
+};
+
+/**
+ * Subscribe to reports for specific areas (for secretarios)
+ * @param {Array<string>} areas - List of area names to watch
+ * @param {Function} callback - Callback function
+ * @returns {Function} Unsubscribe function
+ */
+export const subscribeToAreaReports = (areas, callback) => {
+  const q = query(collection(db, 'task_reports'));
+
+  return onSnapshot(q, async (snapshot) => {
+    const reports = [];
+    const taskIds = new Set();
+    
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      if (!data.deleted) {
+        reports.push({
+          id: doc.id,
+          ...data,
+        });
+        if (data.taskId) {
+          taskIds.add(data.taskId);
+        }
+      }
+    });
+
+    // Get task info to filter by area
+    const tasksInfo = {};
+    for (const taskId of taskIds) {
+      try {
+        const taskDoc = await getDoc(doc(db, 'tasks', taskId));
+        if (taskDoc.exists()) {
+          const taskData = taskDoc.data();
+          tasksInfo[taskId] = {
+            title: taskData.title || 'Sin título',
+            area: taskData.area || 'Sin área',
+            assignedTo: taskData.assignedTo || [],
+          };
+        }
+      } catch (err) {
+        console.log('Error getting task info:', err);
+      }
+    }
+
+    // Filter reports by allowed areas
+    const filteredReports = reports.filter(report => {
+      const taskArea = report.area || tasksInfo[report.taskId]?.area || '';
+      return areas.includes(taskArea);
+    });
+
+    // Enrich reports with task info
+    const enrichedReports = filteredReports.map(report => ({
+      ...report,
+      taskInfo: tasksInfo[report.taskId] || { title: 'Tarea no encontrada', area: 'Desconocida' },
+    }));
+
+    // Sort by creation date descending
+    enrichedReports.sort((a, b) => {
+      const dateA = a.createdAt?.toMillis ? a.createdAt.toMillis() : a.createdAt || 0;
+      const dateB = b.createdAt?.toMillis ? b.createdAt.toMillis() : b.createdAt || 0;
+      return dateB - dateA;
+    });
+
+    callback(enrichedReports);
+  });
+};
+
+/**
+ * Subscribe to reports created by a specific user (for directors to see their own)
+ * @param {string} userEmail - User email
+ * @param {Function} callback - Callback function
+ * @returns {Function} Unsubscribe function
+ */
+export const subscribeToMyReports = (userEmail, callback) => {
+  const q = query(
+    collection(db, 'task_reports'),
+    where('createdBy', '==', userEmail.toLowerCase())
+  );
+
+  return onSnapshot(q, async (snapshot) => {
+    const reports = [];
+    const taskIds = new Set();
+    
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      if (!data.deleted) {
+        reports.push({
+          id: doc.id,
+          ...data,
+        });
+        if (data.taskId) {
+          taskIds.add(data.taskId);
+        }
+      }
+    });
+
+    // Get task info
+    const tasksInfo = {};
+    for (const taskId of taskIds) {
+      try {
+        const taskDoc = await getDoc(doc(db, 'tasks', taskId));
+        if (taskDoc.exists()) {
+          const taskData = taskDoc.data();
+          tasksInfo[taskId] = {
+            title: taskData.title || 'Sin título',
+            area: taskData.area || 'Sin área',
+          };
+        }
+      } catch (err) {
+        console.log('Error getting task info:', err);
+      }
+    }
+
+    // Enrich reports with task info
+    const enrichedReports = reports.map(report => ({
+      ...report,
+      taskInfo: tasksInfo[report.taskId] || { title: 'Tarea no encontrada', area: 'Desconocida' },
+    }));
+
+    // Sort by creation date descending
+    enrichedReports.sort((a, b) => {
+      const dateA = a.createdAt?.toMillis ? a.createdAt.toMillis() : a.createdAt || 0;
+      const dateB = b.createdAt?.toMillis ? b.createdAt.toMillis() : b.createdAt || 0;
+      return dateB - dateA;
+    });
+
+    callback(enrichedReports);
+  });
 };

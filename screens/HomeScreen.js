@@ -27,6 +27,7 @@ import { hapticLight, hapticMedium, hapticHeavy } from '../utils/haptics';
 import { getCurrentSession, refreshSession } from '../services/authFirestore';
 import { useResponsive } from '../utils/responsive';
 import { SPACING, TYPOGRAPHY, RADIUS, SHADOWS, MAX_WIDTHS } from '../theme/tokens';
+import { canChangeTaskStatus, canDeleteTask, ROLES } from '../services/permissions';
 
 const Swipeable = getSwipeable();
 
@@ -223,19 +224,18 @@ export default function HomeScreen({ navigation }) {
       return;
     }
     
-    // Solo admin puede eliminar tareas
-    if (!currentUser || currentUser.role !== 'admin') {
-      const msg = `❌ Solo admins. Tu rol: ${currentUser?.role || 'desconocido'}`;
-      setToastMessage(msg);
+    // Verificar permisos usando el nuevo sistema
+    const taskToDelete = tasks.find(t => t.id === taskId);
+    if (!taskToDelete) {
+      setToastMessage('❌ Tarea no encontrada');
       setToastType('error');
       setToastVisible(true);
       return;
     }
-
-    // Guardar tarea antes de eliminar para undo
-    const taskToDelete = tasks.find(t => t.id === taskId);
-    if (!taskToDelete) {
-      setToastMessage('❌ Tarea no encontrada');
+    
+    const deletePermission = canDeleteTask(currentUser, taskToDelete);
+    if (!deletePermission.canDelete) {
+      setToastMessage(`❌ ${deletePermission.reason}`);
       setToastType('error');
       setToastVisible(true);
       return;
@@ -302,7 +302,16 @@ export default function HomeScreen({ navigation }) {
     try {
       const newStatus = task.status === 'cerrada' ? 'pendiente' : 'cerrada';
       
-      // Validar permisos: solo admin puede reabrir (cerrada a pendiente)
+      // Verificar permisos usando el nuevo sistema
+      const statusPermission = canChangeTaskStatus(currentUser, task);
+      if (!statusPermission.canChange) {
+        setToastMessage(statusPermission.reason);
+        setToastType('warning');
+        setToastVisible(true);
+        return;
+      }
+      
+      // Solo admin puede reabrir tareas cerradas
       if (task.status === 'cerrada' && currentUser?.role !== 'admin') {
         setToastMessage('Solo administradores pueden reabrir tareas completadas');
         setToastType('warning');
@@ -935,8 +944,8 @@ export default function HomeScreen({ navigation }) {
         swipeToDismiss
       />
       
-      {/* Botón para crear tarea */}
-      {currentUser && (currentUser.role === 'admin' || currentUser.role === 'jefe' || currentUser.role === 'secretario' || currentUser.role === 'director') && (
+      {/* Botón para crear tarea - Solo admin y jefe */}
+      {currentUser && (currentUser.role === 'admin' || currentUser.role === 'jefe') && (
         <TouchableOpacity 
           style={styles.fab}
           onPress={() => navigation.navigate('TaskDetail')}

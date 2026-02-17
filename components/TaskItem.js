@@ -316,10 +316,34 @@ const TaskItem = memo(function TaskItem({
                   {task.area || 'Sin área'} • {task.assignedToNames?.length > 0 ? task.assignedToNames.join(', ') : 'Sin asignar'}
                 </Text>
                 
+                {/* Indicador de Tarea Multi-Área (Coordinación) */}
+                {task.isCoordinationTask && (
+                  <View style={[styles.coordinationBadge, { backgroundColor: '#9C27B020', borderColor: '#9C27B0' }]}>
+                    <Ionicons name="git-branch" size={14} color="#9C27B0" />
+                    <Text style={[styles.coordinationText, { color: '#9C27B0' }]}>
+                      Coordinación: {task.coordinationProgress || 0}% ({task.subtasksCompleted || 0}/{task.subtaskCount || 0} áreas)
+                    </Text>
+                  </View>
+                )}
+                
                 {/* Fila 3: Estado */}
                 <Text style={[styles.statusText, { color: theme.textTertiary }]} numberOfLines={1}>
                   {task.status === 'en_progreso' ? 'En progreso' : task.status === 'en_revision' ? 'En revisión' : task.status === 'cerrada' ? 'Completada' : 'Pendiente'}
                 </Text>
+
+                {/* Fila 3.5: Etiquetas */}
+                {task.tags && task.tags.length > 0 && (
+                  <View style={styles.tagsRow}>
+                    {task.tags.slice(0, 3).map((tag, idx) => (
+                      <View key={idx} style={[styles.tagChip, { backgroundColor: theme.primaryLight || 'rgba(159,34,65,0.1)' }]}>
+                        <Text style={[styles.tagText, { color: theme.primary }]}>#{tag}</Text>
+                      </View>
+                    ))}
+                    {task.tags.length > 3 && (
+                      <Text style={[styles.tagMore, { color: theme.textSecondary }]}>+{task.tags.length - 3}</Text>
+                    )}
+                  </View>
+                )}
 
                 {/* Fila 4: Barra de Progreso (EN TIEMPO REAL) */}
                 {progressData && progressData.subtaskStats && progressData.subtaskStats.total > 0 && (
@@ -503,6 +527,21 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
     marginBottom: 6,
   },
+  coordinationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginBottom: 6,
+    borderWidth: 1,
+    gap: 6,
+    alignSelf: 'flex-start',
+  },
+  coordinationText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
   metaSmall: { 
     fontSize: 12,
     fontWeight: '600',
@@ -532,6 +571,27 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontStyle: 'italic',
     flex: 1,
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 6,
+    marginBottom: 2,
+  },
+  tagChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  tagText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  tagMore: {
+    fontSize: 11,
+    fontWeight: '500',
+    paddingVertical: 3,
   },
   progressContainer: {
     marginTop: 8,

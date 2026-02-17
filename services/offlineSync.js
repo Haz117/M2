@@ -53,7 +53,6 @@ export const cacheTasksLocally = async (tasks) => {
   try {
     await AsyncStorage.setItem(OFFLINE_TASKS_KEY, JSON.stringify(tasks));
     await AsyncStorage.setItem(LAST_SYNC_KEY, Date.now().toString());
-    console.log('💾 Cache actualizado:', tasks.length, 'tareas');
   } catch (error) {
     console.error('Error guardando cache:', error);
   }
@@ -405,7 +404,6 @@ export const clearOfflineData = async () => {
       PENDING_OPERATIONS_KEY,
       LAST_SYNC_KEY
     ]);
-    console.log('🗑️ Cache offline limpiado');
   } catch (error) {
     console.error('Error limpiando cache:', error);
   }

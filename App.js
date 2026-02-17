@@ -2,6 +2,13 @@
 import './polyfills'; // Debe ser lo primero
 import 'react-native-gesture-handler';
 
+// 🔒 SEGURIDAD: Deshabilitar todos los console.* para evitar fugas de información
+console.log = () => {};
+console.warn = () => {};
+console.error = () => {};
+console.info = () => {};
+console.debug = () => {};
+
 import React, { useEffect, useState, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -18,6 +25,10 @@ import KanbanScreen from './screens/KanbanScreen';
 import CalendarScreen from './screens/CalendarScreen';
 import DashboardScreen from './screens/DashboardScreen';
 import AdminScreen from './screens/AdminScreen';
+import SecretarioDashboardScreen from './screens/SecretarioDashboardScreen';
+import AdminExecutiveDashboard from './screens/AdminExecutiveDashboard';
+import AdminReportsScreen from './screens/AdminReportsScreen';
+import MyAreaReportsScreen from './screens/MyAreaReportsScreen';
 import MyInboxScreen from './screens/MyInboxScreen';
 import TaskDetailScreen from './screens/TaskDetailScreen';
 import TaskChatScreen from './screens/TaskChatScreen';
@@ -300,6 +311,32 @@ function MainTabs({ onLogout }) {
         />
       )}
       
+      {isSecretario && (
+        <Tab.Screen 
+          name="SecretarioDashboard" 
+          options={{ 
+            title: 'Mi Dashboard',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="briefcase" size={size} color={color} />
+            ),
+          }}
+          component={SecretarioDashboardScreen} 
+        />
+      )}
+      
+      {isAdmin && (
+        <Tab.Screen 
+          name="ExecutiveDashboard" 
+          options={{ 
+            title: 'Dashboard',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="speedometer" size={size} color={color} />
+            ),
+          }}
+          component={AdminExecutiveDashboard} 
+        />
+      )}
+      
       {isAdmin && (
         <Tab.Screen 
           name="Admin" 
@@ -506,6 +543,24 @@ export default function App() {
                   name="TaskReportsAndActivity" 
                   component={TaskReportsAndActivityScreen}
                   options={{ 
+                    presentation: 'card',
+                    animation: 'slide_from_right'
+                  }}
+                />
+                <Stack.Screen 
+                  name="AdminReports" 
+                  component={AdminReportsScreen}
+                  options={{ 
+                    headerShown: false,
+                    presentation: 'card',
+                    animation: 'slide_from_right'
+                  }}
+                />
+                <Stack.Screen 
+                  name="MyAreaReports" 
+                  component={MyAreaReportsScreen}
+                  options={{ 
+                    headerShown: false,
                     presentation: 'card',
                     animation: 'slide_from_right'
                   }}

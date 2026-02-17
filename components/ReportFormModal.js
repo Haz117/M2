@@ -237,17 +237,24 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
   };
 
   const handleSubmit = async () => {
+    console.log('🚀 ReportFormModal: handleSubmit called');
+    
     if (!validateForm()) {
+      console.log('❌ Form validation failed');
       return;
     }
 
+    console.log('✅ Form validated, starting submission...');
     setLoading(true);
     try {
       const result = await getCurrentSession();
+      console.log('📝 Session result:', result.success ? 'OK' : 'FAILED');
+      
       if (!result.success || !result.session) {
         throw new Error('User not authenticated');
       }
       const currentUser = result.session;
+      console.log('👤 Current user:', currentUser.email, 'Role:', currentUser.role);
 
       // Preparar URIs de imágenes (sin subir a Storage por problemas de CORS en desarrollo)
       const imageUrls = images.map(img => ({
@@ -256,6 +263,8 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
         uploadedAt: new Date().toISOString(),
       }));
 
+      console.log('📋 Creating report for taskId:', taskId);
+      
       // Create report con imágenes incluidas
       const reportId = await createTaskReport(taskId, currentUser.userId, {
         title: title.trim(),
@@ -264,6 +273,8 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
         ratingComment: ratingComment.trim(),
         images: imageUrls, // Guardar URIs directamente
       });
+      
+      console.log('✅ Report created successfully with ID:', reportId);
 
       setToastMessage('Report created successfully!');
       setTimeout(() => {
@@ -277,7 +288,7 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
         onClose();
       }, 500);
     } catch (error) {
-      console.error('Error creating report:', error);
+      console.error('❌ Error creating report:', error);
       setToastMessage('Error creating report: ' + error.message);
     } finally {
       setLoading(false);

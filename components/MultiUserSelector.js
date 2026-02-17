@@ -21,7 +21,8 @@ export default function MultiUserSelector({
   onSelectionChange = () => {},
   role = 'admin',
   area = null,
-  secretarioEmail = null
+  secretarioEmail = null,
+  allowedAreas = []  // Array de áreas permitidas para secretarios
 }) {
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -32,7 +33,7 @@ export default function MultiUserSelector({
   // Cargar usuarios disponibles
   useEffect(() => {
     loadUsers();
-  }, [role, area]);
+  }, [role, area, allowedAreas.length]);
 
   const loadUsers = async () => {
     try {
@@ -49,11 +50,17 @@ export default function MultiUserSelector({
           // Admin puede asignar a cualquiera
           include = true;
         } else if (role === 'secretario') {
-          // Secretario puede asignar a directores de su área y operativos
-          include = userData.area === area || 
-                   userData.secretarioEmail === secretarioEmail ||
-                   userData.department === area ||
-                   userData.role === 'director' && userData.area === area;
+          // Secretario puede asignar a directores de sus áreas (direcciones)
+          // Combinar todas las áreas del secretario
+          const todasAreasSec = [...new Set([area, ...allowedAreas])].filter(Boolean);
+          
+          if (userData.role === 'director') {
+            // Solo directores de las áreas del secretario
+            include = todasAreasSec.includes(userData.area);
+          } else if (['jefe', 'operativo'].includes(userData.role)) {
+            // Jefes y operativos de las áreas del secretario
+            include = todasAreasSec.includes(userData.area) || todasAreasSec.includes(userData.department);
+          }
         } else if (role === 'director') {
           // Director puede asignar a usuarios de su área (operativos/jefes)
           include = userData.area === area && 
@@ -73,7 +80,11 @@ export default function MultiUserSelector({
             role: userData.role,
             department: userData.department,
             area: userData.area,
-            avatar: userData.avatar || null
+            avatar: userData.avatar || null,
+            // Agregar datos adicionales para filtrar áreas
+            direcciones: userData.direcciones || [],
+            areasPermitidas: userData.areasPermitidas || [],
+            position: userData.position || null
           });
         }
       });

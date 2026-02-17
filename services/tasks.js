@@ -137,12 +137,21 @@ export async function subscribeToTasks(callback) {
           return false;
         });
       } else if (userRole === 'director') {
-        // Director ve tareas de su área y las que creó
+        // Director ve SOLO tareas de su área específica y las que le asignaron
         filtered = tasks.filter(task => {
           const taskArea = task.area || '';
+          const taskAreas = task.areas || [taskArea];
+          
+          // Solo si el área del director coincide exactamente
           if (taskArea === userArea) return true;
-          if (task.createdBy === userEmail) return true;
+          if (taskAreas.includes(userArea)) return true;
+          
+          // O si está asignado a él
           if (isTaskAssignedToUser(task, userEmail)) return true;
+          
+          // O si la creó él
+          if (task.createdBy === userEmail) return true;
+          
           return false;
         });
       }

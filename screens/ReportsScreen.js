@@ -630,17 +630,6 @@ export default function ReportsScreen({ navigation }) {
 
   const { detailedAreaMetrics: displayDetailedMetrics, areaMetrics: displayAreaMetrics, areasNeedingAttention: displayAlerts } = getFilteredMetrics();
 
-  // Debug: Mostrar datos en consola
-  useEffect(() => {
-    console.log('📊 Area Metrics:', {
-      detailedAreaMetrics,
-      areaMetrics,
-      areasNeedingAttention,
-      tasks: tasks.length,
-      filteredAreas,
-    });
-  }, [detailedAreaMetrics, areaMetrics, areasNeedingAttention, tasks]);
-
   // ✨ Calcular alertas, insights y análisis avanzados (optimizado con useMemo)
   useEffect(() => {
     if (tasks.length === 0 || !areaMetrics || Object.keys(areaMetrics).length === 0) {

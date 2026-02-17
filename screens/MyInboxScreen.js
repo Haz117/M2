@@ -669,10 +669,10 @@ export default function MyInboxScreen({ navigation }) {
   const openChat = (task) => navigation.navigate('TaskChat', { taskId: task.id, taskTitle: task.title });
   
   const goToCreate = () => {
-    // Admin, secretario, director y jefe pueden crear tareas
-    const canCreate = currentUser && ['admin', 'secretario', 'director', 'jefe'].includes(currentUser.role);
+    // Solo admin y jefe pueden crear tareas principales
+    const canCreate = currentUser && ['admin', 'jefe'].includes(currentUser.role);
     if (!canCreate) {
-      setToastMessage('No tienes permisos para crear tareas');
+      setToastMessage('Solo administradores y jefes pueden crear tareas. Los secretarios y directores solo pueden crear subtareas.');
       setToastType('warning');
       setToastVisible(true);
       return;

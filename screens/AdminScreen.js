@@ -1077,25 +1077,6 @@ export default function AdminScreen({ navigation, onLogout }) {
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Dashboard Jefe de Área */}
-        <TouchableOpacity 
-          style={[styles.actionButton, { marginTop: 12 }]}
-          onPress={() => {
-            hapticMedium();
-            navigation.navigate('AreaChiefDashboard');
-          }}
-        >
-          <LinearGradient
-            colors={['#5E72E4', '#3D5ADB']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.buttonGradient}
-          >
-            <Ionicons name="bar-chart" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-            <Text style={styles.buttonText}>Mi Dashboard</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
         {/* Analytics & Reports */}
         <TouchableOpacity 
           style={[styles.actionButton, { marginTop: 12 }]}
@@ -1112,6 +1093,25 @@ export default function AdminScreen({ navigation, onLogout }) {
           >
             <Ionicons name="analytics" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
             <Text style={styles.buttonText}>Analytics & Reportes</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+
+        {/* Reportes de Áreas - Directores y Secretarios */}
+        <TouchableOpacity 
+          style={[styles.actionButton, { marginTop: 12 }]}
+          onPress={() => {
+            hapticMedium();
+            navigation.navigate('AdminReports');
+          }}
+        >
+          <LinearGradient
+            colors={['#F59E0B', '#D97706']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.buttonGradient}
+          >
+            <Ionicons name="document-text" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.buttonText}>Reportes de Áreas</Text>
           </LinearGradient>
         </TouchableOpacity>
 
@@ -1204,13 +1204,38 @@ export default function AdminScreen({ navigation, onLogout }) {
                             </View>
                             <View style={styles.userTextContainer}>
                               <Text style={[styles.userName, { color: theme.text }]} numberOfLines={1} ellipsizeMode="tail">{user.displayName}</Text>
-                              <Text style={[styles.userEmail, { color: theme.textSecondary }]} numberOfLines={1} ellipsizeMode="tail">{user.email}</Text>
-                              {user.area && (
+                              
+                              {/* Cargo/Puesto - Destacado */}
+                              {(user.position || user.area) && (
+                                <View style={[styles.positionBadge, { backgroundColor: `${section.color}12`, borderColor: `${section.color}30` }]}>
+                                  <Ionicons name="briefcase" size={11} color={section.color} />
+                                  <Text style={[styles.positionText, { color: section.color }]} numberOfLines={1}>
+                                    {user.position || user.area}
+                                  </Text>
+                                </View>
+                              )}
+                              
+                              {/* Área/Dirección (si hay position, mostrar área aparte) */}
+                              {user.position && user.area && user.position !== user.area && (
                                 <View style={styles.areaTextRow}>
-                                  <Ionicons name="business-outline" size={11} color={theme.textSecondary} />
+                                  <Ionicons name="business-outline" size={10} color={theme.textSecondary} />
                                   <Text style={[styles.areaText, { color: theme.textSecondary }]} numberOfLines={1}>
                                     {user.area}
                                   </Text>
+                                </View>
+                              )}
+                              
+                              {/* Email */}
+                              <View style={styles.emailRow}>
+                                <Ionicons name="mail-outline" size={10} color={theme.textSecondary} />
+                                <Text style={[styles.userEmail, { color: theme.textSecondary }]} numberOfLines={1} ellipsizeMode="tail">{user.email}</Text>
+                              </View>
+                              
+                              {/* Teléfono si existe */}
+                              {user.phone && (
+                                <View style={styles.phoneRow}>
+                                  <Ionicons name="call-outline" size={10} color={theme.textSecondary} />
+                                  <Text style={[styles.phoneText, { color: theme.textSecondary }]}>{user.phone}</Text>
                                 </View>
                               )}
                             </View>
@@ -1762,7 +1787,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 12
   },
   userInfo: {
@@ -1770,9 +1795,8 @@ const styles = StyleSheet.create({
   },
   userHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    gap: 10,
+    alignItems: 'flex-start',
+    gap: 12,
     flex: 1
   },
   userTextContainer: {
@@ -1821,11 +1845,44 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flex: 1,
   },
+  positionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 4,
+    marginBottom: 2,
+    gap: 5,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+  },
+  positionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    flex: 1,
+  },
+  emailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    gap: 4,
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 3,
+    gap: 4,
+  },
+  phoneText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
   userName: {
     fontSize: Platform.OS === 'web' ? 15 : 14,
     fontWeight: '700',
     letterSpacing: -0.2,
-    marginBottom: 3
+    marginBottom: 0
   },
   userRoleBadge: {
     paddingHorizontal: Platform.OS === 'web' ? 12 : 10,
@@ -1843,8 +1900,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5
   },
   userEmail: {
-    fontSize: Platform.OS === 'web' ? 13 : 12,
-    fontWeight: '600'
+    fontSize: Platform.OS === 'web' ? 12 : 11,
+    fontWeight: '500',
+    flex: 1,
   },
   userArea: {
     fontSize: 11,

@@ -6,6 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { createTask, updateTask, deleteTask } from '../services/tasks';
 import { createTaskMultiple, updateTaskMultiple } from '../services/tasksMultiple';
 import { getAllUsersNames } from '../services/roles';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
 import { scheduleNotificationForTask, cancelNotification, notifyAssignment } from '../services/notifications';
 import { getCurrentSession } from '../services/authFirestore';
 import Toast from '../components/Toast';
@@ -19,11 +21,23 @@ import MultiUserSelector from '../components/MultiUserSelector';
 import SubtasksList from '../components/SubtasksList';
 import AreaSelectorModal from '../components/AreaSelectorModal';
 import AssigneeProgress from '../components/AssigneeProgress';
+import AreaCoordinationProgress from '../components/AreaCoordinationProgress';
 import { confirmTaskCompletion, removeTaskConfirmation, hasUserConfirmed } from '../services/taskConfirmations';
 import { useTheme } from '../contexts/ThemeContext';
 import { savePomodoroSession } from '../services/pomodoro';
 import { AREAS } from '../config/areas';
 import { getAreaType } from '../config/areas';
+import { 
+  canEditTask, 
+  canDelegateTask, 
+  canCreateSubtask, 
+  canChangeTaskStatus,
+  canDeleteTask,
+  canCreateTask,
+  getPermissionsSummary,
+  ROLES 
+} from '../services/permissions';
+import { createAreaSubtasks, getAreaSubtasks, subscribeToAreaSubtasks, getAreaProgressSummary } from '../services/areaSubtasks';
 
 // Importar DateTimePicker solo en móvil
 let DateTimePicker;
@@ -74,6 +88,10 @@ export default function TaskDetailScreen({ route, navigation }) {
   const [canEdit, setCanEdit] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [canDelegate, setCanDelegate] = useState(false);
+  const [canAddSubtask, setCanAddSubtask] = useState(false);
+  const [showDelegateModal, setShowDelegateModal] = useState(false);
+  const [delegateUsers, setDelegateUsers] = useState([]);
   
   // Modal de selección de área
   const [showAreaModal, setShowAreaModal] = useState(false);
@@ -192,11 +210,75 @@ export default function TaskDetailScreen({ route, navigation }) {
     return AREAS;
   }, [currentUser]);
 
+  // 🔥 NUEVO: Filtrar áreas según los usuarios seleccionados (para admin)
+  const areasFromSelectedUsers = useMemo(() => {
+    // Solo para admin - filtrar áreas según usuarios seleccionados
+    if (!currentUser || currentUser.role !== 'admin') return availableAreas;
+    
+    // Si no hay usuarios seleccionados, mostrar todas las áreas
+    if (!selectedAssignees || selectedAssignees.length === 0) return availableAreas;
+    
+    // Recopilar todas las áreas de los usuarios seleccionados
+    const userAreas = new Set();
+    
+    selectedAssignees.forEach(user => {
+      // Agregar área principal del usuario
+      if (user.area) {
+        userAreas.add(user.area);
+      }
+      
+      // Si es secretario, agregar sus direcciones
+      if (user.role === 'secretario' && user.direcciones) {
+        user.direcciones.forEach(dir => userAreas.add(dir));
+      }
+      
+      // Agregar areasPermitidas si existen
+      if (user.areasPermitidas && Array.isArray(user.areasPermitidas)) {
+        user.areasPermitidas.forEach(area => userAreas.add(area));
+      }
+      
+      // Agregar department si existe y es diferente
+      if (user.department && user.department !== user.area) {
+        userAreas.add(user.department);
+      }
+    });
+    
+    // Si encontramos áreas de usuarios, filtrar
+    if (userAreas.size > 0) {
+      return AREAS.filter(area => userAreas.has(area));
+    }
+    
+    return availableAreas;
+  }, [currentUser, selectedAssignees, availableAreas]);
+
+  // 🔥 NUEVO: Auto-seleccionar área cuando se selecciona un usuario
+  useEffect(() => {
+    // Solo para admin y al crear nueva tarea
+    if (!currentUser || currentUser.role !== 'admin' || editingTask) return;
+    if (!selectedAssignees || selectedAssignees.length === 0) return;
+    
+    // Obtener las áreas de los usuarios seleccionados
+    const userAreas = new Set();
+    selectedAssignees.forEach(user => {
+      if (user.area) userAreas.add(user.area);
+    });
+    
+    // Si hay exactamente un área y no está ya seleccionada, auto-seleccionar
+    if (userAreas.size === 1) {
+      const userArea = Array.from(userAreas)[0];
+      if (!selectedAreas.includes(userArea)) {
+        setSelectedAreas([userArea]);
+      }
+    }
+  }, [selectedAssignees, currentUser, editingTask]);
+
   const filteredAreas = useMemo(() => {
-    if (!areaSearchQuery.trim()) return availableAreas;
+    // Usar areasFromSelectedUsers en lugar de availableAreas para admin
+    const baseAreas = currentUser?.role === 'admin' ? areasFromSelectedUsers : availableAreas;
+    if (!areaSearchQuery.trim()) return baseAreas;
     const query = areaSearchQuery.toLowerCase();
-    return availableAreas.filter(area => area.toLowerCase().includes(query));
-  }, [areaSearchQuery, availableAreas]);
+    return baseAreas.filter(area => area.toLowerCase().includes(query));
+  }, [areaSearchQuery, areasFromSelectedUsers, availableAreas, currentUser]);
 
   useEffect(() => {
     navigation.setOptions({ 
@@ -358,21 +440,89 @@ export default function TaskDetailScreen({ route, navigation }) {
       const role = result.session.role;
       setUserRole(role);
       
+      // BLOQUEAR creación de tareas principales para secretarios y directores
+      if (!editingTask && (role === 'secretario' || role === 'director')) {
+        Alert.alert(
+          'Acción no permitida',
+          role === 'secretario' 
+            ? 'Los secretarios solo pueden crear subtareas desde las tareas asignadas por el administrador.'
+            : 'Los directores no pueden crear tareas. Contacta a tu secretario o administrador.',
+          [{ text: 'Entendido', onPress: () => navigation.goBack() }]
+        );
+        return;
+      }
+      
+      // NUEVO SISTEMA DE PERMISOS
+      const user = result.session;
+      
       // Si es operativo y está viendo una tarea, modo solo lectura
       if (role === 'operativo' && editingTask) {
         setIsReadOnly(true);
         setCanEdit(false);
-      } else if (role === 'admin' || role === 'jefe' || role === 'secretario' || role === 'director') {
-        // Admin, Jefe, Secretario y Director pueden editar
-        setCanEdit(true);
-        setIsReadOnly(false);
-      } else if (role === 'operativo' && editingTask && editingTask.assignedTo === result.session.email) {
-        setCanEdit(false);
-        setIsReadOnly(true);
+        setCanDelegate(false);
+        setCanAddSubtask(false);
+      } else if (editingTask) {
+        // Verificar permisos específicos para tarea existente
+        const editPermission = canEditTask(user, editingTask);
+        const delegatePermission = canDelegateTask(user, editingTask);
+        const subtaskPermission = canCreateSubtask(user, editingTask);
+        
+        setCanEdit(editPermission.canEdit);
+        setCanDelegate(delegatePermission.canDelegate);
+        setCanAddSubtask(subtaskPermission.canCreate);
+        setIsReadOnly(role === 'operativo' || role === 'director');
+        
+        console.log('Permisos:', { 
+          canEdit: editPermission.canEdit, 
+          canDelegate: delegatePermission.canDelegate,
+          canAddSubtask: subtaskPermission.canCreate,
+          reason: editPermission.reason 
+        });
       } else {
-        setCanEdit(false);
-        setIsReadOnly(false);
+        // Creando nueva tarea - solo admin y jefe
+        const createPermission = canCreateTask(user);
+        setCanEdit(createPermission.canCreate);
+        setCanDelegate(false);
+        setCanAddSubtask(false);
+        setIsReadOnly(!createPermission.canCreate);
       }
+      
+      // Cargar usuarios para delegación si es secretario
+      if (role === 'secretario' && editingTask) {
+        loadDelegateUsers(user);
+      }
+    }
+  };
+  
+  // Cargar usuarios disponibles para delegación
+  const loadDelegateUsers = async (user) => {
+    try {
+      const delegatePermission = canDelegateTask(user, editingTask);
+      if (!delegatePermission.canDelegate) return;
+      
+      // Obtener directores de las áreas permitidas
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('role', '==', 'director'));
+      const snapshot = await getDocs(q);
+      
+      const allowedAreas = delegatePermission.allowedAreas || [];
+      const directors = [];
+      
+      snapshot.forEach(doc => {
+        const userData = doc.data();
+        // Solo mostrar directores de las áreas del secretario
+        if (allowedAreas.includes(userData.area)) {
+          directors.push({
+            email: userData.email,
+            displayName: userData.displayName || userData.email,
+            area: userData.area
+          });
+        }
+      });
+      
+      setDelegateUsers(directors);
+    } catch (error) {
+      console.error('Error cargando usuarios para delegación:', error);
     }
   };
 
@@ -492,6 +642,19 @@ export default function TaskDetailScreen({ route, navigation }) {
     await proceedWithSave();
   };
 
+  // Helper para actualizar progreso del padre si es subtarea de área
+  const updateParentProgressIfNeeded = async () => {
+    if (editingTask?.isAreaSubtask && editingTask?.parentTaskId) {
+      try {
+        const { updateParentTaskProgress } = await import('../services/areaSubtasks');
+        await updateParentTaskProgress(editingTask.parentTaskId);
+        console.log('[TaskDetail] Progreso del padre actualizado');
+      } catch (error) {
+        console.error('[TaskDetail] Error actualizando progreso del padre:', error);
+      }
+    }
+  };
+
   const proceedWithSave = async () => {
     setIsSaving(true);
     setSaveProgress(0);
@@ -515,24 +678,71 @@ export default function TaskDetailScreen({ route, navigation }) {
         return;
       }
 
-      // Operativos solo pueden actualizar status
-      if (currentUser.role === 'operativo' && !canEdit && editingTask) {
-        // Solo permitir cambio de status
-        if (editingTask.assignedTo !== currentUser.email) {
-          Alert.alert('Sin permisos', 'No puedes modificar esta tarea');
+      // NUEVO SISTEMA DE PERMISOS
+      // Verificar si puede editar usando el servicio centralizado
+      const editPermission = canEditTask(currentUser, editingTask || {});
+      
+      // Operativos solo pueden actualizar status de sus tareas asignadas
+      if (currentUser.role === 'operativo' && editingTask) {
+        const statusPermission = canChangeTaskStatus(currentUser, editingTask);
+        if (!statusPermission.canChange) {
+          Alert.alert('Sin permisos', statusPermission.reason);
           setIsSaving(false);
           return;
         }
         // Actualizar solo el status
         await updateTask(editingTask.id, { status });
+        await updateParentProgressIfNeeded(); // Actualizar progreso del padre si es subtarea
         setIsSaving(false);
-        navigation.goBack();
+        setToastMessage('Estado actualizado');
+        setToastType('success');
+        setToastVisible(true);
+        setTimeout(() => navigation.goBack(), 800);
         return;
       }
 
-      // Admin y jefe pueden crear/editar tareas completas
-      if (currentUser.role !== 'admin' && currentUser.role !== 'jefe') {
-        Alert.alert('Sin permisos', 'Solo administradores y jefes pueden crear/editar tareas');
+      // Secretarios solo pueden cambiar status, NO editar datos de la tarea
+      if (currentUser.role === 'secretario' && editingTask) {
+        const statusPermission = canChangeTaskStatus(currentUser, editingTask);
+        if (statusPermission.canChange) {
+          // Solo actualizar el status
+          await updateTask(editingTask.id, { status });
+          await updateParentProgressIfNeeded(); // Actualizar progreso del padre si es subtarea
+          setIsSaving(false);
+          setToastMessage('Estado actualizado');
+          setToastType('success');
+          setToastVisible(true);
+          setTimeout(() => navigation.goBack(), 800);
+          return;
+        } else {
+          Alert.alert('Sin permisos', 'Los secretarios solo pueden delegar tareas y crear subtareas');
+          setIsSaving(false);
+          return;
+        }
+      }
+      
+      // Directores solo pueden cambiar status de sus tareas
+      if (currentUser.role === 'director' && editingTask) {
+        const statusPermission = canChangeTaskStatus(currentUser, editingTask);
+        if (statusPermission.canChange) {
+          await updateTask(editingTask.id, { status });
+          await updateParentProgressIfNeeded(); // Actualizar progreso del padre si es subtarea
+          setIsSaving(false);
+          setToastMessage('Estado actualizado');
+          setToastType('success');
+          setToastVisible(true);
+          setTimeout(() => navigation.goBack(), 800);
+          return;
+        } else {
+          Alert.alert('Sin permisos', statusPermission.reason);
+          setIsSaving(false);
+          return;
+        }
+      }
+
+      // Solo admin y jefe pueden crear/editar tareas completas
+      if (!editPermission.canEdit) {
+        Alert.alert('Sin permisos', editPermission.reason);
         setIsSaving(false);
         return;
       }
@@ -613,10 +823,21 @@ export default function TaskDetailScreen({ route, navigation }) {
         // Crear nueva tarea con múltiples asignados
         setSaveProgress(60);
         taskId = await createTaskMultiple(taskData);
+        
+        // Si la tarea tiene múltiples áreas, crear subtareas de coordinación
+        if (selectedAreas.length > 1) {
+          setSaveProgress(80);
+          const subtaskResult = await createAreaSubtasks(taskData, taskId);
+          console.log('[TaskDetail] Subtareas de coordinación creadas:', subtaskResult);
+        }
+        
         setSaveProgress(100);
         
         // Mostrar toast de éxito
-        setToastMessage('Tarea creada exitosamente');
+        const mensaje = selectedAreas.length > 1 
+          ? `Tarea creada con ${selectedAreas.length} subtareas de coordinación`
+          : 'Tarea creada exitosamente';
+        setToastMessage(mensaje);
         setToastType('success');
         setToastVisible(true);
         
@@ -698,7 +919,8 @@ export default function TaskDetailScreen({ route, navigation }) {
     // Determinar si puede seleccionar el área según el rol
     let canSelectArea = false;
     if (currentUser?.role === 'admin') {
-      canSelectArea = canEdit;
+      // Admin puede seleccionar áreas de los usuarios seleccionados
+      canSelectArea = canEdit && areasFromSelectedUsers.includes(a);
     } else if (currentUser?.role === 'secretario') {
       // Secretario puede seleccionar áreas de su lista
       canSelectArea = canEdit && availableAreas.includes(a);
@@ -718,15 +940,26 @@ export default function TaskDetailScreen({ route, navigation }) {
         return [...prev, a];
       }
     });
-  }, [canEdit, currentUser, areaToDepMap, availableAreas]);
+  }, [canEdit, currentUser, areaToDepMap, availableAreas, areasFromSelectedUsers]);
 
   const handlePriorityChange = useCallback((p) => {
     if (canEdit) setPriority(p);
   }, [canEdit]);
 
-  const handleStatusChange = useCallback((taskId, newStatus) => {
+  const handleStatusChange = useCallback(async (taskId, newStatus) => {
     setStatus(newStatus);
-    updateTask(taskId, { status: newStatus });
+    await updateTask(taskId, { status: newStatus });
+    
+    // Si es una subtarea de coordinación, actualizar el progreso del padre
+    if (editingTask?.isAreaSubtask && editingTask?.parentTaskId) {
+      try {
+        const { updateParentTaskProgress } = await import('../services/areaSubtasks');
+        await updateParentTaskProgress(editingTask.parentTaskId);
+        console.log('[TaskDetail] Progreso del padre actualizado');
+      } catch (error) {
+        console.error('[TaskDetail] Error actualizando progreso del padre:', error);
+      }
+    }
     
     // Mostrar mensaje de confirmación
     setToastMessage('Tarea iniciada correctamente');
@@ -737,7 +970,53 @@ export default function TaskDetailScreen({ route, navigation }) {
     setTimeout(() => {
       navigation.goBack();
     }, 1200);
-  }, [navigation]);
+  }, [navigation, editingTask]);
+
+  // Función para delegar tarea a un director
+  const handleDelegate = async (director) => {
+    if (!editingTask || !director) return;
+    
+    try {
+      setIsSaving(true);
+      
+      // Actualizar los asignados de la tarea
+      const newAssignees = [director.email];
+      const newAssigneesNames = [director.displayName];
+      
+      await updateTaskMultiple(editingTask.id, {
+        assignedEmails: newAssignees,
+        assignedTo: newAssignees,
+        assignedToNames: newAssigneesNames
+      });
+      
+      // Notificar al nuevo asignado
+      try {
+        const { notifyTaskAssigned } = await import('../services/emailNotifications');
+        await notifyTaskAssigned({
+          ...editingTask,
+          assignedTo: newAssignees
+        });
+      } catch (notifError) {
+        console.log('Error enviando notificación:', notifError);
+      }
+      
+      setToastMessage(`Tarea delegada a ${director.displayName}`);
+      setToastType('success');
+      setToastVisible(true);
+      setShowDelegateModal(false);
+      
+      setTimeout(() => {
+        navigation.goBack();
+      }, 1200);
+    } catch (error) {
+      console.error('Error al delegar:', error);
+      setToastMessage('Error al delegar la tarea');
+      setToastType('error');
+      setToastVisible(true);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -802,6 +1081,20 @@ export default function TaskDetailScreen({ route, navigation }) {
                     canEdit={false}
                   />
                 </View>
+
+                {/* Coordinación entre Áreas (si es tarea multi-área) */}
+                {editingTask?.isCoordinationTask && (
+                  <View style={styles.readOnlySection}>
+                    <Text style={[styles.readOnlyLabel, { color: theme.textSecondary }]}>Progreso por Área</Text>
+                    <AreaCoordinationProgress 
+                      parentTaskId={editingTask.id}
+                      currentUserArea={currentUser?.area}
+                      onSubtaskPress={(subtask) => {
+                        navigation.navigate('TaskDetail', { task: subtask });
+                      }}
+                    />
+                  </View>
+                )}
 
                 {/* Botón para acceder a Reportes y Chat */}
                 <View style={styles.readOnlySection}>
@@ -933,6 +1226,7 @@ export default function TaskDetailScreen({ route, navigation }) {
                 onSelectionChange={setSelectedAssignees}
                 role={currentUser?.role || 'admin'}
                 area={currentUser?.department || selectedAreas[0]}
+                allowedAreas={currentUser?.direcciones || currentUser?.areasPermitidas || []}
               />
             </View>
             
@@ -949,6 +1243,19 @@ export default function TaskDetailScreen({ route, navigation }) {
 
             {/* Selector de Múltiples Áreas */}
             <Text style={[styles.label, { marginTop: 28, marginBottom: 14 }]}>ÁREAS *</Text>
+            
+            {/* Mensaje informativo cuando hay usuarios seleccionados (solo admin) */}
+            {currentUser?.role === 'admin' && selectedAssignees.length > 0 && (
+              <View style={[styles.areaHintContainer, { backgroundColor: theme.primary + '12', borderColor: theme.primary + '30' }]}>
+                <Ionicons name="information-circle" size={18} color={theme.primary} />
+                <Text style={[styles.areaHintText, { color: theme.primary }]}>
+                  {areasFromSelectedUsers.length === 1 
+                    ? `Área auto-filtrada: ${areasFromSelectedUsers[0].replace('Dirección de ', '').replace('Secretaría de ', '')}` 
+                    : `Mostrando ${areasFromSelectedUsers.length} áreas de ${selectedAssignees.length === 1 ? 'la persona' : 'las personas'} seleccionada${selectedAssignees.length > 1 ? 's' : ''}`
+                  }
+                </Text>
+              </View>
+            )}
             
             {/* Mostrar áreas seleccionadas como pills */}
             {selectedAreas.length > 0 && (
@@ -1036,7 +1343,7 @@ export default function TaskDetailScreen({ route, navigation }) {
             onClose={() => setShowAreaModal(false)}
             selectedAreas={selectedAreas}
             onAreasChange={setSelectedAreas}
-            allAreas={availableAreas}
+            allAreas={currentUser?.role === 'admin' ? areasFromSelectedUsers : availableAreas}
             theme={theme}
             isDark={isDark}
           />
@@ -1092,32 +1399,60 @@ export default function TaskDetailScreen({ route, navigation }) {
             </View>
 
             <Text style={styles.label}>FECHA COMPROMISO *</Text>
-            <TouchableOpacity 
-              style={[styles.datePickerButton, { borderColor: theme.primary, backgroundColor: isDark ? `${theme.primary}15` : `${theme.primary}10` }]}
-              onPress={() => setShowDatePicker(true)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.datePickerContent}>
-                <View style={[styles.datePickerIcon, { backgroundColor: theme.primary }]}>
-                  <Ionicons name="calendar" size={24} color="#FFFFFF" />
-                </View>
-                <View style={styles.datePickerInfo}>
-                  <Text style={[styles.datePickerLabel, { color: theme.textSecondary }]}>
-                    Fecha y hora
-                  </Text>
-                  <Text style={[styles.datePickerValue, { color: theme.text }]}>
-                    {dueAt.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}
-                  </Text>
-                  <View style={styles.datePickerTime}>
-                    <Ionicons name="time" size={14} color={theme.primary} />
-                    <Text style={[styles.datePickerTimeText, { color: theme.textSecondary }]}>
-                      {dueAt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                    </Text>
+            {/* Solo admin y jefe pueden cambiar fecha al editar */}
+            {editingTask && currentUser && !['admin', 'jefe'].includes(currentUser.role) ? (
+              <View 
+                style={[styles.datePickerButton, { borderColor: theme.border, backgroundColor: isDark ? 'rgba(150,150,150,0.1)' : 'rgba(150,150,150,0.05)', opacity: 0.7 }]}
+              >
+                <View style={styles.datePickerContent}>
+                  <View style={[styles.datePickerIcon, { backgroundColor: theme.textSecondary }]}>
+                    <Ionicons name="calendar" size={24} color="#FFFFFF" />
                   </View>
+                  <View style={styles.datePickerInfo}>
+                    <Text style={[styles.datePickerLabel, { color: theme.textSecondary }]}>
+                      Fecha y hora (no editable)
+                    </Text>
+                    <Text style={[styles.datePickerValue, { color: theme.textSecondary }]}>
+                      {dueAt.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}
+                    </Text>
+                    <View style={styles.datePickerTime}>
+                      <Ionicons name="time" size={14} color={theme.textSecondary} />
+                      <Text style={[styles.datePickerTimeText, { color: theme.textSecondary }]}>
+                        {dueAt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    </View>
+                  </View>
+                  <Ionicons name="lock-closed" size={18} color={theme.textSecondary} />
                 </View>
-                <Ionicons name="chevron-forward" size={22} color={theme.primary} />
               </View>
-            </TouchableOpacity>
+            ) : (
+              <TouchableOpacity 
+                style={[styles.datePickerButton, { borderColor: theme.primary, backgroundColor: isDark ? `${theme.primary}15` : `${theme.primary}10` }]}
+                onPress={() => setShowDatePicker(true)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.datePickerContent}>
+                  <View style={[styles.datePickerIcon, { backgroundColor: theme.primary }]}>
+                    <Ionicons name="calendar" size={24} color="#FFFFFF" />
+                  </View>
+                  <View style={styles.datePickerInfo}>
+                    <Text style={[styles.datePickerLabel, { color: theme.textSecondary }]}>
+                      Fecha y hora
+                    </Text>
+                    <Text style={[styles.datePickerValue, { color: theme.text }]}>
+                      {dueAt.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}
+                    </Text>
+                    <View style={styles.datePickerTime}>
+                      <Ionicons name="time" size={14} color={theme.primary} />
+                      <Text style={[styles.datePickerTimeText, { color: theme.textSecondary }]}>
+                        {dueAt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={22} color={theme.primary} />
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* SECCIÓN ESTADO (solo al editar) */}
@@ -1454,8 +1789,55 @@ export default function TaskDetailScreen({ route, navigation }) {
           {editingTask && (
             <SubtasksList 
               taskId={editingTask.id}
-              canEdit={canEdit}
+              canEdit={canEdit || canAddSubtask}
             />
+          )}
+
+          {/* COORDINACIÓN ENTRE ÁREAS - Para tareas multi-secretaría */}
+          {editingTask?.isCoordinationTask && (
+            <View style={[styles.section, { backgroundColor: theme.cardBackground }]}>
+              <View style={styles.sectionHeaderSimple}>
+                <View style={{ backgroundColor: '#9C27B0' + '20', padding: 10, borderRadius: 12 }}>
+                  <Ionicons name="git-branch" size={22} color="#9C27B0" />
+                </View>
+                <Text style={[styles.sectionTitleSimple, { color: theme.text }]}>Progreso por Área</Text>
+              </View>
+              <AreaCoordinationProgress 
+                parentTaskId={editingTask.id}
+                currentUserArea={currentUser?.area}
+                onSubtaskPress={(subtask) => {
+                  navigation.navigate('TaskDetail', { task: subtask });
+                }}
+              />
+            </View>
+          )}
+
+          {/* BOTÓN DE DELEGACIÓN - Solo para secretarios */}
+          {editingTask && canDelegate && currentUser?.role === 'secretario' && (
+            <TouchableOpacity
+              style={[styles.delegateButton, { backgroundColor: '#FF9800' }]}
+              onPress={() => setShowDelegateModal(true)}
+            >
+              <Ionicons name="people" size={20} color="#FFFFFF" />
+              <Text style={styles.delegateButtonText}>Delegar Tarea</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* BANNER INFORMATIVO PARA ROLES CON PERMISOS LIMITADOS */}
+          {editingTask && !canEdit && (currentUser?.role === 'secretario' || currentUser?.role === 'director') && (
+            <View style={[styles.permissionBanner, { backgroundColor: isDark ? '#2D2D2D' : '#FFF3E0', borderColor: '#FF9800' }]}>
+              <Ionicons name="information-circle" size={24} color="#FF9800" />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={[styles.permissionBannerTitle, { color: theme.text }]}>
+                  {currentUser?.role === 'secretario' ? 'Modo Secretario' : 'Modo Director'}
+                </Text>
+                <Text style={[styles.permissionBannerText, { color: theme.textSecondary }]}>
+                  {currentUser?.role === 'secretario' 
+                    ? 'Puedes delegar tareas, crear subtareas y cambiar el estado.'
+                    : 'Puedes cambiar el estado de la tarea.'}
+                </Text>
+              </View>
+            </View>
           )}
 
           <PressableButton 
@@ -1469,7 +1851,12 @@ export default function TaskDetailScreen({ route, navigation }) {
                 {isSaving && <ActivityIndicator color="#FFFFFF" size="small" />}
                 {!isSaving && <Ionicons name={editingTask ? "checkmark-circle" : "add-circle"} size={20} color="#FFFFFF" />}
                 <Text style={styles.saveButtonText}>
-                  {isSaving ? 'Guardando...' : (editingTask ? 'Guardar Cambios' : 'Crear Tarea')}
+                  {isSaving 
+                    ? 'Guardando...' 
+                    : editingTask 
+                      ? (canEdit ? 'Guardar Cambios' : 'Actualizar Estado')
+                      : 'Crear Tarea'
+                  }
                 </Text>
               </Animated.View>
             </View>
@@ -1560,6 +1947,70 @@ export default function TaskDetailScreen({ route, navigation }) {
           </View>
         </View>
       )}
+      
+      {/* Modal de Delegación para Secretarios */}
+      <Modal
+        visible={showDelegateModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowDelegateModal(false)}
+      >
+        <View style={styles.delegateModalOverlay}>
+          <View style={[styles.delegateModalContent, { backgroundColor: theme.card }]}>
+            <View style={styles.delegateModalHeader}>
+              <Text style={[styles.delegateModalTitle, { color: theme.text }]}>
+                Delegar Tarea
+              </Text>
+              <TouchableOpacity onPress={() => setShowDelegateModal(false)}>
+                <Ionicons name="close" size={28} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={[styles.delegateModalSubtitle, { color: theme.textSecondary }]}>
+              Selecciona un director para asignarle esta tarea:
+            </Text>
+            
+            <ScrollView style={styles.delegateUsersList}>
+              {delegateUsers.length === 0 ? (
+                <View style={styles.noDelegateUsers}>
+                  <Ionicons name="people-outline" size={48} color={theme.textSecondary} />
+                  <Text style={[styles.noDelegateUsersText, { color: theme.textSecondary }]}>
+                    No hay directores disponibles en tus áreas
+                  </Text>
+                </View>
+              ) : (
+                delegateUsers.map((director, index) => (
+                  <TouchableOpacity
+                    key={director.email}
+                    style={[styles.delegateUserItem, { backgroundColor: theme.background, borderColor: theme.border }]}
+                    onPress={() => handleDelegate(director)}
+                  >
+                    <View style={[styles.delegateUserAvatar, { backgroundColor: theme.primary }]}>
+                      <Ionicons name="person" size={24} color="#FFFFFF" />
+                    </View>
+                    <View style={styles.delegateUserInfo}>
+                      <Text style={[styles.delegateUserName, { color: theme.text }]}>
+                        {director.displayName}
+                      </Text>
+                      <Text style={[styles.delegateUserArea, { color: theme.textSecondary }]}>
+                        {director.area}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={24} color={theme.primary} />
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+            
+            <TouchableOpacity
+              style={[styles.delegateCancelButton, { backgroundColor: theme.border }]}
+              onPress={() => setShowDelegateModal(false)}
+            >
+              <Text style={[styles.delegateCancelButtonText, { color: theme.text }]}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
         </View>
       )}
     </View>
@@ -2384,6 +2835,22 @@ const createStyles = (theme, isDark) => StyleSheet.create({
     marginBottom: 18,
     paddingVertical: 4,
   },
+  // Hint de áreas filtradas por usuario
+  areaHintContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginBottom: 14,
+    gap: 8,
+    borderWidth: 1,
+  },
+  areaHintText: {
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
   areaPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2511,5 +2978,126 @@ const createStyles = (theme, isDark) => StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.3,
+  },
+  // Estilos para botón de delegación
+  delegateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 14,
+    marginHorizontal: 0,
+    marginTop: 16,
+    marginBottom: 8,
+    gap: 10,
+    shadowColor: '#FF9800',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  delegateButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  // Estilos para modal de delegación
+  delegateModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  delegateModalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 20,
+    paddingBottom: 40,
+    maxHeight: '80%',
+  },
+  delegateModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 10,
+  },
+  delegateModalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  delegateModalSubtitle: {
+    fontSize: 14,
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  delegateUsersList: {
+    paddingHorizontal: 20,
+    maxHeight: 400,
+  },
+  noDelegateUsers: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  noDelegateUsersText: {
+    marginTop: 16,
+    fontSize: 15,
+    textAlign: 'center',
+  },
+  delegateUserItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  delegateUserAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  delegateUserInfo: {
+    flex: 1,
+    marginLeft: 14,
+  },
+  delegateUserName: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  delegateUserArea: {
+    fontSize: 13,
+  },
+  delegateCancelButton: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  delegateCancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Estilos para banner de permisos
+  permissionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+  },
+  permissionBannerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  permissionBannerText: {
+    fontSize: 13,
+    lineHeight: 18,
   },
 });
