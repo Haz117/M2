@@ -132,6 +132,21 @@
             transform: translateY(-2px);
         }
         
+        .btn-disabled {
+            background: #E0E0E0;
+            color: #999;
+            border: 2px solid #CCC;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        
+        .btn-disabled:hover {
+            background: #E0E0E0;
+            color: #999;
+            transform: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
         .features {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -295,9 +310,9 @@
                 <a href="#" class="btn btn-primary" id="downloadApk">
                     Descargar APK (Android)
                 </a>
-                <a href="#" class="btn btn-secondary" id="addToHomeIOS">
-                    Instalar en iPhone
-                </a>
+                <span class="btn btn-disabled" id="addToHomeIOS">
+                    iPhone - Próximamente
+                </span>
                 <a href="/" class="btn btn-secondary" id="openWebApp">
                     Abrir App Web
                 </a>
@@ -441,25 +456,26 @@
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         const isInStandaloneMode = ('standalone' in window.navigator) && (window.navigator.standalone);
         
-        // Botón iOS
+        // Botón iOS - Deshabilitado (Próximamente)
         const iosBtn = document.getElementById('addToHomeIOS');
         if (iosBtn) {
             iosBtn.addEventListener('click', function(e) {
                 e.preventDefault();
-                if (isIOS && !isInStandaloneMode) {
-                    alert('Para instalar en iPhone:\n\n1. Abre esta página en Safari\n2. Toca el botón de Compartir\n3. Selecciona "Agregar a pantalla de inicio"\n4. Confirma\n\n¡La app aparecerá en tu iPhone como una app normal!');
-                } else if (isInStandaloneMode) {
-                    alert('[OK] Ya tienes la app instalada en tu iPhone');
-                } else {
-                    window.open('https://to-do-iota-opal.vercel.app', '_blank');
-                }
+                alert('📱 iPhone - Próximamente\n\nLa versión para iOS estará disponible pronto.\n\nPor ahora puedes usar la versión web desde Safari.');
             });
         }
         
-        // Botón Android APK
+        // Botón Android APK - Descarga directa
         document.getElementById('downloadApk').addEventListener('click', function(e) {
             e.preventDefault();
-            alert('Para generar el APK ejecuta:\n\neas build -p android --profile preview\n\nLuego actualiza el link en este archivo HTML.');
+            // URL del APK en tu servidor o almacenamiento
+            const apkUrl = 'https://expo.dev/artifacts/eas/YOUR_APK_URL.apk';
+            
+            // Si tienes un APK disponible, descomenta la siguiente línea y agrega la URL real:
+            // window.location.href = apkUrl;
+            
+            // Por ahora muestra instrucciones
+            alert('📱 Descarga de APK\n\nEl APK se generará próximamente.\n\nPor ahora puedes usar la versión web haciendo clic en "Abrir App Web".');
         });
         
         // Botón Abrir App Web
