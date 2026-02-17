@@ -34,6 +34,7 @@ export default function AdminScreen({ navigation, onLogout }) {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('success');
   const [isLoading, setIsLoading] = useState(true);
+  const [showFlowModal, setShowFlowModal] = useState(false);
 
   // Disable animations on web for compatibility
   const supportsNativeDriver = Platform.OS !== 'web';
@@ -462,6 +463,235 @@ export default function AdminScreen({ navigation, onLogout }) {
         </View>
       </Modal>
 
+      {/* Modal de Flujo del Sistema */}
+      <Modal
+        visible={showFlowModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowFlowModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.flowModalContent, { backgroundColor: theme.card }]}>
+            <View style={styles.flowModalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <LinearGradient
+                  colors={['#9F2241', '#7D1A33']}
+                  style={[styles.iconCircleSection, { marginRight: 12 }]}
+                >
+                  <Ionicons name="git-network" size={24} color="#FFFFFF" />
+                </LinearGradient>
+                <View>
+                  <Text style={[styles.flowModalTitle, { color: theme.text }]}>Flujo del Sistema</Text>
+                  <Text style={[styles.flowModalSubtitle, { color: theme.textSecondary }]}>
+                    Guía de funcionamiento
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setShowFlowModal(false)}>
+                <Ionicons name="close-circle" size={32} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.flowModalScroll} showsVerticalScrollIndicator={false}>
+              {/* Jerarquía de Roles */}
+              <View style={[styles.flowSection, { backgroundColor: isDark ? '#1E1E23' : '#F8F9FA', borderRadius: 12, padding: 16, marginBottom: 16 }]}>
+                <Text style={[styles.flowTitle, { color: theme.text }]}>👥 Jerarquía de Roles</Text>
+                
+                <View style={styles.hierarchyContainer}>
+                  <View style={[styles.roleBox, { backgroundColor: '#DC2626' }]}>
+                    <Ionicons name="shield-checkmark" size={20} color="#FFFFFF" />
+                    <Text style={styles.roleBoxText}>ADMIN</Text>
+                    <Text style={styles.roleBoxDesc}>Ve TODO</Text>
+                  </View>
+                  
+                  <Ionicons name="arrow-down" size={24} color={theme.textSecondary} style={{ alignSelf: 'center', marginVertical: 8 }} />
+                  
+                  <View style={styles.roleRow}>
+                    <View style={[styles.roleBoxSmall, { backgroundColor: '#9F2241' }]}>
+                      <Text style={styles.roleBoxTextSmall}>SECRETARIO</Text>
+                      <Text style={styles.roleBoxDescSmall}>Ve su área</Text>
+                    </View>
+                    <View style={[styles.roleBoxSmall, { backgroundColor: '#9F2241' }]}>
+                      <Text style={styles.roleBoxTextSmall}>SECRETARIO</Text>
+                      <Text style={styles.roleBoxDescSmall}>Ve su área</Text>
+                    </View>
+                  </View>
+                  
+                  <Ionicons name="arrow-down" size={24} color={theme.textSecondary} style={{ alignSelf: 'center', marginVertical: 8 }} />
+                  
+                  <View style={styles.roleRow}>
+                    <View style={[styles.roleBoxSmall, { backgroundColor: '#3B82F6' }]}>
+                      <Text style={styles.roleBoxTextSmall}>DIRECTOR</Text>
+                      <Text style={styles.roleBoxDescSmall}>Ve su área</Text>
+                    </View>
+                    <View style={[styles.roleBoxSmall, { backgroundColor: '#3B82F6' }]}>
+                      <Text style={styles.roleBoxTextSmall}>DIRECTOR</Text>
+                      <Text style={styles.roleBoxDescSmall}>Ve su área</Text>
+                    </View>
+                    <View style={[styles.roleBoxSmall, { backgroundColor: '#3B82F6' }]}>
+                      <Text style={styles.roleBoxTextSmall}>DIRECTOR</Text>
+                      <Text style={styles.roleBoxDescSmall}>Ve su área</Text>
+                    </View>
+                  </View>
+                </View>
+                
+                <View style={[styles.flowInfo, { backgroundColor: isDark ? '#2A2A30' : '#E8F4FD', marginTop: 12 }]}>
+                  <Ionicons name="information-circle" size={18} color="#3B82F6" />
+                  <Text style={[styles.flowInfoText, { color: theme.textSecondary }]}>
+                    7 Secretarías • 35 Directores registrados
+                  </Text>
+                </View>
+              </View>
+
+              {/* Flujo de Tareas */}
+              <View style={[styles.flowSection, { backgroundColor: isDark ? '#1E1E23' : '#F8F9FA', borderRadius: 12, padding: 16, marginBottom: 16 }]}>
+                <Text style={[styles.flowTitle, { color: theme.text }]}>📋 Flujo de Tareas</Text>
+                
+                <View style={styles.flowSteps}>
+                  <View style={styles.flowStep}>
+                    <View style={[styles.flowStepNumber, { backgroundColor: '#9F2241' }]}>
+                      <Text style={styles.flowStepNumberText}>1</Text>
+                    </View>
+                    <View style={styles.flowStepContent}>
+                      <Text style={[styles.flowStepTitle, { color: theme.text }]}>Crear Tarea</Text>
+                      <Text style={[styles.flowStepDesc, { color: theme.textSecondary }]}>Admin asigna a usuarios o área</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={[styles.flowConnector, { backgroundColor: theme.border }]} />
+                  
+                  <View style={styles.flowStep}>
+                    <View style={[styles.flowStepNumber, { backgroundColor: '#F59E0B' }]}>
+                      <Text style={styles.flowStepNumberText}>2</Text>
+                    </View>
+                    <View style={styles.flowStepContent}>
+                      <Text style={[styles.flowStepTitle, { color: theme.text }]}>Ver en Bandeja</Text>
+                      <Text style={[styles.flowStepDesc, { color: theme.textSecondary }]}>Cada usuario ve sus tareas asignadas</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={[styles.flowConnector, { backgroundColor: theme.border }]} />
+                  
+                  <View style={styles.flowStep}>
+                    <View style={[styles.flowStepNumber, { backgroundColor: '#3B82F6' }]}>
+                      <Text style={styles.flowStepNumberText}>3</Text>
+                    </View>
+                    <View style={styles.flowStepContent}>
+                      <Text style={[styles.flowStepTitle, { color: theme.text }]}>Ejecutar</Text>
+                      <Text style={[styles.flowStepDesc, { color: theme.textSecondary }]}>Subtareas, chat, adjuntos</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={[styles.flowConnector, { backgroundColor: theme.border }]} />
+                  
+                  <View style={styles.flowStep}>
+                    <View style={[styles.flowStepNumber, { backgroundColor: '#8B5CF6' }]}>
+                      <Text style={styles.flowStepNumberText}>4</Text>
+                    </View>
+                    <View style={styles.flowStepContent}>
+                      <Text style={[styles.flowStepTitle, { color: theme.text }]}>Confirmar Parte</Text>
+                      <Text style={[styles.flowStepDesc, { color: theme.textSecondary }]}>Cada asignado confirma su trabajo</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={[styles.flowConnector, { backgroundColor: theme.border }]} />
+                  
+                  <View style={styles.flowStep}>
+                    <View style={[styles.flowStepNumber, { backgroundColor: '#10B981' }]}>
+                      <Text style={styles.flowStepNumberText}>5</Text>
+                    </View>
+                    <View style={styles.flowStepContent}>
+                      <Text style={[styles.flowStepTitle, { color: theme.text }]}>Cerrar Tarea</Text>
+                      <Text style={[styles.flowStepDesc, { color: theme.textSecondary }]}>Admin cierra cuando todos confirman</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {/* Pantallas Principales */}
+              <View style={[styles.flowSection, { backgroundColor: isDark ? '#1E1E23' : '#F8F9FA', borderRadius: 12, padding: 16, marginBottom: 16 }]}>
+                <Text style={[styles.flowTitle, { color: theme.text }]}>📱 Pantallas Principales</Text>
+                
+                <View style={styles.screensGrid}>
+                  <View style={[styles.screenItem, { backgroundColor: isDark ? '#2A2A30' : '#FFFFFF' }]}>
+                    <Ionicons name="home" size={24} color="#9F2241" />
+                    <Text style={[styles.screenName, { color: theme.text }]}>Inicio</Text>
+                    <Text style={[styles.screenDesc, { color: theme.textSecondary }]}>Lista + crear</Text>
+                  </View>
+                  
+                  <View style={[styles.screenItem, { backgroundColor: isDark ? '#2A2A30' : '#FFFFFF' }]}>
+                    <Ionicons name="apps" size={24} color="#3B82F6" />
+                    <Text style={[styles.screenName, { color: theme.text }]}>Tablero</Text>
+                    <Text style={[styles.screenDesc, { color: theme.textSecondary }]}>Vista Kanban</Text>
+                  </View>
+                  
+                  <View style={[styles.screenItem, { backgroundColor: isDark ? '#2A2A30' : '#FFFFFF' }]}>
+                    <Ionicons name="calendar" size={24} color="#F59E0B" />
+                    <Text style={[styles.screenName, { color: theme.text }]}>Calendario</Text>
+                    <Text style={[styles.screenDesc, { color: theme.textSecondary }]}>Por fecha</Text>
+                  </View>
+                  
+                  <View style={[styles.screenItem, { backgroundColor: isDark ? '#2A2A30' : '#FFFFFF' }]}>
+                    <Ionicons name="file-tray-full" size={24} color="#8B5CF6" />
+                    <Text style={[styles.screenName, { color: theme.text }]}>Bandeja</Text>
+                    <Text style={[styles.screenDesc, { color: theme.textSecondary }]}>Mis tareas</Text>
+                  </View>
+                  
+                  <View style={[styles.screenItem, { backgroundColor: isDark ? '#2A2A30' : '#FFFFFF' }]}>
+                    <Ionicons name="bar-chart" size={24} color="#10B981" />
+                    <Text style={[styles.screenName, { color: theme.text }]}>Reportes</Text>
+                    <Text style={[styles.screenDesc, { color: theme.textSecondary }]}>Métricas</Text>
+                  </View>
+                  
+                  <View style={[styles.screenItem, { backgroundColor: isDark ? '#2A2A30' : '#FFFFFF' }]}>
+                    <Ionicons name="settings" size={24} color="#DC2626" />
+                    <Text style={[styles.screenName, { color: theme.text }]}>Admin</Text>
+                    <Text style={[styles.screenDesc, { color: theme.textSecondary }]}>Usuarios</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Métricas por Rol */}
+              <View style={[styles.flowSection, { backgroundColor: isDark ? '#1E1E23' : '#F8F9FA', borderRadius: 12, padding: 16, marginBottom: 16 }]}>
+                <Text style={[styles.flowTitle, { color: theme.text }]}>📊 ¿Quién ve qué métricas?</Text>
+                
+                <View style={styles.metricsInfo}>
+                  <View style={[styles.metricRole, { borderLeftColor: '#DC2626' }]}>
+                    <Text style={[styles.metricRoleTitle, { color: theme.text }]}>Admin</Text>
+                    <Text style={[styles.metricRoleDesc, { color: theme.textSecondary }]}>
+                      Cumplimiento de TODOS • Gráficos de área • Alertas globales
+                    </Text>
+                  </View>
+                  
+                  <View style={[styles.metricRole, { borderLeftColor: '#9F2241' }]}>
+                    <Text style={[styles.metricRoleTitle, { color: theme.text }]}>Secretario</Text>
+                    <Text style={[styles.metricRoleDesc, { color: theme.textSecondary }]}>
+                      Rendimiento de sus directores • Tareas de su área • Promedio de cumplimiento
+                    </Text>
+                  </View>
+                  
+                  <View style={[styles.metricRole, { borderLeftColor: '#3B82F6' }]}>
+                    <Text style={[styles.metricRoleTitle, { color: theme.text }]}>Director</Text>
+                    <Text style={[styles.metricRoleDesc, { color: theme.textSecondary }]}>
+                      Sus propias métricas • Tareas de su área
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </ScrollView>
+            
+            <View style={styles.flowModalFooter}>
+              <TouchableOpacity 
+                style={[styles.flowModalButton, { backgroundColor: '#9F2241' }]}
+                onPress={() => setShowFlowModal(false)}
+              >
+                <Text style={styles.flowModalButtonText}>Entendido</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <View style={styles.headerSection}>
         <LinearGradient
           colors={isDark ? ['#2A1520', '#1A1A1A'] : ['#9F2241', '#7F1D35']}
@@ -564,215 +794,27 @@ export default function AdminScreen({ navigation, onLogout }) {
           </View>
         </View>
 
-        {/* 📋 FLUJO DEL SISTEMA - Guía Visual */}
-        <View style={[
-          styles.sectionCard, 
-          { 
-            backgroundColor: isDark ? 'rgba(30, 30, 35, 0.95)' : 'rgba(255, 255, 255, 0.98)',
-            borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
-          }
-        ]}>
-          <View style={styles.sectionHeader}>
-            <LinearGradient
-              colors={['#9F2241', '#7D1A33']}
-              style={styles.iconCircleSection}
-            >
-              <Ionicons name="git-network" size={24} color="#FFFFFF" />
-            </LinearGradient>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Flujo del Sistema</Text>
-          </View>
+        {/* 📋 BOTÓN PARA VER FLUJO DEL SISTEMA */}
+        <TouchableOpacity 
+          style={[styles.actionButton, { marginBottom: 16 }]}
+          onPress={() => {
+            hapticMedium();
+            setShowFlowModal(true);
+          }}
+        >
+          <LinearGradient
+            colors={['#9F2241', '#7D1A33']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.buttonGradient}
+          >
+            <Ionicons name="git-network" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.buttonText}>Ver Flujo del Sistema</Text>
+            <Ionicons name="chevron-forward" size={20} color="#FFFFFF" style={{ marginLeft: 'auto' }} />
+          </LinearGradient>
+        </TouchableOpacity>
 
-          {/* Jerarquía de Roles */}
-          <View style={[styles.flowSection, { backgroundColor: isDark ? '#1E1E23' : '#F8F9FA', borderRadius: 12, padding: 16, marginBottom: 16 }]}>
-            <Text style={[styles.flowTitle, { color: theme.text }]}>👥 Jerarquía de Roles</Text>
-            
-            <View style={styles.hierarchyContainer}>
-              {/* Admin */}
-              <View style={[styles.roleBox, { backgroundColor: '#DC2626' }]}>
-                <Ionicons name="shield-checkmark" size={20} color="#FFFFFF" />
-                <Text style={styles.roleBoxText}>ADMIN</Text>
-                <Text style={styles.roleBoxDesc}>Ve TODO</Text>
-              </View>
-              
-              <Ionicons name="arrow-down" size={24} color={theme.textSecondary} style={{ alignSelf: 'center', marginVertical: 8 }} />
-              
-              {/* Secretarios */}
-              <View style={styles.roleRow}>
-                <View style={[styles.roleBoxSmall, { backgroundColor: '#9F2241' }]}>
-                  <Text style={styles.roleBoxTextSmall}>SECRETARIO</Text>
-                  <Text style={styles.roleBoxDescSmall}>Ve su área</Text>
-                </View>
-                <View style={[styles.roleBoxSmall, { backgroundColor: '#9F2241' }]}>
-                  <Text style={styles.roleBoxTextSmall}>SECRETARIO</Text>
-                  <Text style={styles.roleBoxDescSmall}>Ve su área</Text>
-                </View>
-              </View>
-              
-              <Ionicons name="arrow-down" size={24} color={theme.textSecondary} style={{ alignSelf: 'center', marginVertical: 8 }} />
-              
-              {/* Directores */}
-              <View style={styles.roleRow}>
-                <View style={[styles.roleBoxSmall, { backgroundColor: '#3B82F6' }]}>
-                  <Text style={styles.roleBoxTextSmall}>DIRECTOR</Text>
-                  <Text style={styles.roleBoxDescSmall}>Ve su área</Text>
-                </View>
-                <View style={[styles.roleBoxSmall, { backgroundColor: '#3B82F6' }]}>
-                  <Text style={styles.roleBoxTextSmall}>DIRECTOR</Text>
-                  <Text style={styles.roleBoxDescSmall}>Ve su área</Text>
-                </View>
-                <View style={[styles.roleBoxSmall, { backgroundColor: '#3B82F6' }]}>
-                  <Text style={styles.roleBoxTextSmall}>DIRECTOR</Text>
-                  <Text style={styles.roleBoxDescSmall}>Ve su área</Text>
-                </View>
-              </View>
-            </View>
-            
-            <View style={[styles.flowInfo, { backgroundColor: isDark ? '#2A2A30' : '#E8F4FD', marginTop: 12 }]}>
-              <Ionicons name="information-circle" size={18} color="#3B82F6" />
-              <Text style={[styles.flowInfoText, { color: theme.textSecondary }]}>
-                7 Secretarías • 35 Directores registrados
-              </Text>
-            </View>
-          </View>
-
-          {/* Flujo de Tareas */}
-          <View style={[styles.flowSection, { backgroundColor: isDark ? '#1E1E23' : '#F8F9FA', borderRadius: 12, padding: 16, marginBottom: 16 }]}>
-            <Text style={[styles.flowTitle, { color: theme.text }]}>📋 Flujo de Tareas</Text>
-            
-            <View style={styles.flowSteps}>
-              <View style={styles.flowStep}>
-                <View style={[styles.flowStepNumber, { backgroundColor: '#9F2241' }]}>
-                  <Text style={styles.flowStepNumberText}>1</Text>
-                </View>
-                <View style={styles.flowStepContent}>
-                  <Text style={[styles.flowStepTitle, { color: theme.text }]}>Crear Tarea</Text>
-                  <Text style={[styles.flowStepDesc, { color: theme.textSecondary }]}>Admin asigna a usuarios o área</Text>
-                </View>
-              </View>
-              
-              <View style={[styles.flowConnector, { backgroundColor: theme.border }]} />
-              
-              <View style={styles.flowStep}>
-                <View style={[styles.flowStepNumber, { backgroundColor: '#F59E0B' }]}>
-                  <Text style={styles.flowStepNumberText}>2</Text>
-                </View>
-                <View style={styles.flowStepContent}>
-                  <Text style={[styles.flowStepTitle, { color: theme.text }]}>Ver en Bandeja</Text>
-                  <Text style={[styles.flowStepDesc, { color: theme.textSecondary }]}>Cada usuario ve sus tareas asignadas</Text>
-                </View>
-              </View>
-              
-              <View style={[styles.flowConnector, { backgroundColor: theme.border }]} />
-              
-              <View style={styles.flowStep}>
-                <View style={[styles.flowStepNumber, { backgroundColor: '#3B82F6' }]}>
-                  <Text style={styles.flowStepNumberText}>3</Text>
-                </View>
-                <View style={styles.flowStepContent}>
-                  <Text style={[styles.flowStepTitle, { color: theme.text }]}>Ejecutar</Text>
-                  <Text style={[styles.flowStepDesc, { color: theme.textSecondary }]}>Subtareas, chat, adjuntos</Text>
-                </View>
-              </View>
-              
-              <View style={[styles.flowConnector, { backgroundColor: theme.border }]} />
-              
-              <View style={styles.flowStep}>
-                <View style={[styles.flowStepNumber, { backgroundColor: '#8B5CF6' }]}>
-                  <Text style={styles.flowStepNumberText}>4</Text>
-                </View>
-                <View style={styles.flowStepContent}>
-                  <Text style={[styles.flowStepTitle, { color: theme.text }]}>Confirmar Parte</Text>
-                  <Text style={[styles.flowStepDesc, { color: theme.textSecondary }]}>Cada asignado confirma su trabajo</Text>
-                </View>
-              </View>
-              
-              <View style={[styles.flowConnector, { backgroundColor: theme.border }]} />
-              
-              <View style={styles.flowStep}>
-                <View style={[styles.flowStepNumber, { backgroundColor: '#10B981' }]}>
-                  <Text style={styles.flowStepNumberText}>5</Text>
-                </View>
-                <View style={styles.flowStepContent}>
-                  <Text style={[styles.flowStepTitle, { color: theme.text }]}>Cerrar Tarea</Text>
-                  <Text style={[styles.flowStepDesc, { color: theme.textSecondary }]}>Admin cierra cuando todos confirman</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* Pantallas Principales */}
-          <View style={[styles.flowSection, { backgroundColor: isDark ? '#1E1E23' : '#F8F9FA', borderRadius: 12, padding: 16, marginBottom: 16 }]}>
-            <Text style={[styles.flowTitle, { color: theme.text }]}>📱 Pantallas Principales</Text>
-            
-            <View style={styles.screensGrid}>
-              <View style={[styles.screenItem, { backgroundColor: isDark ? '#2A2A30' : '#FFFFFF' }]}>
-                <Ionicons name="home" size={24} color="#9F2241" />
-                <Text style={[styles.screenName, { color: theme.text }]}>Inicio</Text>
-                <Text style={[styles.screenDesc, { color: theme.textSecondary }]}>Lista + crear</Text>
-              </View>
-              
-              <View style={[styles.screenItem, { backgroundColor: isDark ? '#2A2A30' : '#FFFFFF' }]}>
-                <Ionicons name="apps" size={24} color="#3B82F6" />
-                <Text style={[styles.screenName, { color: theme.text }]}>Tablero</Text>
-                <Text style={[styles.screenDesc, { color: theme.textSecondary }]}>Vista Kanban</Text>
-              </View>
-              
-              <View style={[styles.screenItem, { backgroundColor: isDark ? '#2A2A30' : '#FFFFFF' }]}>
-                <Ionicons name="calendar" size={24} color="#F59E0B" />
-                <Text style={[styles.screenName, { color: theme.text }]}>Calendario</Text>
-                <Text style={[styles.screenDesc, { color: theme.textSecondary }]}>Por fecha</Text>
-              </View>
-              
-              <View style={[styles.screenItem, { backgroundColor: isDark ? '#2A2A30' : '#FFFFFF' }]}>
-                <Ionicons name="file-tray-full" size={24} color="#8B5CF6" />
-                <Text style={[styles.screenName, { color: theme.text }]}>Bandeja</Text>
-                <Text style={[styles.screenDesc, { color: theme.textSecondary }]}>Mis tareas</Text>
-              </View>
-              
-              <View style={[styles.screenItem, { backgroundColor: isDark ? '#2A2A30' : '#FFFFFF' }]}>
-                <Ionicons name="bar-chart" size={24} color="#10B981" />
-                <Text style={[styles.screenName, { color: theme.text }]}>Reportes</Text>
-                <Text style={[styles.screenDesc, { color: theme.textSecondary }]}>Métricas</Text>
-              </View>
-              
-              <View style={[styles.screenItem, { backgroundColor: isDark ? '#2A2A30' : '#FFFFFF' }]}>
-                <Ionicons name="settings" size={24} color="#DC2626" />
-                <Text style={[styles.screenName, { color: theme.text }]}>Admin</Text>
-                <Text style={[styles.screenDesc, { color: theme.textSecondary }]}>Usuarios</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Métricas por Rol */}
-          <View style={[styles.flowSection, { backgroundColor: isDark ? '#1E1E23' : '#F8F9FA', borderRadius: 12, padding: 16 }]}>
-            <Text style={[styles.flowTitle, { color: theme.text }]}>📊 ¿Quién ve qué métricas?</Text>
-            
-            <View style={styles.metricsInfo}>
-              <View style={[styles.metricRole, { borderLeftColor: '#DC2626' }]}>
-                <Text style={[styles.metricRoleTitle, { color: theme.text }]}>Admin</Text>
-                <Text style={[styles.metricRoleDesc, { color: theme.textSecondary }]}>
-                  Cumplimiento de TODOS • Gráficos de área • Alertas globales
-                </Text>
-              </View>
-              
-              <View style={[styles.metricRole, { borderLeftColor: '#9F2241' }]}>
-                <Text style={[styles.metricRoleTitle, { color: theme.text }]}>Secretario</Text>
-                <Text style={[styles.metricRoleDesc, { color: theme.textSecondary }]}>
-                  Rendimiento de sus directores • Tareas de su área • Promedio de cumplimiento
-                </Text>
-              </View>
-              
-              <View style={[styles.metricRole, { borderLeftColor: '#3B82F6' }]}>
-                <Text style={[styles.metricRoleTitle, { color: theme.text }]}>Director</Text>
-                <Text style={[styles.metricRoleDesc, { color: theme.textSecondary }]}>
-                  Sus propias métricas • Tareas de su área
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Crear Usuario */}
+        {/* Crear Usuario */
         <View>
           <View style={[
             styles.sectionCard, 
@@ -1957,6 +1999,61 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     lineHeight: 18,
+  },
+  // Estilos del Modal de Flujo
+  flowModalContent: {
+    width: '94%',
+    maxHeight: '90%',
+    borderRadius: 24,
+    padding: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  flowModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(159, 34, 65, 0.2)',
+  },
+  flowModalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  flowModalSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  flowModalScroll: {
+    maxHeight: 500,
+    padding: 16,
+  },
+  flowModalFooter: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(159, 34, 65, 0.1)',
+  },
+  flowModalButton: {
+    padding: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    shadowColor: '#9F2241',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  flowModalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
 });
 
