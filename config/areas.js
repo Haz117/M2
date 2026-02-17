@@ -7,49 +7,76 @@ export const SECRETARIAS = [
   'Secretaría de Obras Públicas y Desarrollo Urbano',
   'Secretaría de Planeación y Evaluación',
   'Secretaría de Bienestar Social',
-  'Secretaría de Seguridad Pública, Tránsito Municipal, Auxilio Vial y Protección Civil',
-  'Secretaría de Desarrollo de Pueblos y Comunidades Indígenas',
+  'Secretaría de Seguridad Pública',
+  'Secretaría de Desarrollo para Pueblos y Comunidades Indígenas',
   'Secretaría de Desarrollo Económico y Turismo',
-  'Secretaría Ejecutiva de SIPINNA',
 ];
 
 export const DIRECCIONES = [
-  'Dirección Jurídica',
-  'Dirección de Comunicación Social y Marketing Digital',
+  // Secretaría General Municipal
   'Dirección de Gobierno',
   'Dirección de Reglamentos, Comercio, Mercado y Espectáculos',
   'Dirección de Recursos Materiales y Patrimonio',
   'Dirección de Atención al Migrante',
   'Dirección de Enlace de la Secretaría de Relaciones Exteriores',
-  'Dirección de Control y Seguimiento de Egresos',
-  'Dirección de Ingresos y Estrategias de Recaudación',
-  'Dirección de Recursos Humanos y Nómina',
+  'Oficial del Registro del Estado Familiar',
+  'Dirección del Área Coordinadora de Archivo',
+  'Unidad Central de Correspondencia',
+  'Junta de Reclutamiento',
+  'Conciliación Municipal',
+  
+  // Secretaría de Tesorería Municipal
   'Dirección de Cuenta Pública',
+  'Dirección de Control y Seguimiento de Egresos',
   'Dirección de Catastro',
+  'Dirección de Ingresos y Estrategias de Recaudación',
   'Dirección de Administración',
-  'Dirección de Medio Ambiente y Desarrollo Sostenible',
+  'Dirección de Recursos Humanos y Nómina',
+  
+  // Secretaría de Obras Públicas y Desarrollo Urbano
   'Dirección de Obras Públicas',
-  'Dirección de Servicios Municipales',
-  'Dirección de Servicios Públicos y Limpias',
   'Dirección de Desarrollo Urbano y Ordenamiento Territorial',
+  'Dirección de Servicios Públicos y Limpias',
+  'Dirección de Servicios Municipales',
+  'Dirección de Medio Ambiente y Desarrollo Sostenible',
+  
+  // Secretaría de Planeación y Evaluación
   'Dirección Técnica de Planeación y Evaluación',
   'Dirección de Tecnologías de la Información',
-  'Dirección de Educación',
-  'Dirección de Salud',
-  'Dirección de Programas Sociales',
-  'Dirección del Deporte',
-  'Dirección de Cultura',
-  'Dirección de Prevención del Delito',
-  'Dirección de Protección Civil y Bomberos',
-  'Dirección Administrativa (Seguridad Pública)',
-  'Dirección Preventiva de Tránsito Municipal y Auxilio Vial',
+  
+  // Secretaría de Desarrollo Económico y Turismo
+  'Dirección de Turismo',
   'Dirección de Desarrollo Económico',
   'Dirección de Desarrollo Agropecuario y Proyectos Productivos',
-  'Dirección de Turismo',
+  
+  // Secretaría de Bienestar Social
+  'Dirección de Cultura',
+  'Dirección del Deporte',
+  'Dirección de Salud',
+  'Dirección de Educación',
+  'Dirección de Programas Sociales',
+  'Instancia Municipal de la Juventud',
+  
+  // Secretaría de Seguridad Pública
+  'Dirección de Protección Civil y Bomberos',
+  'Dirección de Prevención del Delito',
+  'Dirección Administrativa (Seguridad Pública)',
+  'Dirección Preventiva de Tránsito Municipal y Auxilio Vial',
 ];
 
-// Todas las áreas (Secretarías + Direcciones) ordenadas alfabéticamente
-export const TODAS_LAS_AREAS = [...SECRETARIAS, ...DIRECCIONES].sort();
+// Otras áreas/organismos
+export const OTRAS_AREAS = [
+  'Contraloría Municipal',
+  'Dirección Jurídica',
+  'Dirección de Comunicación Social y Marketing Digital',
+  'Unidad Municipal de Transparencia',
+  'Instancia Municipal para el Desarrollo de las Mujeres',
+  'Secretaría Ejecutiva de SIPINNA',
+  'Asamblea Municipal',
+];
+
+// Todas las áreas ordenadas alfabéticamente
+export const TODAS_LAS_AREAS = [...SECRETARIAS, ...DIRECCIONES, ...OTRAS_AREAS].sort();
 
 // Mapeo simplificado para mantener compatibilidad con código existente
 export const AREAS = TODAS_LAS_AREAS;

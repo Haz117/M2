@@ -21,7 +21,7 @@ export default function AdminScreen({ navigation, onLogout }) {
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userPassword, setUserPassword] = useState('');
-  const [userRole, setUserRole] = useState('operativo');
+  const [userRole, setUserRole] = useState('director');
   const [currentUser, setCurrentUser] = useState(null);
   const [isUserAdmin, setIsUserAdmin] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
@@ -267,7 +267,7 @@ export default function AdminScreen({ navigation, onLogout }) {
         setUserName('');
         setUserEmail('');
         setUserPassword('');
-        setUserRole('operativo');
+        setUserRole('director');
         loadAllUsers(); // Recargar lista
       } else {
         showToast(result.error, 'error');
@@ -678,6 +678,94 @@ export default function AdminScreen({ navigation, onLogout }) {
                   </View>
                 </View>
               </View>
+              
+              {/* Credenciales */}
+              <View style={styles.flowSection}>
+                <View style={styles.flowSectionHeader}>
+                  <Ionicons name="key" size={20} color="#9F2241" />
+                  <Text style={[styles.flowSectionTitle, { color: theme.text }]}>🔐 Credenciales de Acceso</Text>
+                </View>
+                
+                <View style={[styles.credentialsBox, { backgroundColor: isDark ? '#2A2A2A' : '#F5F5F5' }]}>
+                  <Text style={[styles.credentialHeader, { color: '#9F2241' }]}>👤 ADMINISTRADOR</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>admin@todo.com → admin123</Text>
+                </View>
+                
+                <View style={[styles.credentialsBox, { backgroundColor: isDark ? '#2A2A2A' : '#F5F5F5' }]}>
+                  <Text style={[styles.credentialHeader, { color: '#9F2241' }]}>📋 SECRETARIOS</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>secretaria.general@municipio.com → SecGen2024</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>tesoreria@municipio.com → Teso2024</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>obras.publicas@municipio.com → Obras2024</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>planeacion@municipio.com → Plan2024</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>desarrollo.economico@municipio.com → DesEco2024</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>bienestar.social@municipio.com → Bien2024</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>seguridad.publica@municipio.com → Seg2024</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>pueblos.indigenas@municipio.com → Pueblos2024</Text>
+                </View>
+                
+                <View style={[styles.credentialsBox, { backgroundColor: isDark ? '#2A2A2A' : '#F5F5F5' }]}>
+                  <Text style={[styles.credentialHeader, { color: '#9F2241' }]}>🏢 DIRECTORES - Contraseña: Dir2024</Text>
+                  
+                  <Text style={[styles.areaHeader, { color: '#235B4E' }]}>📁 Secretaría General Municipal (11)</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>amalia.escalante@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>jose.angeles@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>brenda.martinez@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>ernesto.espinoza@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>gerardo.mendoza@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>dulce.rosas@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>marcos.aguirre@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>luis.olguin@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>anahi.catalan@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>taurino.gonzalez@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>roberto.ruiz@municipio.com</Text>
+                  
+                  <Text style={[styles.areaHeader, { color: '#235B4E' }]}>📁 Secretaría de Tesorería Municipal (6)</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>alejandro.diaz@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>miguel.tolentino@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>juan.sanchez@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>hector.perez@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>juana.moctezuma@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>isabel.munoz@municipio.com</Text>
+                  
+                  <Text style={[styles.areaHeader, { color: '#235B4E' }]}>📁 Secretaría de Obras Públicas (5)</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>vanessa.martinez@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>gladys.zapote@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>alfonso.alavez@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>rosalio.romero@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>julio.palma@municipio.com</Text>
+                  
+                  <Text style={[styles.areaHeader, { color: '#235B4E' }]}>📁 Secretaría de Planeación y Evaluación (2)</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>efrain.volteada@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>luis.chavero@municipio.com</Text>
+                  
+                  <Text style={[styles.areaHeader, { color: '#235B4E' }]}>📁 Secretaría de Desarrollo Económico y Turismo (3)</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>berenice.moreno@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>claudia.ramirez@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>pablo.vaquero@municipio.com</Text>
+                  
+                  <Text style={[styles.areaHeader, { color: '#235B4E' }]}>📁 Secretaría de Bienestar Social (6)</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>hipolito.bartolo@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>christian.trejo@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>rosa.labra@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>jesus.zapata@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>alicia.feregrino@municipio.com</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>michelle.chiapa@municipio.com</Text>
+                  
+                  <Text style={[styles.areaHeader, { color: '#235B4E' }]}>📁 Secretaría de Seguridad Pública (1)</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>marcelino.capula@municipio.com</Text>
+                </View>
+                
+                <View style={[styles.credentialsBox, { backgroundColor: isDark ? '#2A2A2A' : '#F5F5F5' }]}>
+                  <Text style={[styles.credentialHeader, { color: '#6B7280' }]}>👥 OTROS FUNCIONARIOS</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>contraloria@municipio.com → Cont2024</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>transparencia@municipio.com → Trans2024</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>juridico@municipio.com → Juri2024</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>mujeres@municipio.com → Muj2024</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>comunicacion@municipio.com → Com2024</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>sipinna@municipio.com → Sip2024</Text>
+                  <Text style={[styles.credentialItem, { color: theme.text }]}>asamblea@municipio.com → Asam2024</Text>
+                </View>
+              </View>
             </ScrollView>
             
             <View style={styles.flowModalFooter}>
@@ -746,11 +834,26 @@ export default function AdminScreen({ navigation, onLogout }) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Stats Overview - Estilo tarjetas grandes con glassmorphism */}
+        {/* Stats Overview - Estadísticas por Rol */}
         <View style={styles.statsContainer}>
           <View style={[styles.statCard, styles.statCardGlass]}>
             <LinearGradient
-              colors={['rgba(59, 130, 246, 0.95)', 'rgba(37, 99, 235, 0.9)']}
+              colors={['rgba(159, 34, 65, 0.95)', 'rgba(127, 29, 53, 0.9)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.statCardGradient}
+            >
+              <View style={styles.statIconBadge}>
+                <Ionicons name="briefcase" size={28} color="#FFFFFF" />
+              </View>
+              <Text style={styles.statNumber}>{allUsers.filter(u => u.role === 'secretario').length}</Text>
+              <Text style={styles.statLabel}>SECRETARIOS</Text>
+            </LinearGradient>
+          </View>
+
+          <View style={[styles.statCard, styles.statCardGlass]}>
+            <LinearGradient
+              colors={['rgba(35, 91, 78, 0.95)', 'rgba(28, 73, 62, 0.9)']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.statCardGradient}
@@ -758,8 +861,41 @@ export default function AdminScreen({ navigation, onLogout }) {
               <View style={styles.statIconBadge}>
                 <Ionicons name="people" size={28} color="#FFFFFF" />
               </View>
-              <Text style={styles.statNumber}>{allUsers.length}</Text>
-              <Text style={styles.statLabel}>USUARIOS</Text>
+              <Text style={styles.statNumber}>{allUsers.filter(u => u.role === 'director').length}</Text>
+              <Text style={styles.statLabel}>DIRECTORES</Text>
+            </LinearGradient>
+          </View>
+
+          <View style={[styles.statCard, styles.statCardGlass]}>
+            <LinearGradient
+              colors={['rgba(107, 114, 128, 0.95)', 'rgba(75, 85, 99, 0.9)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.statCardGradient}
+            >
+              <View style={styles.statIconBadge}>
+                <Ionicons name="people" size={28} color="#FFFFFF" />
+              </View>
+              <Text style={styles.statNumber}>{allUsers.filter(u => !['secretario', 'director', 'admin'].includes(u.role)).length}</Text>
+              <Text style={styles.statLabel}>OTROS</Text>
+            </LinearGradient>
+          </View>
+        </View>
+        
+        {/* Segunda fila de stats */}
+        <View style={[styles.statsContainer, { marginTop: 12 }]}>
+          <View style={[styles.statCard, styles.statCardGlass]}>
+            <LinearGradient
+              colors={['rgba(139, 92, 246, 0.95)', 'rgba(124, 58, 237, 0.9)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.statCardGradient}
+            >
+              <View style={styles.statIconBadge}>
+                <Ionicons name="shield-checkmark" size={28} color="#FFFFFF" />
+              </View>
+              <Text style={styles.statNumber}>{allUsers.filter(u => u.role === 'admin').length}</Text>
+              <Text style={styles.statLabel}>ADMINS</Text>
             </LinearGradient>
           </View>
 
@@ -774,7 +910,7 @@ export default function AdminScreen({ navigation, onLogout }) {
                 <Ionicons name="notifications" size={28} color="#FFFFFF" />
               </View>
               <Text style={styles.statNumber}>{notificationCount}</Text>
-              <Text style={styles.statLabel}>NOTIFICACIONES</Text>
+              <Text style={styles.statLabel}>ALERTAS</Text>
             </LinearGradient>
           </View>
 
@@ -786,10 +922,10 @@ export default function AdminScreen({ navigation, onLogout }) {
               style={styles.statCardGradient}
             >
               <View style={styles.statIconBadge}>
-                <Ionicons name={isDark ? "moon" : "sunny"} size={28} color="#FFFFFF" />
+                <Ionicons name="checkmark-circle" size={28} color="#FFFFFF" />
               </View>
-              <Text style={styles.statNumber}>{isDark ? 'ON' : 'OFF'}</Text>
-              <Text style={styles.statLabel}>MODO OSCURO</Text>
+              <Text style={styles.statNumber}>{allUsers.length}</Text>
+              <Text style={styles.statLabel}>TOTAL</Text>
             </LinearGradient>
           </View>
         </View>
@@ -814,7 +950,7 @@ export default function AdminScreen({ navigation, onLogout }) {
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Crear Usuario */
+        {/* Crear Usuario */}
         <View>
           <View style={[
             styles.sectionCard, 
@@ -871,53 +1007,43 @@ export default function AdminScreen({ navigation, onLogout }) {
             />
           </View>
 
+          <Text style={[styles.roleSelectorLabel, { color: theme.textSecondary }]}>Seleccionar Rol:</Text>
           <View style={styles.roleSelector}>
             <TouchableOpacity 
               style={[
                 styles.roleButton, 
                 { backgroundColor: theme.background, borderColor: theme.border },
-                userRole === 'operativo' && { backgroundColor: theme.primary, borderColor: theme.primary }
+                userRole === 'director' && { backgroundColor: '#235B4E', borderColor: '#235B4E' }
               ]}
-              onPress={() => {
-                hapticLight();
-                setUserRole('operativo');
-              }}
+              onPress={() => { hapticLight(); setUserRole('director'); }}
             >
-              <Text style={[
-                styles.roleButtonText, 
-                { color: theme.text },
-                userRole === 'operativo' && { color: '#FFFFFF' }
-              ]}>
-                Operativo
-              </Text>
+              <Text style={[styles.roleButtonText, { color: theme.text }, userRole === 'director' && { color: '#FFFFFF' }]}>Director</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={[
                 styles.roleButton, 
                 { backgroundColor: theme.background, borderColor: theme.border },
-                userRole === 'admin' && { backgroundColor: theme.primary, borderColor: theme.primary }
+                userRole === 'secretario' && { backgroundColor: '#9F2241', borderColor: '#9F2241' }
               ]}
-              onPress={() => {
-                hapticLight();
-                setUserRole('admin');
-              }}
+              onPress={() => { hapticLight(); setUserRole('secretario'); }}
             >
-              <Text style={[
-                styles.roleButtonText, 
-                { color: theme.text },
-                userRole === 'admin' && { color: '#FFFFFF' }
-              ]}>
-                Administrador
-              </Text>
+              <Text style={[styles.roleButtonText, { color: theme.text }, userRole === 'secretario' && { color: '#FFFFFF' }]}>Secretario</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[
+                styles.roleButton, 
+                { backgroundColor: theme.background, borderColor: theme.border },
+                userRole === 'admin' && { backgroundColor: '#DC2626', borderColor: '#DC2626' }
+              ]}
+              onPress={() => { hapticLight(); setUserRole('admin'); }}
+            >
+              <Text style={[styles.roleButtonText, { color: theme.text }, userRole === 'admin' && { color: '#FFFFFF' }]}>Admin</Text>
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity 
             style={styles.actionButton} 
-            onPress={() => {
-              hapticMedium();
-              createUser();
-            }}
+            onPress={() => { hapticMedium(); createUser(); }}
           >
             <LinearGradient
               colors={['#34C759', '#30B351']}
@@ -929,8 +1055,8 @@ export default function AdminScreen({ navigation, onLogout }) {
               <Text style={styles.buttonText}>Crear Usuario</Text>
             </LinearGradient>
           </TouchableOpacity>
-          </View>
         </View>
+      </View>
 
         {/* Gestión de Áreas */}
         <TouchableOpacity 
@@ -1028,65 +1154,87 @@ export default function AdminScreen({ navigation, onLogout }) {
 
           {showUserList && (
             <View style={styles.userListContainer}>
-              {allUsers.map((user) => (
-                <View 
-                  key={user.id} 
-                  style={[styles.userCard, { backgroundColor: theme.background, borderColor: theme.border }]}
-                >
-                  <View style={styles.userInfo}>
-                    <View style={styles.userHeader}>
-                      <View style={[
-                        styles.userAvatar, 
-                        { backgroundColor: user.role === 'admin' ? '#DC2626' : '#3B82F6' }
-                      ]}>
-                        <Ionicons 
-                          name={user.role === 'admin' ? 'shield-checkmark' : 'person'} 
-                          size={16} 
-                          color="#FFFFFF"
-                        />
+              {/* Agrupar usuarios por categoría */}
+              {[
+                { role: 'secretario', label: '💼 Secretarios', color: '#8B5CF6', lightBg: 'rgba(139, 92, 246, 0.08)', icon: 'briefcase' },
+                { role: 'director', label: '🏢 Directores', color: '#0EA5E9', lightBg: 'rgba(14, 165, 233, 0.08)', icon: 'business' },
+                { role: 'otros', label: '👥 Otros Funcionarios', color: '#F59E0B', lightBg: 'rgba(245, 158, 11, 0.08)', icon: 'people' },
+                { role: 'admin', label: '🛡️ Administradores', color: '#EF4444', lightBg: 'rgba(239, 68, 68, 0.08)', icon: 'shield-checkmark' },
+              ].map(section => {
+                // Filtrar usuarios según la sección
+                let sectionUsers;
+                if (section.role === 'otros') {
+                  // "Otros" incluye jefe, operativo y cualquier otro rol no especificado
+                  sectionUsers = allUsers.filter(u => !['secretario', 'director', 'admin'].includes(u.role));
+                } else {
+                  sectionUsers = allUsers.filter(u => u.role === section.role);
+                }
+                if (sectionUsers.length === 0) return null;
+                
+                return (
+                  <View key={section.role} style={{ marginBottom: 16 }}>
+                    {/* Header de sección */}
+                    <View style={[styles.roleSectionHeader, { backgroundColor: section.lightBg, borderLeftColor: section.color }]}>
+                      <View style={[styles.sectionIconWrapper, { backgroundColor: section.color }]}>
+                        <Ionicons name={section.icon} size={16} color="#FFFFFF" />
                       </View>
-                      <View style={styles.userTextContainer}>
-                        <Text style={[styles.userName, { color: theme.text }]} numberOfLines={1} ellipsizeMode="tail">{user.displayName}</Text>
-                        <Text style={[styles.userEmail, { color: theme.textSecondary }]} numberOfLines={1} ellipsizeMode="tail">{user.email}</Text>
-                      </View>
-                    </View>
-                    <View style={styles.userFooter}>
-                      <View style={styles.userDateRow}>
-                        <Ionicons name="calendar-outline" size={14} color={theme.textSecondary} />
-                        <Text style={[styles.userDate, { color: theme.textSecondary }]}>
-                          {user.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
-                        </Text>
-                      </View>
-                      <View style={[
-                        styles.userRoleBadge, 
-                        { backgroundColor: user.role === 'admin' ? '#DC2626' : '#3B82F6' }
-                      ]}>
-                        <Text style={styles.userRoleText}>{user.role.toUpperCase()}</Text>
+                      <Text style={[styles.roleSectionTitle, { color: theme.text }]}>
+                        {section.label}
+                      </Text>
+                      <View style={[styles.roleSectionBadge, { backgroundColor: section.color }]}>
+                        <Text style={styles.roleSectionCount}>{sectionUsers.length}</Text>
                       </View>
                     </View>
+                    
+                    {/* Lista de usuarios de esta sección */}
+                    {sectionUsers.map((user) => (
+                      <View 
+                        key={user.id} 
+                        style={[styles.userCard, { 
+                          backgroundColor: isDark ? 'rgba(30, 30, 35, 0.95)' : '#FFFFFF', 
+                          borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                        }]}
+                      >
+                        <View style={styles.userInfo}>
+                          <View style={styles.userHeader}>
+                            <View style={[styles.userAvatar, { backgroundColor: `${section.color}15`, borderColor: section.color }]}>
+                              <Text style={[styles.avatarInitial, { color: section.color }]}>
+                                {user.displayName?.charAt(0)?.toUpperCase() || '?'}
+                              </Text>
+                            </View>
+                            <View style={styles.userTextContainer}>
+                              <Text style={[styles.userName, { color: theme.text }]} numberOfLines={1} ellipsizeMode="tail">{user.displayName}</Text>
+                              <Text style={[styles.userEmail, { color: theme.textSecondary }]} numberOfLines={1} ellipsizeMode="tail">{user.email}</Text>
+                              {user.area && (
+                                <View style={styles.areaTextRow}>
+                                  <Ionicons name="business-outline" size={11} color={theme.textSecondary} />
+                                  <Text style={[styles.areaText, { color: theme.textSecondary }]} numberOfLines={1}>
+                                    {user.area}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+                        </View>
+                        <TouchableOpacity
+                          style={[styles.statusChip, { 
+                            backgroundColor: user.active 
+                              ? (isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)') 
+                              : (isDark ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.1)'),
+                            borderColor: user.active ? '#10B981' : '#EF4444'
+                          }]}
+                          onPress={() => { hapticMedium(); toggleUserStatus(user.id, user.active); }}
+                        >
+                          <View style={[styles.statusDot, { backgroundColor: user.active ? '#10B981' : '#EF4444' }]} />
+                          <Text style={[styles.statusChipText, { color: user.active ? '#10B981' : '#EF4444' }]}>
+                            {user.active ? 'Activo' : 'Inactivo'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
                   </View>
-                  <TouchableOpacity
-                    style={[
-                      styles.statusButton, 
-                      { backgroundColor: user.active ? '#10B981' : '#EF4444' }
-                    ]}
-                    onPress={() => {
-                      hapticMedium();
-                      toggleUserStatus(user.id, user.active);
-                    }}
-                  >
-                    <Ionicons 
-                      name={user.active ? "checkmark-circle" : "close-circle"} 
-                      size={16} 
-                      color="#FFFFFF" 
-                      style={{ marginRight: 4 }}
-                    />
-                    <Text style={styles.statusButtonText}>
-                      {user.active ? 'Activo' : 'Inactivo'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
+                );
+              })}
             </View>
           )}
           </View>
@@ -1488,9 +1636,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600'
   },
+  roleSelectorLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 8,
+    marginTop: 4,
+  },
   roleSelector: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: 8,
     borderRadius: 12,
     overflow: 'hidden',
     gap: 8
@@ -1562,20 +1716,54 @@ const styles = StyleSheet.create({
   userListContainer: {
     marginTop: 8
   },
+  roleSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    gap: 12,
+  },
+  sectionIconWrapper: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  roleSectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    flex: 1,
+  },
+  roleSectionBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    minWidth: 28,
+    alignItems: 'center',
+  },
+  roleSectionCount: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
   userCard: {
     flexDirection: 'row',
-    borderRadius: 18,
-    padding: Platform.OS === 'web' ? 16 : 12,
-    marginBottom: 14,
-    borderWidth: 2,
+    borderRadius: 16,
+    padding: Platform.OS === 'web' ? 16 : 14,
+    marginBottom: 10,
+    marginHorizontal: 2,
+    borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
     alignItems: 'center',
-    minHeight: Platform.OS === 'web' ? 90 : 85,
-    gap: 10
+    gap: 12
   },
   userInfo: {
     flex: 1
@@ -1594,23 +1782,50 @@ const styles = StyleSheet.create({
   userAvatar: {
     width: Platform.OS === 'web' ? 48 : 44,
     height: Platform.OS === 'web' ? 48 : 44,
-    borderRadius: Platform.OS === 'web' ? 24 : 22,
+    borderRadius: Platform.OS === 'web' ? 14 : 12,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.4)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 2,
+    borderWidth: 1.5,
     flexShrink: 0
+  },
+  avatarInitial: {
+    fontSize: Platform.OS === 'web' ? 20 : 18,
+    fontWeight: '700',
+  },
+  statusChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  areaTextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    gap: 4,
+  },
+  areaText: {
+    fontSize: 11,
+    fontWeight: '500',
+    flex: 1,
   },
   userName: {
     fontSize: Platform.OS === 'web' ? 15 : 14,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-    marginBottom: 2
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    marginBottom: 3
   },
   userRoleBadge: {
     paddingHorizontal: Platform.OS === 'web' ? 12 : 10,
@@ -1630,6 +1845,11 @@ const styles = StyleSheet.create({
   userEmail: {
     fontSize: Platform.OS === 'web' ? 13 : 12,
     fontWeight: '600'
+  },
+  userArea: {
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 4,
   },
   userFooter: {
     flexDirection: 'row',
@@ -2054,6 +2274,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: 0.3,
+  },
+  // Estilos de Credenciales
+  credentialsBox: {
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  credentialHeader: {
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 8,
+    letterSpacing: 0.5,
+  },
+  credentialItem: {
+    fontSize: 12,
+    fontFamily: 'monospace',
+    paddingVertical: 3,
+    lineHeight: 18,
+  },
+  credentialNote: {
+    fontSize: 11,
+    fontStyle: 'italic',
+  },
+  areaHeader: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 12,
+    marginBottom: 4,
   },
 });
 

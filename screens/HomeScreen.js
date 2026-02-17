@@ -193,12 +193,12 @@ export default function HomeScreen({ navigation }) {
     }
   }, [tasks, tasksLoading]);
 
-  // Navegar a pantalla para crear nueva tarea (admin, jefe y secretario)
+  // Navegar a pantalla para crear nueva tarea (admin, jefe, secretario y director)
   const goToCreate = useCallback(() => {
-    if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'jefe' || currentUser.role === 'secretario')) {
+    if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'jefe' || currentUser.role === 'secretario' || currentUser.role === 'director')) {
       navigation.navigate('TaskDetail');
     } else {
-      Alert.alert('Sin permisos', 'Solo administradores, jefes y secretarios pueden crear tareas');
+      Alert.alert('Sin permisos', 'Solo administradores, secretarios y directores pueden crear tareas');
     }
   }, [currentUser, navigation]);
 
@@ -936,7 +936,7 @@ export default function HomeScreen({ navigation }) {
       />
       
       {/* Botón para crear tarea */}
-      {currentUser && (currentUser.role === 'admin' || currentUser.role === 'jefe' || currentUser.role === 'secretario') && (
+      {currentUser && (currentUser.role === 'admin' || currentUser.role === 'jefe' || currentUser.role === 'secretario' || currentUser.role === 'director') && (
         <TouchableOpacity 
           style={styles.fab}
           onPress={() => navigation.navigate('TaskDetail')}

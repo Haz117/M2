@@ -30,9 +30,9 @@ export const getGeneralMetrics = async (userId, userRole) => {
   try {
     let tasksQuery;
     
-    // Admin y Secretario ven todas las tareas
-    if (userRole === 'admin' || userRole === 'secretario') {
-      // Admin/Secretario ve todas las tareas
+    // Admin, Secretario y Director ven tareas según su ámbito
+    if (['admin', 'secretario', 'director'].includes(userRole)) {
+      // Admin/Secretario/Director ve todas las tareas (filtradas por área después)
       tasksQuery = query(collection(db, 'tasks'));
     } else {
       // Otros usuarios ven todas cuando las filtramos
@@ -42,8 +42,8 @@ export const getGeneralMetrics = async (userId, userRole) => {
     const querySnapshot = await getDocs(tasksQuery);
     let tasks = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
-    // Filtrar si no es admin ni secretario
-    if (userRole !== 'admin' && userRole !== 'secretario') {
+    // Filtrar si no es admin ni secretario ni director
+    if (!['admin', 'secretario', 'director'].includes(userRole)) {
       tasks = tasks.filter(task => isTaskAssignedToUser(task, userId));
     }
 
@@ -131,7 +131,7 @@ export const getTrendData = async (userId, userRole) => {
   try {
     let tasksQuery;
     
-    if (userRole === 'admin' || userRole === 'secretario') {
+    if (userRole === 'admin' || userRole === 'secretario' || userRole === 'director') {
       tasksQuery = query(collection(db, 'tasks'));
     } else {
       tasksQuery = query(collection(db, 'tasks'));

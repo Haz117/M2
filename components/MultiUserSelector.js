@@ -1,12 +1,12 @@
 // components/MultiUserSelector.js
 // Selector de múltiples usuarios para asignaciones
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  FlatList,
+  SectionList,
   Modal,
   TextInput,
   Image,
@@ -20,7 +20,8 @@ export default function MultiUserSelector({
   selectedUsers = [], 
   onSelectionChange = () => {},
   role = 'admin',
-  area = null
+  area = null,
+  secretarioEmail = null
 }) {
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -42,22 +43,48 @@ export default function MultiUserSelector({
       let usersList = [];
       snapshot.forEach(doc => {
         const userData = doc.data();
+        let include = false;
         
-        // Solo admin puede asignar a todos
-        // Jefe solo puede asignar de su área
-        if (role === 'admin' || userData.department === area) {
-          // Excluir admin de la lista para operativos
-          if (userData.role !== 'admin' || role === 'admin') {
-            usersList.push({
-              id: doc.id,
-              email: userData.email,
-              displayName: userData.displayName,
-              role: userData.role,
-              department: userData.department,
-              avatar: userData.avatar || null
-            });
-          }
+        if (role === 'admin') {
+          // Admin puede asignar a cualquiera
+          include = true;
+        } else if (role === 'secretario') {
+          // Secretario puede asignar a directores de su área y operativos
+          include = userData.area === area || 
+                   userData.secretarioEmail === secretarioEmail ||
+                   userData.department === area ||
+                   userData.role === 'director' && userData.area === area;
+        } else if (role === 'director') {
+          // Director puede asignar a usuarios de su área (operativos/jefes)
+          include = userData.area === area && 
+                   ['operativo', 'jefe'].includes(userData.role);
+        } else if (role === 'jefe') {
+          // Jefe puede asignar a operativos de su departamento
+          include = (userData.department === area || userData.area === area) && 
+                   userData.role === 'operativo';
         }
+        
+        // Excluir admins de la lista a menos que seas admin
+        if (include && (userData.role !== 'admin' || role === 'admin')) {
+          usersList.push({
+            id: doc.id,
+            email: userData.email,
+            displayName: userData.displayName,
+            role: userData.role,
+            department: userData.department,
+            area: userData.area,
+            avatar: userData.avatar || null
+          });
+        }
+      });
+      
+      // Ordenar por rol y nombre
+      usersList.sort((a, b) => {
+        const roleOrder = { admin: 0, secretario: 1, director: 2, jefe: 3, operativo: 4 };
+        const orderA = roleOrder[a.role] || 5;
+        const orderB = roleOrder[b.role] || 5;
+        if (orderA !== orderB) return orderA - orderB;
+        return (a.displayName || '').localeCompare(b.displayName || '');
       });
       
       setUsers(usersList);
@@ -68,6 +95,51 @@ export default function MultiUserSelector({
       setLoading(false);
     }
   };
+
+  // Helpers para mostrar roles
+  const getRoleColor = (role) => {
+    const colors = {
+      admin: '#DC2626',
+      secretario: '#9F2241',
+      director: '#235B4E',
+      jefe: '#06B6D4',
+      operativo: '#3B82F6'
+    };
+    return colors[role] || '#6B7280';
+  };
+
+  const getRoleLabel = (role) => {
+    const labels = {
+      admin: '🛡️ Admin',
+      secretario: '💼 Secretario',
+      director: '🏢 Director',
+      jefe: '👥 Funcionario',
+      operativo: '👥 Funcionario'
+    };
+    return labels[role] || '👥 Funcionario';
+  };
+
+  // Organizar usuarios por secciones de rol
+  const sections = useMemo(() => {
+    const roleConfig = [
+      { role: 'secretario', title: '💼 Secretarios', color: '#9F2241' },
+      { role: 'director', title: '🏢 Directores', color: '#235B4E' },
+      { role: 'otros', title: '👥 Otros Funcionarios', color: '#6B7280' },
+      { role: 'admin', title: '🛡️ Admins', color: '#DC2626' },
+    ];
+    
+    return roleConfig
+      .map(config => {
+        let data;
+        if (config.role === 'otros') {
+          data = filteredUsers.filter(u => !['secretario', 'director', 'admin'].includes(u.role));
+        } else {
+          data = filteredUsers.filter(u => u.role === config.role);
+        }
+        return { ...config, data };
+      })
+      .filter(section => section.data.length > 0);
+  }, [filteredUsers]);
 
   // Filtrar usuarios por búsqueda
   useEffect(() => {
@@ -124,9 +196,9 @@ export default function MultiUserSelector({
       <View style={styles.userInfo}>
         <Text style={styles.userName}>{user.displayName}</Text>
         <Text style={styles.userEmail}>{user.email}</Text>
-        <View style={styles.userRoleBadge}>
+        <View style={[styles.userRoleBadge, { backgroundColor: getRoleColor(user.role) }]}>
           <Text style={styles.userRoleText}>
-            {user.role === 'operativo' ? '👤 Operativo' : '👔 ' + user.role}
+            {getRoleLabel(user.role)}
           </Text>
         </View>
       </View>
@@ -215,12 +287,12 @@ export default function MultiUserSelector({
             )}
           </View>
 
-          {/* Lista de usuarios */}
+          {/* Lista de usuarios por secciones */}
           {loading ? (
             <View style={styles.loadingContainer}>
               <Text style={styles.loadingText}>Cargando usuarios...</Text>
             </View>
-          ) : filteredUsers.length === 0 ? (
+          ) : sections.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Ionicons name="person-outline" size={64} color="#CCC" />
               <Text style={styles.emptyText}>
@@ -228,8 +300,16 @@ export default function MultiUserSelector({
               </Text>
             </View>
           ) : (
-            <FlatList
-              data={filteredUsers}
+            <SectionList
+              sections={sections}
+              renderSectionHeader={({ section }) => (
+                <View style={[styles.sectionHeader, { borderLeftColor: section.color }]}>
+                  <Text style={styles.sectionTitle}>{section.title}</Text>
+                  <View style={[styles.sectionBadge, { backgroundColor: section.color }]}>
+                    <Text style={styles.sectionCount}>{section.data.length}</Text>
+                  </View>
+                </View>
+              )}
               renderItem={({ item }) => (
                 <UserItem
                   user={item}
@@ -238,7 +318,7 @@ export default function MultiUserSelector({
               )}
               keyExtractor={item => item.email}
               contentContainerStyle={styles.listContent}
-              nestedScrollEnabled={true}
+              stickySectionHeadersEnabled={true}
             />
           )}
 
@@ -388,6 +468,35 @@ const styles = StyleSheet.create({
     color: '#333',
     fontSize: 15,
     fontWeight: '500',
+  },
+
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#F5F5F5',
+    borderLeftWidth: 4,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#333',
+    flex: 1,
+  },
+  sectionBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+    minWidth: 26,
+    alignItems: 'center',
+  },
+  sectionCount: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
   },
 
   listContent: {

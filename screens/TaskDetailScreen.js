@@ -168,7 +168,27 @@ export default function TaskDetailScreen({ route, navigation }) {
       return currentUser.area ? [currentUser.area] : [];
     }
     
-    // Jefe y operativo ven todas las áreas
+    // Director solo ve su área específica
+    if (currentUser.role === 'director') {
+      if (currentUser.area) {
+        return AREAS.filter(area => area === currentUser.area);
+      }
+      return [];
+    }
+    
+    // Jefe ve su área/departamento
+    if (currentUser.role === 'jefe') {
+      const jefeAreas = [];
+      if (currentUser.area) jefeAreas.push(currentUser.area);
+      if (currentUser.department && !jefeAreas.includes(currentUser.department)) {
+        jefeAreas.push(currentUser.department);
+      }
+      if (jefeAreas.length > 0) {
+        return AREAS.filter(area => jefeAreas.includes(area));
+      }
+    }
+    
+    // Operativo ve todas las áreas pero solo para ver (no crear)
     return AREAS;
   }, [currentUser]);
 
@@ -342,8 +362,8 @@ export default function TaskDetailScreen({ route, navigation }) {
       if (role === 'operativo' && editingTask) {
         setIsReadOnly(true);
         setCanEdit(false);
-      } else if (role === 'admin' || role === 'jefe' || role === 'secretario') {
-        // Admin, Jefe y Secretario pueden editar
+      } else if (role === 'admin' || role === 'jefe' || role === 'secretario' || role === 'director') {
+        // Admin, Jefe, Secretario y Director pueden editar
         setCanEdit(true);
         setIsReadOnly(false);
       } else if (role === 'operativo' && editingTask && editingTask.assignedTo === result.session.email) {

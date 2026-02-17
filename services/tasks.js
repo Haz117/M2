@@ -136,6 +136,15 @@ export async function subscribeToTasks(callback) {
           if (task.createdBy === userEmail) return true;
           return false;
         });
+      } else if (userRole === 'director') {
+        // Director ve tareas de su área y las que creó
+        filtered = tasks.filter(task => {
+          const taskArea = task.area || '';
+          if (taskArea === userArea) return true;
+          if (task.createdBy === userEmail) return true;
+          if (isTaskAssignedToUser(task, userEmail)) return true;
+          return false;
+        });
       }
       
       // Deduplicación
@@ -175,6 +184,12 @@ export async function subscribeToTasks(callback) {
           orderBy('createdAt', 'desc')
         );
       } else if (userRole === 'secretario') {
+        tasksQuery = query(
+          collection(db, COLLECTION_NAME),
+          orderBy('createdAt', 'desc')
+        );
+      } else if (userRole === 'director') {
+        // Director ve tareas de su área
         tasksQuery = query(
           collection(db, COLLECTION_NAME),
           orderBy('createdAt', 'desc')

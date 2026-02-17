@@ -386,9 +386,10 @@ export default function ReportsScreen({ navigation }) {
     const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
     const monthAgo = now - 30 * 24 * 60 * 60 * 1000;
 
-    // Mostrar todas las tareas para admin, filtrar por área para secretario, por creador para otros
+    // Mostrar tareas según el rol del usuario
     let userTasks;
     if (currentUser.role === 'admin') {
+      // Admin ve todas las tareas
       userTasks = allTasks;
     } else if (currentUser.role === 'secretario') {
       // Secretario ve tareas de su área o que haya creado
@@ -403,10 +404,38 @@ export default function ReportsScreen({ navigation }) {
         }
         return false;
       });
-    } else {
+    } else if (currentUser.role === 'director') {
+      // Director ve tareas de su área específica o asignadas a él
       userTasks = allTasks.filter(t => {
-        if (!t.createdBy) return true;
-        return t.createdBy === currentUser.email;
+        if (t.createdBy === currentUser.email) return true;
+        if (t.area === currentUser.area) return true;
+        // Verificar si está asignado a esta tarea
+        if (t.assignedTo === currentUser.email) return true;
+        if (t.assignedToMultiple && Array.isArray(t.assignedToMultiple)) {
+          return t.assignedToMultiple.some(a => a.email === currentUser.email);
+        }
+        return false;
+      });
+    } else if (currentUser.role === 'jefe') {
+      // Jefe de área ve tareas de su área o asignadas a él
+      userTasks = allTasks.filter(t => {
+        if (t.createdBy === currentUser.email) return true;
+        if (t.area === currentUser.area || t.department === currentUser.department) return true;
+        if (t.assignedTo === currentUser.email) return true;
+        if (t.assignedToMultiple && Array.isArray(t.assignedToMultiple)) {
+          return t.assignedToMultiple.some(a => a.email === currentUser.email);
+        }
+        return false;
+      });
+    } else {
+      // Operativo ve solo sus tareas asignadas o creadas
+      userTasks = allTasks.filter(t => {
+        if (t.createdBy === currentUser.email) return true;
+        if (t.assignedTo === currentUser.email) return true;
+        if (t.assignedToMultiple && Array.isArray(t.assignedToMultiple)) {
+          return t.assignedToMultiple.some(a => a.email === currentUser.email);
+        }
+        return false;
       });
     }
 
@@ -1014,7 +1043,7 @@ export default function ReportsScreen({ navigation }) {
           )}
 
           {/* Botón de exportación */}
-          {(currentUser?.role === 'admin' || currentUser?.role === 'secretario') && Object.keys(areaMetrics).length > 0 && (
+          {(currentUser?.role === 'admin' || currentUser?.role === 'secretario' || currentUser?.role === 'director') && Object.keys(areaMetrics).length > 0 && (
             <TouchableOpacity
               style={[styles.exportButton, { backgroundColor: theme.primary }]}
               onPress={handleExportReport}

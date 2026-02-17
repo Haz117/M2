@@ -151,15 +151,40 @@ function MainTabs({ onLogout }) {
     }
   };
 
+  // Función para obtener el color del badge por rol
+  const getRoleBadgeColor = (role) => {
+    switch (role) {
+      case 'admin': return '#DC2626';
+      case 'secretario': return '#9F2241';
+      case 'director': return '#235B4E';
+      case 'jefe': return '#06B6D4';
+      default: return '#3B82F6';
+    }
+  };
+
+  // Función para obtener el icono del rol
+  const getRoleIcon = (role) => {
+    switch (role) {
+      case 'admin': return 'shield-checkmark';
+      case 'secretario': return 'briefcase';
+      case 'director': return 'business';
+      case 'jefe': return 'ribbon';
+      default: return 'person';
+    }
+  };
+
   return (
     <View style={{ flex: 1 }}>
       {/* Header con usuario y botón de logout */}
       {currentUser && (
         <View style={styles.userHeader}>
           <View style={styles.userInfo}>
-            <View style={[styles.roleBadge, (isAdmin || isSecretario) && styles.roleBadgeAdmin]}>
+            <View style={[
+              styles.roleBadge, 
+              { backgroundColor: getRoleBadgeColor(currentUser.role) }
+            ]}>
               <Ionicons 
-                name={isAdmin ? 'shield-checkmark' : isSecretario ? 'briefcase' : isDirector ? 'people' : 'person'} 
+                name={getRoleIcon(currentUser.role)} 
                 size={12} 
                 color="#FFFFFF" 
                 style={{ marginRight: 4 }}

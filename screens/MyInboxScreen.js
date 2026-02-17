@@ -655,9 +655,10 @@ export default function MyInboxScreen({ navigation }) {
   };
 
   const openDetail = (task) => {
-    // Solo admin y jefe pueden editar tareas
-    if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'jefe')) {
-      setToastMessage('Solo administradores y jefes pueden editar tareas');
+    // Admin, secretario, director y jefe pueden editar tareas
+    const canEdit = currentUser && ['admin', 'secretario', 'director', 'jefe'].includes(currentUser.role);
+    if (!canEdit) {
+      setToastMessage('No tienes permisos para editar tareas');
       setToastType('info');
       setToastVisible(true);
       return;
@@ -668,9 +669,10 @@ export default function MyInboxScreen({ navigation }) {
   const openChat = (task) => navigation.navigate('TaskChat', { taskId: task.id, taskTitle: task.title });
   
   const goToCreate = () => {
-    // Solo admin y jefe pueden crear tareas
-    if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'jefe')) {
-      setToastMessage('Solo administradores y jefes pueden crear tareas');
+    // Admin, secretario, director y jefe pueden crear tareas
+    const canCreate = currentUser && ['admin', 'secretario', 'director', 'jefe'].includes(currentUser.role);
+    if (!canCreate) {
+      setToastMessage('No tienes permisos para crear tareas');
       setToastType('warning');
       setToastVisible(true);
       return;
@@ -892,8 +894,10 @@ export default function MyInboxScreen({ navigation }) {
               </Text>
               <Text style={[styles.userRole, { color: theme.textSecondary }]}>
                 {currentUser?.role === 'admin' ? 'Administrador • Todas las tareas' : 
+                 currentUser?.role === 'secretario' ? 'Secretario • Tareas de mi secretaría' :
+                 currentUser?.role === 'director' ? 'Director • Tareas de mi dirección' :
                  currentUser?.role === 'jefe' ? 'Jefe • Tareas de mi área' : 
-                 'Operativo • Mis tareas'}
+                 'Operativo • Mis tareas asignadas'}
               </Text>
             </View>
           </View>

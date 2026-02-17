@@ -177,7 +177,43 @@ export const isSecretario = async () => {
 export const isSecretarioOrAdmin = async () => {
   const result = await getCurrentSession();
   if (result.success) {
-    return result.session.role === 'admin' || result.session.role === 'secretario';
+    return result.session.role === 'admin' || result.session.role === 'secretario' || result.session.role === 'director';
+  }
+  return false;
+};
+
+// Verificar si el usuario es director
+export const isDirector = async () => {
+  const result = await getCurrentSession();
+  if (result.success) {
+    return result.session.role === 'director';
+  }
+  return false;
+};
+
+// Verificar si el usuario es jefe de área
+export const isJefe = async () => {
+  const result = await getCurrentSession();
+  if (result.success) {
+    return result.session.role === 'jefe';
+  }
+  return false;
+};
+
+// Verificar si puede crear tareas (admin, secretario, director)
+export const canCreateTasks = async () => {
+  const result = await getCurrentSession();
+  if (result.success) {
+    return ['admin', 'secretario', 'director', 'jefe'].includes(result.session.role);
+  }
+  return false;
+};
+
+// Verificar si puede ver reportes (admin, secretario, director)
+export const canViewReports = async () => {
+  const result = await getCurrentSession();
+  if (result.success) {
+    return ['admin', 'secretario', 'director'].includes(result.session.role);
   }
   return false;
 };

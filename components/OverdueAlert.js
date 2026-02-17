@@ -18,7 +18,9 @@ export default function OverdueAlert({ tasks, currentUserEmail, role = 'operativ
     const overdue = [];
     const urgent = [];
 
-    const applicable = role === 'admin' || role === 'jefe' 
+    // Admin, secretario, director y jefe ven todas sus tareas relevantes
+    const canSeeAll = ['admin', 'secretario', 'director', 'jefe'].includes(role);
+    const applicable = canSeeAll
       ? tasks.filter(t => t.status !== 'cerrada')
       : tasks.filter(t => t.status !== 'cerrada' && t.assignedTo === currentUserEmail);
 
