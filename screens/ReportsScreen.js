@@ -36,6 +36,7 @@ import AreaFilter from '../components/AreaFilter';
 import AlertsPanel from '../components/AlertsPanel';
 import InsightsPanel from '../components/InsightsPanel';
 import ComplianceReport from '../components/ComplianceReport';
+import AreaMetricsPanel from '../components/AreaMetricsPanel';
 import { calculateDetailedAreaMetrics, generateAreaSummary, getAreasNeedingAttention } from '../services/areaMetrics';
 import { getAreaAlerts, getAreasForAttention } from '../services/AreaAlerts';
 import { 
@@ -994,6 +995,20 @@ export default function ReportsScreen({ navigation }) {
               <ComplianceReport 
                 tasks={tasks}
                 showDetails={true}
+              />
+            </Animated.View>
+          )}
+
+          {/* 📊 MÉTRICAS DE ÁREA - Solo secretarios y directores */}
+          {(currentUser?.role === 'secretario' || currentUser?.role === 'director') && tasks.length > 0 && (
+            <Animated.View style={{ 
+              opacity: chartsOpacity,
+              transform: [{ translateY: chartsSlide }]
+            }}>
+              <AreaMetricsPanel 
+                userArea={currentUser?.area || currentUser?.department}
+                tasks={tasks}
+                showHeader={true}
               />
             </Animated.View>
           )}

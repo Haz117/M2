@@ -135,7 +135,21 @@ function MainTabs({ onLogout }) {
   }, [currentUser?.email, currentUser?.role]);
 
   const isAdmin = currentUser?.role === 'admin';
-  const isJefeOrAdmin = currentUser?.role === 'admin' || currentUser?.role === 'jefe';
+  const isSecretario = currentUser?.role === 'secretario';
+  const isDirector = currentUser?.role === 'director';
+  const isJefe = currentUser?.role === 'jefe';
+  const canSeeReports = isAdmin || isSecretario || isDirector || isJefe;
+
+  // Función para obtener el label del rol
+  const getRoleLabel = (role) => {
+    switch (role) {
+      case 'admin': return 'Admin';
+      case 'secretario': return 'Secretario';
+      case 'director': return 'Director';
+      case 'jefe': return 'Jefe';
+      default: return 'Operativo';
+    }
+  };
 
   return (
     <View style={{ flex: 1 }}>
@@ -143,15 +157,15 @@ function MainTabs({ onLogout }) {
       {currentUser && (
         <View style={styles.userHeader}>
           <View style={styles.userInfo}>
-            <View style={[styles.roleBadge, currentUser.role === 'admin' && styles.roleBadgeAdmin]}>
+            <View style={[styles.roleBadge, (isAdmin || isSecretario) && styles.roleBadgeAdmin]}>
               <Ionicons 
-                name={currentUser.role === 'admin' ? 'shield-checkmark' : 'person'} 
+                name={isAdmin ? 'shield-checkmark' : isSecretario ? 'briefcase' : isDirector ? 'people' : 'person'} 
                 size={12} 
                 color="#FFFFFF" 
                 style={{ marginRight: 4 }}
               />
               <Text style={styles.roleBadgeText}>
-                {currentUser.role === 'admin' ? 'Admin' : currentUser.role === 'jefe' ? 'Jefe' : 'Operativo'}
+                {getRoleLabel(currentUser.role)}
               </Text>
             </View>
             <Text style={styles.userName} numberOfLines={1}>{currentUser.displayName || currentUser.email}</Text>
@@ -253,7 +267,7 @@ function MainTabs({ onLogout }) {
         component={MyInboxScreen} 
       />
       
-      {isJefeOrAdmin && (
+      {canSeeReports && (
         <Tab.Screen 
           name="Reports" 
           options={{ title: 'Reportes' }} 

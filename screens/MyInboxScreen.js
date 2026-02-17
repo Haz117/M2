@@ -269,9 +269,38 @@ export default function MyInboxScreen({ navigation }) {
       // Si no hay usuario, no mostrar nada
       if (!currentUser) return false;
       
-      // Si es operativo, mostrar solo sus tareas asignadas
-      if (currentUser.role === 'operativo') {
-        if (!isTaskAssignedToUser(task, currentUser.email)) return false;
+      // Filtraje basado en rol
+      const userRole = currentUser.role;
+      const userEmail = currentUser.email?.toLowerCase();
+      const userArea = currentUser.area || currentUser.department || '';
+      
+      // Admin ve todo
+      if (userRole === 'admin') {
+        // No filtrar por asignación
+      }
+      // Secretario ve tareas de su área
+      else if (userRole === 'secretario') {
+        const isInMyArea = task.area === userArea;
+        const isAssignedToMe = isTaskAssignedToUser(task, userEmail);
+        const isCreatedByMe = task.createdBy?.toLowerCase() === userEmail;
+        if (!isInMyArea && !isAssignedToMe && !isCreatedByMe) return false;
+      }
+      // Director ve tareas de su área o asignadas a él
+      else if (userRole === 'director') {
+        const isInMyArea = task.area === userArea;
+        const isAssignedToMe = isTaskAssignedToUser(task, userEmail);
+        const isCreatedByMe = task.createdBy?.toLowerCase() === userEmail;
+        if (!isInMyArea && !isAssignedToMe && !isCreatedByMe) return false;
+      }
+      // Jefe ve tareas de su departamento o asignadas a él
+      else if (userRole === 'jefe') {
+        const isInMyDepartment = task.area === (currentUser.department || userArea);
+        const isAssignedToMe = isTaskAssignedToUser(task, userEmail);
+        if (!isInMyDepartment && !isAssignedToMe) return false;
+      }
+      // Operativo solo ve sus tareas asignadas
+      else {
+        if (!isTaskAssignedToUser(task, userEmail)) return false;
       }
       
       // Filtro de búsqueda (título, descripción)
