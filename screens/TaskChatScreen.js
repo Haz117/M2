@@ -78,6 +78,9 @@ export default function TaskChatScreen({ route, navigation }) {
           } else if (userRole === 'director') {
             console.log('[TaskChat] Access granted - director');
             setHasAccess(true);
+          } else if (userRole === 'secretario') {
+            console.log('[TaskChat] Access granted - secretario');
+            setHasAccess(true);
           } else {
             console.log('[TaskChat] Access denied - no matching criteria');
             setHasAccess(false);
