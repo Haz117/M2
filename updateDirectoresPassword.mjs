@@ -41,21 +41,35 @@ async function updateDirectorPasswords() {
   let updated = 0;
   let errors = 0;
 
+  // Importar la lista de directores desde createAllDirectores.mjs (ES Modules)
+  const { directores } = await import('./createAllDirectores.mjs');
+  // Si la importación falla, mostrar error y terminar
+  if (!directores) {
+    console.error('No se pudo importar la lista de directores.');
+    process.exit(1);
+  }
+
   for (const doc of snapshot.docs) {
     const userData = doc.data();
     const email = userData.email;
-    const password = 'Dir2024'; // Contraseña por defecto
-    
+    // Buscar el director correspondiente por email
+    const director = directores.find(d => d.email.toLowerCase() === email.toLowerCase());
+    let password;
+    if (director && director.password) {
+      password = director.password;
+    } else {
+      // Si no se encuentra, usar una contraseña generada
+      password = 'Dir' + Math.random().toString(36).slice(-8);
+    }
     try {
       // Hash correcto: password + email
       const correctHash = simpleHash(password + email.toLowerCase());
-      
       await updateDoc(doc.ref, {
         password: correctHash
       });
-      
       console.log(`✅ ${userData.displayName}`);
       console.log(`   📧 ${email}`);
+      console.log(`   Nueva contraseña: ${password}`);
       updated++;
     } catch (error) {
       console.error(`❌ Error con ${email}:`, error.message);

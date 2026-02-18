@@ -75,6 +75,9 @@ export default function TaskChatScreen({ route, navigation }) {
           } else if (userRole === 'operativo' && isTaskAssignedToUser(task, userEmail)) {
             console.log('[TaskChat] Access granted - operativo assigned to task');
             setHasAccess(true);
+          } else if (userRole === 'director') {
+            console.log('[TaskChat] Access granted - director');
+            setHasAccess(true);
           } else {
             console.log('[TaskChat] Access denied - no matching criteria');
             setHasAccess(false);

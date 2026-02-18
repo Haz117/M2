@@ -28,11 +28,11 @@ const simpleHash = (text) => {
 };
 
 // Lista de directores por secretaría
-const directores = [
+export const directores = [
   // ===== SECRETARÍA GENERAL MUNICIPAL =====
   {
     email: 'amalia.escalante@municipio.com',
-    password: 'Dir2024',
+    password: 'DirA1b2c3',
     displayName: 'Lic. Amalia Escalante Cruz',
     cargo: 'Secretario Técnico',
     area: 'Secretaría General Municipal',
@@ -41,7 +41,7 @@ const directores = [
   },
   {
     email: 'jose.angeles@municipio.com',
-    password: 'Dir2024',
+    password: 'DirB4d5e6',
     displayName: 'Mtro. Jose Martin Angeles Bautista',
     cargo: 'Director de Gobierno',
     area: 'Secretaría General Municipal',
@@ -50,7 +50,7 @@ const directores = [
   },
   {
     email: 'brenda.martinez@municipio.com',
-    password: 'Dir2024',
+    password: 'DirC7f8g9',
     displayName: 'Ld. Brenda Martinez Azpeitia',
     cargo: 'Conciliador Municipal',
     area: 'Secretaría General Municipal',
@@ -59,7 +59,7 @@ const directores = [
   },
   {
     email: 'ernesto.espinoza@municipio.com',
-    password: 'Dir2024',
+    password: 'DirD0h1j2',
     displayName: 'C. Ernesto Espinoza Organo',
     cargo: 'Director de Reglamentos, Comercio, Mercado y Espectáculos',
     area: 'Secretaría General Municipal',
@@ -68,7 +68,7 @@ const directores = [
   },
   {
     email: 'gerardo.mendoza@municipio.com',
-    password: 'Dir2024',
+    password: 'DirE3k4l5',
     displayName: 'C. Gerardo Mendoza Romero',
     cargo: 'Secretario Técnico',
     area: 'Secretaría General Municipal',
@@ -77,7 +77,7 @@ const directores = [
   },
   {
     email: 'dulce.rosas@municipio.com',
-    password: 'Dir2024',
+    password: 'DirF6m7n8',
     displayName: 'Ing. Dulce Annet Rosas Rojo',
     cargo: 'Titular de la Unidad Central de Correspondencia',
     area: 'Secretaría General Municipal',
@@ -86,7 +86,7 @@ const directores = [
   },
   {
     email: 'marcos.aguirre@municipio.com',
-    password: 'Dir2024',
+    password: 'DirG9p0q1',
     displayName: 'Ld. Marcos Aguirre Reyes',
     cargo: 'Oficial del Registro del Estado Familiar',
     area: 'Secretaría General Municipal',
@@ -95,7 +95,7 @@ const directores = [
   },
   {
     email: 'luis.olguin@municipio.com',
-    password: 'Dir2024',
+    password: 'DirH2r3s4',
     displayName: 'Luis Angel Olguin Nube',
     cargo: 'Director del Área Coordinadora de Archivo',
     area: 'Secretaría General Municipal',
@@ -104,7 +104,7 @@ const directores = [
   },
   {
     email: 'anahi.catalan@municipio.com',
-    password: 'Dir2024',
+    password: 'DirI5t6u7',
     displayName: 'Tsu. Anahi Catalan Legorreta',
     cargo: 'Dirección de Atención al Migrante',
     area: 'Secretaría General Municipal',
@@ -113,7 +113,7 @@ const directores = [
   },
   {
     email: 'taurino.gonzalez@municipio.com',
-    password: 'Dir2024',
+    password: 'DirJ8v9w0',
     displayName: 'Lap. Taurino Gonzalez Cruz',
     cargo: 'Director de Recursos Materiales y Patrimonio',
     area: 'Secretaría General Municipal',
@@ -122,7 +122,7 @@ const directores = [
   },
   {
     email: 'roberto.ruiz@municipio.com',
-    password: 'Dir2024',
+    password: 'DirK1x2y3',
     displayName: 'Roberto Ruiz Vega',
     cargo: 'Titular de la Junta de Reclutamiento',
     area: 'Secretaría General Municipal',
@@ -133,7 +133,7 @@ const directores = [
   // ===== SECRETARÍA DE TESORERÍA MUNICIPAL =====
   {
     email: 'alejandro.diaz@municipio.com',
-    password: 'Dir2024',
+    password: 'DirL4z5a6',
     displayName: 'Lic. Alejandro Diaz Chavez',
     cargo: 'Director de Cuenta Pública',
     area: 'Secretaría de Tesorería Municipal',
@@ -142,7 +142,7 @@ const directores = [
   },
   {
     email: 'miguel.tolentino@municipio.com',
-    password: 'Dir2024',
+    password: 'DirM7b8c9',
     displayName: 'Mtro. Miguel Angel Tolentino Hernandez',
     cargo: 'Director de Control y Seguimiento de Egresos',
     area: 'Secretaría de Tesorería Municipal',
@@ -151,7 +151,7 @@ const directores = [
   },
   {
     email: 'juan.sanchez@municipio.com',
-    password: 'Dir2024',
+    password: 'DirN0d1e2',
     displayName: 'Lic. Juan Antonio Sanchez Contreras',
     cargo: 'Director de Catastro',
     area: 'Secretaría de Tesorería Municipal',
@@ -160,7 +160,7 @@ const directores = [
   },
   {
     email: 'hector.perez@municipio.com',
-    password: 'Dir2024',
+    password: 'DirO3f4g5',
     displayName: 'Lic. Hector Perez Cano',
     cargo: 'Director de Ingresos y Estrategias de Recaudación',
     area: 'Secretaría de Tesorería Municipal',
@@ -169,7 +169,7 @@ const directores = [
   },
   {
     email: 'juana.moctezuma@municipio.com',
-    password: 'Dir2024',
+    password: 'DirP6h7i8',
     displayName: 'Lic. Juana Karina Moctezuma Ramirez',
     cargo: 'Director de Administración',
     area: 'Secretaría de Tesorería Municipal',
@@ -178,7 +178,7 @@ const directores = [
   },
   {
     email: 'isabel.munoz@municipio.com',
-    password: 'Dir2024',
+    password: 'DirQ9j0k1',
     displayName: 'Mtra. Isabel Muñoz Garcia',
     cargo: 'Director de Recursos Humanos y Nómina',
     area: 'Secretaría de Tesorería Municipal',
@@ -189,7 +189,7 @@ const directores = [
   // ===== SECRETARÍA DE OBRAS PÚBLICAS Y DESARROLLO URBANO =====
   {
     email: 'vanessa.martinez@municipio.com',
-    password: 'Dir2024',
+    password: 'DirR2l3m4',
     displayName: 'Lic. Vanessa Martinez Angel',
     cargo: 'Secretario Técnico',
     area: 'Secretaría de Obras Públicas y Desarrollo Urbano',
@@ -198,7 +198,7 @@ const directores = [
   },
   {
     email: 'gladys.zapote@municipio.com',
-    password: 'Dir2024',
+    password: 'DirS5n6o7',
     displayName: 'Mtra. Gladys Zapote Garcia',
     cargo: 'Director de Obras Públicas',
     area: 'Secretaría de Obras Públicas y Desarrollo Urbano',
@@ -207,7 +207,7 @@ const directores = [
   },
   {
     email: 'alfonso.alavez@municipio.com',
-    password: 'Dir2024',
+    password: 'DirT8p9q0',
     displayName: 'Alfonso Isidro Alavez',
     cargo: 'Director de Desarrollo Urbano y Ordenamiento Territorial',
     area: 'Secretaría de Obras Públicas y Desarrollo Urbano',
@@ -216,7 +216,7 @@ const directores = [
   },
   {
     email: 'rosalio.romero@municipio.com',
-    password: 'Dir2024',
+    password: 'DirU1r2s3',
     displayName: 'C. Rosalio Romero Cruz',
     cargo: 'Director de Servicios Públicos y Limpias',
     area: 'Secretaría de Obras Públicas y Desarrollo Urbano',
@@ -225,7 +225,7 @@ const directores = [
   },
   {
     email: 'julio.palma@municipio.com',
-    password: 'Dir2024',
+    password: 'DirV4t5u6',
     displayName: 'C. Julio Cesar Palma Rodriguez',
     cargo: 'Director de Servicios Municipales',
     area: 'Secretaría de Obras Públicas y Desarrollo Urbano',
@@ -236,7 +236,7 @@ const directores = [
   // ===== SECRETARÍA DE PLANEACIÓN Y EVALUACIÓN =====
   {
     email: 'efrain.volteada@municipio.com',
-    password: 'Dir2024',
+    password: 'DirW7v8w9',
     displayName: 'Mtro. Efrain Volteada Peña',
     cargo: 'Director de Planeación y Evaluación',
     area: 'Secretaría de Planeación y Evaluación',
@@ -245,7 +245,7 @@ const directores = [
   },
   {
     email: 'luis.chavero@municipio.com',
-    password: 'Dir2024',
+    password: 'DirX0x1y2',
     displayName: 'Ing. Luis Alberto Chavero Chavez',
     cargo: 'Director de Tecnologías de la Información',
     area: 'Secretaría de Planeación y Evaluación',
@@ -254,7 +254,7 @@ const directores = [
   },
   {
     email: 'lucila.ocampo@municipio.com',
-    password: 'Dir2024',
+    password: 'DirY3z4a5',
     displayName: 'Ing. Lucila Ocampo Valle',
     cargo: 'Secretario de Desarrollo Económico y Turismo',
     area: 'Secretaría de Planeación y Evaluación',
@@ -263,7 +263,7 @@ const directores = [
   },
   {
     email: 'berenice.moreno@municipio.com',
-    password: 'Dir2024',
+    password: 'DirZ6b7c8',
     displayName: 'Berenice Moreno Romero',
     cargo: 'Director de Turismo',
     area: 'Secretaría de Planeación y Evaluación',
@@ -272,7 +272,7 @@ const directores = [
   },
   {
     email: 'claudia.ramirez@municipio.com',
-    password: 'Dir2024',
+    password: 'DirA9d0e1',
     displayName: 'Tsu. Claudia Ramirez Martinez',
     cargo: 'Director de Desarrollo Económico',
     area: 'Secretaría de Planeación y Evaluación',
@@ -281,7 +281,7 @@ const directores = [
   },
   {
     email: 'pablo.vaquero@municipio.com',
-    password: 'Dir2024',
+    password: 'DirB2f3g4',
     displayName: 'C. Pablo Vaquero Hernandez',
     cargo: 'Director de Desarrollo Agropecuario y Proyectos Productivos',
     area: 'Secretaría de Planeación y Evaluación',
@@ -292,7 +292,7 @@ const directores = [
   // ===== SECRETARÍA DE BIENESTAR SOCIAL =====
   {
     email: 'hipolito.bartolo@municipio.com',
-    password: 'Dir2024',
+    password: 'DirC5h6i7',
     displayName: 'Lic. Hipolito Bartolo Marcos',
     cargo: 'Director de Cultura',
     area: 'Secretaría de Bienestar Social',
@@ -301,7 +301,7 @@ const directores = [
   },
   {
     email: 'christian.trejo@municipio.com',
-    password: 'Dir2024',
+    password: 'DirD8j9k0',
     displayName: 'Christian Moises Trejo Escamilla',
     cargo: 'Director del Deporte',
     area: 'Secretaría de Bienestar Social',
@@ -310,7 +310,7 @@ const directores = [
   },
   {
     email: 'rosa.labra@municipio.com',
-    password: 'Dir2024',
+    password: 'DirE1l2m3',
     displayName: 'Rosa Itzel Labra Samano',
     cargo: 'Director de Salud',
     area: 'Secretaría de Bienestar Social',
@@ -319,7 +319,7 @@ const directores = [
   },
   {
     email: 'jose.zapata@municipio.com',
-    password: 'Dir2024',
+    password: 'DirF4n5o6',
     displayName: 'Lic. Jose de Jesus Zapata Mendoza',
     cargo: 'Director de Educación',
     area: 'Secretaría de Bienestar Social',
@@ -328,7 +328,7 @@ const directores = [
   },
   {
     email: 'alicia.feregrino@municipio.com',
-    password: 'Dir2024',
+    password: 'DirG7p8q9',
     displayName: 'Alicia Michelle Feregrino Gomez',
     cargo: 'Director de Programas Sociales',
     area: 'Secretaría de Bienestar Social',
@@ -337,7 +337,7 @@ const directores = [
   },
   {
     email: 'michelle.chiapa@municipio.com',
-    password: 'Dir2024',
+    password: 'DirH0r1s2',
     displayName: 'C. Michelle Chiapa Zamora',
     cargo: 'Titular de la Instancia Municipal de la Juventud',
     area: 'Secretaría de Bienestar Social',
@@ -348,7 +348,7 @@ const directores = [
   // ===== SECRETARÍA DE SEGURIDAD PÚBLICA =====
   {
     email: 'marcelino.capula@municipio.com',
-    password: 'Dir2024',
+    password: 'DirI3t4u5',
     displayName: 'C. Marcelino Capula Martinez',
     cargo: 'Director de Protección Civil y Bomberos',
     area: 'Secretaría de Seguridad Pública, Tránsito Municipal, Auxilio Vial y Protección Civil',
