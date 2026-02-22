@@ -191,20 +191,37 @@ export const uploadReportImage = async (taskId, reportId, imageData) => {
     const storagePath = `task_reports/${taskId}/${reportId}/${fileName}`;
     const storageRef = ref(storage, storagePath);
 
-    // Convert base64 to blob if needed
+    // Convert various formats to blob
     let blob = imageData.blob;
-    if (!blob && imageData.base64) {
-      const bstr = atob(imageData.base64);
-      const n = bstr.length;
-      const u8arr = new Uint8Array(n);
-      for (let i = 0; i < n; i++) {
-        u8arr[i] = bstr.charCodeAt(i);
+    
+    // Si no hay blob, convertir de uri o base64
+    if (!blob) {
+      if (imageData.uri) {
+        // Convertir URI de imagen (expo-image-picker) a blob
+        console.log('📸 Converting URI to blob:', imageData.uri);
+        const response = await fetch(imageData.uri);
+        blob = await response.blob();
+        console.log('✅ URI converted to blob, size:', blob.size);
+      } else if (imageData.base64) {
+        // Convertir base64 a blob
+        const bstr = atob(imageData.base64);
+        const n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        for (let i = 0; i < n; i++) {
+          u8arr[i] = bstr.charCodeAt(i);
+        }
+        blob = new Blob([u8arr], { type: 'image/jpeg' });
       }
-      blob = new Blob([u8arr], { type: 'image/jpeg' });
     }
 
+    if (!blob) {
+      throw new Error('No valid image data provided (uri, blob, or base64 required)');
+    }
+
+    console.log('📤 Uploading image to Storage:', storagePath);
     await uploadBytes(storageRef, blob);
     const downloadURL = await getDownloadURL(storageRef);
+    console.log('✅ Image uploaded, URL:', downloadURL);
 
     // Update report with image URL
     await updateDoc(doc(db, 'task_reports', reportId), {
@@ -218,7 +235,7 @@ export const uploadReportImage = async (taskId, reportId, imageData) => {
 
     return downloadURL;
   } catch (error) {
-    console.error('Error uploading report image:', error);
+    console.error('❌ Error uploading report image:', error);
     throw error;
   }
 };
@@ -375,23 +392,18 @@ export const subscribeToTaskActivity = (taskId, callback) => {
  */
 export const deleteTaskReport = async (taskId, reportId) => {
   try {
-    // Remove report reference from task
-    const taskRef = doc(db, 'Tasks', taskId);
-    const taskSnapshot = await getDocs(
-      query(collection(db, 'Tasks'), where('__name__', '==', taskId))
-    );
-
-    if (!taskSnapshot.empty) {
-      // In a real implementation, you'd filter the reports array
-      // For now, we'll just mark the report as deleted
-      await updateDoc(doc(db, 'task_reports', reportId), {
-        deleted: true,
-        deletedAt: serverTimestamp(),
-      });
-    }
+    // Marcar el reporte como eliminado (soft delete)
+    // Esto es más seguro que borrar directamente
+    await updateDoc(doc(db, 'task_reports', reportId), {
+      deleted: true,
+      deletedAt: serverTimestamp(),
+    });
+    
+    console.log(`✅ Reporte ${reportId} marcado como eliminado`);
+    return { success: true, message: 'Reporte eliminado correctamente' };
   } catch (error) {
-    console.error('Error deleting report:', error);
-    throw error;
+    console.error('Error eliminando reporte:', error);
+    throw new Error(`No se pudo eliminar el reporte: ${error.message}`);
   }
 };
 

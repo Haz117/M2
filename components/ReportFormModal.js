@@ -256,25 +256,35 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
       const currentUser = result.session;
       console.log('👤 Current user:', currentUser.email, 'Role:', currentUser.role);
 
-      // Preparar URIs de imágenes (sin subir a Storage por problemas de CORS en desarrollo)
-      const imageUrls = images.map(img => ({
-        uri: img.uri,
-        uploadedBy: currentUser.userId,
-        uploadedAt: new Date().toISOString(),
-      }));
-
       console.log('📋 Creating report for taskId:', taskId);
       
-      // Create report con imágenes incluidas
+      // Create report SIN imágenes primero
       const reportId = await createTaskReport(taskId, currentUser.userId, {
         title: title.trim(),
         description: description.trim(),
         rating: rating > 0 ? rating : null,
         ratingComment: ratingComment.trim(),
-        images: imageUrls, // Guardar URIs directamente
+        images: [], // Vacío inicialmente
       });
       
       console.log('✅ Report created successfully with ID:', reportId);
+
+      // Subir imágenes a Storage si hay
+      if (images.length > 0) {
+        console.log('📸 Uploading', images.length, 'images to Storage...');
+        for (const img of images) {
+          try {
+            await uploadReportImage(taskId, reportId, {
+              uri: img.uri,
+              uploadedBy: currentUser.userId,
+            });
+            console.log('✅ Image uploaded:', img.uri);
+          } catch (imgError) {
+            console.error('⚠️ Error uploading image:', imgError);
+            // Continuar con las otras imágenes
+          }
+        }
+      }
 
       setToastMessage('Report created successfully!');
       setTimeout(() => {

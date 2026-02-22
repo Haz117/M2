@@ -122,6 +122,26 @@ export function hasPermission(user, permission) {
 }
 
 /**
+ * Verifica si el usuario puede reabrir una tarea
+ * @param {Object} user - Usuario actual
+ * @param {Object} task - Tarea a reabrir
+ * @returns {Object} {canReopen: boolean, reason: string}
+ */
+export function canReopenTask(user, task) {
+  if (!user || !user.role) {
+    return { canReopen: false, reason: 'Usuario no autenticado' };
+  }
+
+  // Solo admin puede reabrir tareas
+  if (user.role === ROLES.ADMIN) {
+    return { canReopen: true, reason: 'Admin puede reabrir tareas' };
+  }
+
+  // Secretarios, Directores, Jefes y operativos NO pueden reabrir
+  return { canReopen: false, reason: 'Solo el administrador puede reabrir tareas' };
+}
+
+/**
  * Verifica si el usuario puede editar una tarea específica
  * @param {Object} user - Usuario actual
  * @param {Object} task - Tarea a editar
@@ -148,6 +168,35 @@ export function canEditTask(user, task) {
   
   // Secretario, Director, Operativo NO pueden editar tareas
   return { canEdit: false, reason: 'Solo el administrador puede modificar tareas' };
+}
+
+/**
+ * Verifica si el usuario puede asignar una subtarea de área a un directo
+ * @param {Object} user - Usuario actual
+ * @param {Object} task - Tarea (subtarea de área)
+ * @returns {Object} {canAssign: boolean, reason: string, multiAssignAllowed: boolean}
+ */
+export function canAssignAreaSubtask(user, task) {
+  if (!user || !user.role) {
+    return { canAssign: false, reason: 'Usuario no autenticado', multiAssignAllowed: false };
+  }
+
+  // Admin puede asignar de cualquier forma (incluyendo múltiples)
+  if (user.role === ROLES.ADMIN) {
+    return { canAssign: true, reason: 'Admin puede asignar subtareas', multiAssignAllowed: true };
+  }
+
+  // Secretarios PUEDEN asignar subtareas pero SOLO a UN director (sin multi-asignación)
+  if (user.role === ROLES.SECRETARIO) {
+    return { 
+      canAssign: true, 
+      reason: 'Secretario puede asignar subtareas a directores',
+      multiAssignAllowed: false // NO permitir múltiples asignados
+    };
+  }
+
+  // Otros roles no pueden
+  return { canAssign: false, reason: 'No tienes permisos para asignar subtareas', multiAssignAllowed: false };
 }
 
 /**

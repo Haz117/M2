@@ -1,12 +1,14 @@
 // components/TaskStatusButtons.js
 // Botones para cambiar el estado de las tareas (solo para operativos)
-import React from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Animated, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../contexts/ThemeContext';
 import RippleButton from './RippleButton';
 import { hapticLight } from '../utils/haptics';
+import { getCurrentSession } from '../services/authFirestore';
+import { canReopenTask } from '../services/permissions';
 
 const statusFlow = {
   'pendiente': { 
@@ -39,14 +41,42 @@ const statusFlow = {
   }
 };
 
-export default function TaskStatusButtons({ currentStatus, taskId, onStatusChange }) {
+export default function TaskStatusButtons({ currentStatus, taskId, onStatusChange, task = {} }) {
   const { theme } = useTheme();
+  const [currentUser, setCurrentUser] = useState(null);
   const nextState = statusFlow[currentStatus || 'pendiente'];
+  
+  useEffect(() => {
+    loadCurrentUser();
+  }, []);
+  
+  const loadCurrentUser = async () => {
+    const result = await getCurrentSession();
+    if (result.success) {
+      setCurrentUser(result.session);
+    }
+  };
   
   if (!nextState) return null;
   
+  // Verificar permisos para reabrir si la tarea está cerrada
+  const isReopening = currentStatus === 'cerrada';
+  if (isReopening && currentUser) {
+    const permission = canReopenTask(currentUser, task);
+    if (!permission.canReopen) {
+      return null; // No mostrar el botón si no tiene permisos
+    }
+  }
+  
   const handlePress = () => {
     hapticLight();
+    if (isReopening && currentUser) {
+      const permission = canReopenTask(currentUser, task);
+      if (!permission.canReopen) {
+        Alert.alert('Sin permisos', permission.reason);
+        return;
+      }
+    }
     onStatusChange(taskId, nextState.next);
   };
   

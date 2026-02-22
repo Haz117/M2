@@ -12,11 +12,13 @@ import {
   ListRenderItem,
   FlatList,
   Platform,
+  Alert,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../contexts/ThemeContext';
-import { getMyNotifications, markNotificationAsRead } from '../services/notificationsAdvanced';
+import { getMyNotifications, markNotificationAsRead, deleteNotification } from '../services/notificationsAdvanced';
 import LoadingIndicator from '../components/LoadingIndicator';
 import Toast from '../components/Toast';
 
@@ -92,6 +94,53 @@ export default function NotificationsScreen({ navigation }) {
     }
   };
 
+  const handleDeleteNotification = async (notificationId, notificationTitle) => {
+    // En web, Alert.alert no funciona - usar confirm nativo
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(`¿Deseas eliminar "${notificationTitle}"?`);
+      if (confirmed) {
+        try {
+          console.log('Eliminando notificación (web):', notificationId);
+          await deleteNotification(notificationId);
+          await loadNotifications();
+          setToastMessage('Notificación eliminada');
+          setShowToast(true);
+        } catch (error) {
+          console.error('Error eliminando notificación:', error);
+          setToastMessage(`Error: ${error.message || 'No se pudo eliminar'}`);
+          setShowToast(true);
+        }
+      }
+    } else {
+      // En móvil, usar Alert nativo
+      Alert.alert(
+        'Eliminar notificación',
+        `¿Deseas eliminar "${notificationTitle}"?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Eliminar',
+            onPress: async () => {
+              try {
+                console.log('Eliminando notificación (móvil):', notificationId);
+                await deleteNotification(notificationId);
+                await loadNotifications();
+                setToastMessage('Notificación eliminada');
+                setShowToast(true);
+              } catch (error) {
+                console.error('Error eliminando notificación:', error);
+                setToastMessage(`Error: ${error.message || 'No se pudo eliminar'}`);
+                setShowToast(true);
+              }
+            },
+            style: 'destructive',
+          },
+        ],
+        { cancelable: false }
+      );
+    }
+  };
+
   const getNotificationIcon = (type) => {
     switch (type) {
       case 'task_assigned':
@@ -130,11 +179,20 @@ export default function NotificationsScreen({ navigation }) {
 
   const filteredNotifications = getFilteredNotifications();
 
-  const renderNotification = ({ item }) => (
-    <TouchableOpacity
-      onPress={() => handleNotificationPress(item)}
-      activeOpacity={0.7}
-    >
+  const renderNotification = ({ item }) => {
+    const onDeletePress = (e) => {
+      // Prevenir propagación del evento
+      if (e && e.stopPropagation) {
+        e.stopPropagation();
+      }
+      handleDeleteNotification(item.id, item.title);
+    };
+
+    const onCardPress = () => {
+      handleNotificationPress(item);
+    };
+
+    return (
       <View
         style={[
           styles.notificationCard,
@@ -151,68 +209,87 @@ export default function NotificationsScreen({ navigation }) {
           },
         ]}
       >
-        <View
-          style={[
-            styles.notificationIcon,
-            {
-              backgroundColor: getNotificationColor(item.type) + '20',
-            },
+        <Pressable
+          onPress={onCardPress}
+          style={({ pressed }) => [
+            styles.notificationTouchable,
+            pressed && { opacity: 0.7 }
           ]}
         >
-          <Ionicons
-            name={getNotificationIcon(item.type)}
-            size={20}
-            color={getNotificationColor(item.type)}
-          />
-        </View>
-
-        <View style={styles.notificationContent}>
-          <Text
-            style={[
-              styles.notificationTitle,
-              {
-                color: theme.text,
-                fontWeight: item.read ? '600' : '700',
-              },
-            ]}
-          >
-            {item.title}
-          </Text>
-          <Text
-            style={[
-              styles.notificationBody,
-              {
-                color: theme.textSecondary,
-              },
-            ]}
-          >
-            {item.body}
-          </Text>
-          <Text
-            style={[
-              styles.notificationTime,
-              {
-                color: theme.textTertiary,
-              },
-            ]}
-          >
-            {formatTime(item.createdAt)}
-          </Text>
-        </View>
-
-        {!item.read && (
           <View
             style={[
-              styles.unreadBadge,
+              styles.notificationIcon,
               {
-                backgroundColor: getNotificationColor(item.type),
+                backgroundColor: getNotificationColor(item.type) + '20',
               },
             ]}
-          />
-        )}
+          >
+            <Ionicons
+              name={getNotificationIcon(item.type)}
+              size={20}
+              color={getNotificationColor(item.type)}
+            />
+          </View>
+
+          <View style={styles.notificationContent}>
+            <Text
+              style={[
+                styles.notificationTitle,
+                {
+                  color: theme.text,
+                  fontWeight: item.read ? '600' : '700',
+                },
+              ]}
+            >
+              {item.title}
+            </Text>
+            <Text
+              style={[
+                styles.notificationBody,
+                {
+                  color: theme.textSecondary,
+                },
+              ]}
+            >
+              {item.body}
+            </Text>
+            <Text
+              style={[
+                styles.notificationTime,
+                {
+                  color: theme.textTertiary,
+                },
+              ]}
+            >
+              {formatTime(item.createdAt)}
+            </Text>
+          </View>
+
+          {!item.read && (
+            <View
+              style={[
+                styles.unreadBadge,
+                {
+                  backgroundColor: getNotificationColor(item.type),
+                },
+              ]}
+            />
+          )}
+        </Pressable>
+
+        <Pressable
+          onPress={onDeletePress}
+          style={({ pressed }) => [
+            styles.deleteButton,
+            pressed && { opacity: 0.5, transform: [{ scale: 0.95 }] }
+          ]}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+        </Pressable>
       </View>
-    </TouchableOpacity>
-  );
+    );
+  };
 
   if (loading) {
     return (
@@ -382,8 +459,15 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
+    alignItems: 'center',
+    gap: 8,
+  },
+  notificationTouchable: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
+    paddingRight: 8,
   },
   notificationIcon: {
     width: 44,
@@ -411,6 +495,16 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     alignSelf: 'center',
+  },
+  deleteButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 59, 48, 0.15)',
+    zIndex: 10,
+    cursor: Platform.OS === 'web' ? 'pointer' : undefined,
   },
   emptyContainer: {
     flex: 1,

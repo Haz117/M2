@@ -13,10 +13,11 @@ import {
   Modal,
   ScrollView,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
-import { subscribeToAllReports, rateTaskReport } from '../services/reportsService';
+import { subscribeToAllReports, rateTaskReport, deleteTaskReport } from '../services/reportsService';
 import { getCurrentSession } from '../services/authFirestore';
 import Toast from '../components/Toast';
 
@@ -31,6 +32,8 @@ const AdminReportsScreen = ({ navigation }) => {
   const [filter, setFilter] = useState('all'); // 'all', 'pending', 'rated'
   const [groupBy, setGroupBy] = useState('area'); // 'area', 'role', 'date'
   const [toastMessage, setToastMessage] = useState('');
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [showImageModal, setShowImageModal] = useState(false);
 
   useEffect(() => {
     loadUser();
@@ -133,6 +136,34 @@ const AdminReportsScreen = ({ navigation }) => {
       setShowModal(false);
     } catch (error) {
       Alert.alert('Error', 'No se pudo calificar el reporte');
+    }
+  };
+
+  const handleDeleteReport = async (reportId, taskId) => {
+    const doDelete = async () => {
+      try {
+        await deleteTaskReport(taskId, reportId);
+        setToastMessage('Reporte eliminado correctamente');
+        setShowModal(false);
+      } catch (error) {
+        setToastMessage(`Error: ${error.message}`);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('¿Estás seguro de que deseas eliminar este reporte?');
+      if (confirmed) {
+        await doDelete();
+      }
+    } else {
+      Alert.alert(
+        '🗑️ Eliminar Reporte',
+        '¿Estás seguro de que deseas eliminar este reporte? Esta acción no se puede deshacer.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Eliminar', style: 'destructive', onPress: doDelete }
+        ]
+      );
     }
   };
 
@@ -312,11 +343,18 @@ const AdminReportsScreen = ({ navigation }) => {
                   </Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     {selectedReport.images.map((img, index) => (
-                      <Image
+                      <TouchableOpacity
                         key={index}
-                        source={{ uri: typeof img === 'string' ? img : img.url }}
-                        style={styles.previewImage}
-                      />
+                        onPress={() => {
+                          setSelectedImage(typeof img === 'string' ? img : img.url);
+                          setShowImageModal(true);
+                        }}
+                      >
+                        <Image
+                          source={{ uri: typeof img === 'string' ? img : img.url }}
+                          style={styles.previewImage}
+                        />
+                      </TouchableOpacity>
                     ))}
                   </ScrollView>
                 </View>
@@ -348,6 +386,17 @@ const AdminReportsScreen = ({ navigation }) => {
                 <Text style={[styles.dateDetail, { color: isDark ? '#ccc' : '#333' }]}>
                   {formatDate(selectedReport.createdAt)}
                 </Text>
+              </View>
+
+              {/* Botón de eliminar reportes */}
+              <View style={styles.detailSection}>
+                <TouchableOpacity
+                  style={[styles.deleteButton, { borderColor: '#E53935' }]}
+                  onPress={() => handleDeleteReport(selectedReport.id, selectedReport.taskId)}
+                >
+                  <Ionicons name="trash-outline" size={20} color="#E53935" />
+                  <Text style={styles.deleteButtonText}>Eliminar este reporte</Text>
+                </TouchableOpacity>
               </View>
             </ScrollView>
           </View>
@@ -653,6 +702,23 @@ const AdminReportsScreen = ({ navigation }) => {
       borderRadius: 8,
       marginRight: 8,
     },
+    imageModalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.95)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    imageModalCloseButton: {
+      position: 'absolute',
+      top: 20,
+      right: 20,
+      zIndex: 1000,
+      padding: 8,
+    },
+    fullscreenImage: {
+      width: '100%',
+      height: '100%',
+    },
     ratingDisplay: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -667,6 +733,22 @@ const AdminReportsScreen = ({ navigation }) => {
     },
     dateDetail: {
       fontSize: 15,
+    },
+    deleteButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      padding: 14,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: '#E53935',
+      backgroundColor: isDark ? '#3a2422' : '#ffebee',
+    },
+    deleteButtonText: {
+      color: '#E53935',
+      fontSize: 16,
+      fontWeight: '600',
     },
   });
 
@@ -780,6 +862,30 @@ const AdminReportsScreen = ({ navigation }) => {
       )}
 
       {renderDetailModal()}
+
+      {/* Modal de imagen a pantalla completa */}
+      <Modal
+        visible={showImageModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowImageModal(false)}
+      >
+        <View style={styles.imageModalOverlay}>
+          <TouchableOpacity
+            style={styles.imageModalCloseButton}
+            onPress={() => setShowImageModal(false)}
+          >
+            <Ionicons name="close" size={32} color="#fff" />
+          </TouchableOpacity>
+          {selectedImage && (
+            <Image
+              source={{ uri: selectedImage }}
+              style={styles.fullscreenImage}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      </Modal>
 
       <Toast
         visible={!!toastMessage}

@@ -34,6 +34,7 @@ import {
   canChangeTaskStatus,
   canDeleteTask,
   canCreateTask,
+  canAssignAreaSubtask,
   getPermissionsSummary,
   ROLES 
 } from '../services/permissions';
@@ -271,6 +272,84 @@ export default function TaskDetailScreen({ route, navigation }) {
       }
     }
   }, [selectedAssignees, currentUser, editingTask]);
+
+  // 🔥 Validar y auto-ajustar áreas cuando se selecciona un secretario (SOLO AL CREAR, NO AL EDITAR)
+  useEffect(() => {
+    const validateSecretarioAreas = async () => {
+      // Solo validar al crear nueva tarea, no al editar
+      if (editingTask) return;
+      
+      if (!selectedAssignees || selectedAssignees.length === 0) return;
+
+      try {
+        // Buscar secretarios en selectedAssignees
+        const secretarios = selectedAssignees.filter(user => user.role === 'secretario');
+        
+        if (secretarios.length === 0) return;
+
+        let needsUpdate = false;
+        let validAreaFound = false;
+        let firstValidArea = null;
+        let secretarioName = null;
+
+        // Obtener datos completos del secretario desde Firestore
+        for (const secretario of secretarios) {
+          try {
+            const usersRef = collection(db, 'users');
+            const q = query(usersRef, where('email', '==', secretario.email));
+            const snapshot = await getDocs(q);
+            
+            if (snapshot.empty) continue;
+            
+            const secretarioData = snapshot.docs[0].data();
+            const secretarioAreas = new Set();
+            
+            // Recopilar todas las áreas disponibles del secretario
+            if (secretarioData.area) secretarioAreas.add(secretarioData.area);
+            if (secretarioData.direcciones && Array.isArray(secretarioData.direcciones)) {
+              secretarioData.direcciones.forEach(dir => secretarioAreas.add(dir));
+            }
+            if (secretarioData.areasPermitidas && Array.isArray(secretarioData.areasPermitidas)) {
+              secretarioData.areasPermitidas.forEach(area => secretarioAreas.add(area));
+            }
+            if (secretarioData.allowedAreas && Array.isArray(secretarioData.allowedAreas)) {
+              secretarioData.allowedAreas.forEach(area => secretarioAreas.add(area));
+            }
+
+            // Validar que selectedAreas tengan overlap con las áreas del secretario
+            validAreaFound = selectedAreas && selectedAreas.length > 0 && 
+                           selectedAreas.some(area => secretarioAreas.has(area));
+            
+            // Si no hay área válida, preparar auto-selección
+            if (!validAreaFound && secretarioAreas.size > 0) {
+              needsUpdate = true;
+              firstValidArea = Array.from(secretarioAreas)[0];
+              secretarioName = secretario.displayName || secretario.email;
+              break; // Solo procesamos el primer secretario sin área válida
+            }
+          } catch (error) {
+            console.error(`Error validando secretario ${secretario.email}:`, error);
+          }
+        }
+
+        // Si necesita actualización, hacerlo
+        if (needsUpdate && firstValidArea) {
+          setSelectedAreas([firstValidArea]);
+          
+          // Mostrar alerta al usuario
+          Alert.alert(
+            'Área Auto-Seleccionada',
+            `El área fue auto-seleccionada a "${firstValidArea}" para coincidir con las áreas permitidas del secretario "${secretarioName}".`,
+            [{ text: 'Entendido' }]
+          );
+        }
+      } catch (error) {
+        console.error('Error en validación de áreas:', error);
+      }
+    };
+
+    validateSecretarioAreas();
+  }, [selectedAssignees, editingTask]);
 
   const filteredAreas = useMemo(() => {
     // Usar areasFromSelectedUsers en lugar de availableAreas para admin
@@ -777,12 +856,63 @@ export default function TaskDetailScreen({ route, navigation }) {
       // Construir objeto tarea con múltiples asignados y múltiples áreas
       const assignedEmails = selectedAssignees.map(a => a.email);
       
+      // 🔥 VALIDAR Y LIMPIAR ÁREAS INVÁLIDAS PARA SECRETARIOS AL ACTUALIZAR
+      let validareas = selectedAreas;
+      if (editingTask) {
+        try {
+          const secretariosEnTarea = selectedAssignees.filter(user => user.role === 'secretario');
+          
+          if (secretariosEnTarea.length > 0) {
+            // Obtener todas las áreas válidas de los secretarios
+            const areasValidasParaSecretarios = new Set();
+            
+            for (const secretario of secretariosEnTarea) {
+              try {
+                const usersRef = collection(db, 'users');
+                const q = query(usersRef, where('email', '==', secretario.email));
+                const snapshot = await getDocs(q);
+                
+                if (!snapshot.empty) {
+                  const secretarioData = snapshot.docs[0].data();
+                  
+                  if (secretarioData.area) areasValidasParaSecretarios.add(secretarioData.area);
+                  if (secretarioData.direcciones && Array.isArray(secretarioData.direcciones)) {
+                    secretarioData.direcciones.forEach(dir => areasValidasParaSecretarios.add(dir));
+                  }
+                  if (secretarioData.areasPermitidas && Array.isArray(secretarioData.areasPermitidas)) {
+                    secretarioData.areasPermitidas.forEach(area => areasValidasParaSecretarios.add(area));
+                  }
+                  if (secretarioData.allowedAreas && Array.isArray(secretarioData.allowedAreas)) {
+                    secretarioData.allowedAreas.forEach(area => areasValidasParaSecretarios.add(area));
+                  }
+                }
+              } catch (error) {
+                console.error(`Error validando secretario ${secretario.email}:`, error);
+              }
+            }
+            
+            // Filtrar selectedAreas para dejar solo las válidas
+            if (areasValidasParaSecretarios.size > 0) {
+              validareas = selectedAreas.filter(area => areasValidasParaSecretarios.has(area));
+              
+              // Si después del filtro quedan áreas, usarlas; si no, usar todas (admin override)
+              if (validareas.length === 0) {
+                validareas = selectedAreas;
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error validando áreas de secretarios:', error);
+          validareas = selectedAreas;
+        }
+      }
+      
       const taskData = {
         title: title.trim(),
         description: description.trim(),
         assignedEmails: assignedEmails, // Array de emails para múltiples asignados
-        areas: selectedAreas, // Array de áreas seleccionadas
-        area: selectedAreas[0], // Backward compatibility: primera área como principal
+        areas: validareas, // Array de áreas validadas
+        area: validareas[0], // Backward compatibility: primera área como principal
         priority,
         status,
         dueAt: dueAt.getTime(),
@@ -790,7 +920,9 @@ export default function TaskDetailScreen({ route, navigation }) {
         recurrencePattern: isRecurring ? recurrencePattern : null,
         lastRecurrenceCreated: isRecurring ? dueAt.getTime() : null,
         tags,
-        estimatedHours: estimatedHours ? parseFloat(estimatedHours) : null
+        estimatedHours: estimatedHours ? parseFloat(estimatedHours) : null,
+        // Agregar timestamp de actualización para sincronización en tiempo real
+        ...(editingTask && { updatedAt: new Date().getTime() })
       };
 
       let taskId;
@@ -976,6 +1108,28 @@ export default function TaskDetailScreen({ route, navigation }) {
   const handleDelegate = async (director) => {
     if (!editingTask || !director) return;
     
+    // Verificar si es una subtarea de área
+    if (editingTask.isAreaSubtask && currentUser) {
+      const permission = canAssignAreaSubtask(currentUser, editingTask);
+      if (!permission.canAssign) {
+        Alert.alert('Sin permisos', permission.reason);
+        return;
+      }
+      
+      // Si el usuario es secretario, no permitir multi-asignación
+      if (currentUser.role === 'secretario' && !permission.multiAssignAllowed) {
+        // Verificar si ya hay asignados
+        const currentAssignees = editingTask.assignedTo || [];
+        if (currentAssignees.length > 0) {
+          Alert.alert(
+            'Una sola asignación permitida',
+            'Las subtareas solo pueden asignarse a UN director. Para cambiar el asignado actual, elimina primero la asignación anterior.'
+          );
+          return;
+        }
+      }
+    }
+    
     try {
       setIsSaving(true);
       
@@ -1070,6 +1224,7 @@ export default function TaskDetailScreen({ route, navigation }) {
                     currentStatus={editingTask.status || 'pendiente'}
                     taskId={editingTask.id}
                     onStatusChange={handleStatusChange}
+                    task={editingTask}
                   />
                 </View>
 
@@ -1079,6 +1234,9 @@ export default function TaskDetailScreen({ route, navigation }) {
                   <SubtasksList 
                     taskId={editingTask.id}
                     canEdit={false}
+                    canDelegate={false}
+                    delegateUsers={[]}
+                    currentUser={currentUser}
                   />
                 </View>
 
@@ -1790,6 +1948,9 @@ export default function TaskDetailScreen({ route, navigation }) {
             <SubtasksList 
               taskId={editingTask.id}
               canEdit={canEdit || canAddSubtask}
+              canDelegate={canDelegate}
+              delegateUsers={delegateUsers}
+              currentUser={currentUser}
             />
           )}
 
@@ -1812,8 +1973,8 @@ export default function TaskDetailScreen({ route, navigation }) {
             </View>
           )}
 
-          {/* BOTÓN DE DELEGACIÓN - Solo para secretarios */}
-          {editingTask && canDelegate && currentUser?.role === 'secretario' && (
+          {/* BOTÓN DE DELEGACIÓN - Para secretarios (incluyendo área subtasks) y admin */}
+          {editingTask && canDelegate && (currentUser?.role === 'secretario' || currentUser?.role === 'admin') && (
             <TouchableOpacity
               style={[styles.delegateButton, { backgroundColor: '#FF9800' }]}
               onPress={() => setShowDelegateModal(true)}
@@ -1970,6 +2131,14 @@ export default function TaskDetailScreen({ route, navigation }) {
               Selecciona un director para asignarle esta tarea:
             </Text>
             
+            {editingTask?.isAreaSubtask && currentUser?.role === 'secretario' && (
+              <View style={[styles.delegateWarningBox, { backgroundColor: '#FFF3CD', borderColor: '#FFC107' }]}>
+                <Ionicons name="warning" size={16} color="#FF6B6B" />
+                <Text style={styles.delegateWarningText}>
+                  Las subtareas solo pueden asignarse a UN director. Cada subtarea debe ser responsabilidad de una sola persona.
+                </Text>
+              </View>
+            )}
             <ScrollView style={styles.delegateUsersList}>
               {delegateUsers.length === 0 ? (
                 <View style={styles.noDelegateUsers}>
@@ -3030,6 +3199,22 @@ const createStyles = (theme, isDark) => StyleSheet.create({
     fontSize: 14,
     paddingHorizontal: 20,
     marginBottom: 20,
+  },
+  delegateWarningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 8,
+  },
+  delegateWarningText: {
+    fontSize: 12,
+    color: '#333',
+    flex: 1,
+    fontWeight: '500',
   },
   delegateUsersList: {
     paddingHorizontal: 20,

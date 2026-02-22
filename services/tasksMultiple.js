@@ -595,6 +595,43 @@ export async function subscribeToTasksMultiple(callback) {
   }
 }
 
+/**
+ * Asignar una subtarea a un usuario específico (delegación individual)
+ * @param {string} taskId - ID de la tarea padre
+ * @param {string} subtaskId - ID de la subtarea
+ * @param {Object} assignee - Usuario a asignar { email, displayName, area }
+ * @returns {Promise<void>}
+ */
+export async function assignSubtaskToUser(taskId, subtaskId, assignee) {
+  try {
+    const subtaskRef = doc(
+      db, 
+      TASKS_COLLECTION, 
+      taskId, 
+      SUBTASKS_SUBCOLLECTION, 
+      subtaskId
+    );
+
+    const subtaskSnap = await getDoc(subtaskRef);
+    if (!subtaskSnap.exists()) {
+      throw new Error('Subtarea no encontrada');
+    }
+
+    await updateDoc(subtaskRef, {
+      assignedTo: assignee.email,
+      assignedToName: assignee.displayName,
+      assignedToArea: assignee.area,
+      delegatedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+
+    console.log(`✅ Subtarea ${subtaskId} asignada a ${assignee.displayName}`);
+  } catch (error) {
+    console.error('Error asignando subtarea:', error);
+    throw new Error(`Error al asignar subtarea: ${error.message}`);
+  }
+}
+
 // Exportar el servicio
 export default {
   createTaskMultiple,
@@ -606,5 +643,6 @@ export default {
   deleteSubtask,
   subscribeToSubtasks,
   subscribeToTasksMultiple,
-  recalculateTaskProgress
+  recalculateTaskProgress,
+  assignSubtaskToUser
 };

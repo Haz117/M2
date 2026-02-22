@@ -11,23 +11,37 @@ import {
   Modal,
   SafeAreaView,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  ScrollView,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
   addSubtask,
   updateSubtaskStatus,
   deleteSubtask,
-  subscribeToSubtasks
+  subscribeToSubtasks,
+  assignSubtaskToUser
 } from '../services/tasksMultiple';
 
-export default function SubtasksList({ taskId, canEdit = true }) {
+export default function SubtasksList({ 
+  taskId, 
+  canEdit = true,
+  canDelegate = false,
+  delegateUsers = [],
+  currentUser = null
+}) {
   const [subtasks, setSubtasks] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [newSubtaskDesc, setNewSubtaskDesc] = useState('');
   const [loading, setLoading] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
+  
+  // Estado para delegación individual
+  const [showDelegateModal, setShowDelegateModal] = useState(false);
+  const [selectedSubtask, setSelectedSubtask] = useState(null);
+  const [delegating, setDelegating] = useState(false);
 
   // Escuchar subtareas en tiempo real
   useEffect(() => {
@@ -153,6 +167,49 @@ export default function SubtasksList({ taskId, canEdit = true }) {
     );
   };
 
+  // Función para abrir modal de delegación para una subtarea específica
+  const handleOpenDelegateModal = (subtask) => {
+    setSelectedSubtask(subtask);
+    setShowDelegateModal(true);
+  };
+
+  // Función para delegar una subtarea a un director específico
+  const handleDelegateSubtask = async (director) => {
+    if (!selectedSubtask || !director) return;
+
+    const doDelegate = async () => {
+      try {
+        setDelegating(true);
+        await assignSubtaskToUser(taskId, selectedSubtask.id, {
+          email: director.email,
+          displayName: director.displayName,
+          area: director.area
+        });
+        
+        setShowDelegateModal(false);
+        setSelectedSubtask(null);
+        
+        // Mostrar confirmación
+        if (Platform.OS === 'web') {
+          alert(`Subtarea delegada a ${director.displayName}`);
+        } else {
+          Alert.alert('Éxito', `Subtarea delegada a ${director.displayName}`);
+        }
+      } catch (error) {
+        console.error('Error delegando subtarea:', error);
+        if (Platform.OS === 'web') {
+          alert(`Error: ${error.message}`);
+        } else {
+          Alert.alert('Error', error.message);
+        }
+      } finally {
+        setDelegating(false);
+      }
+    };
+
+    await doDelegate();
+  };
+
   // Calcular progreso
   const completedCount = subtasks.filter(s => s.status === 'completada').length;
   const totalCount = subtasks.length;
@@ -218,6 +275,17 @@ export default function SubtasksList({ taskId, canEdit = true }) {
 
           {canEdit && (
             <View style={styles.actionButtons}>
+              {/* Botón de delegar (solo si canDelegate y hay usuarios disponibles) */}
+              {canDelegate && delegateUsers.length > 0 && (
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.delegateButton]}
+                  onPress={() => handleOpenDelegateModal(item)}
+                >
+                  <Ionicons name="person-add-outline" size={16} color="#FFF" />
+                  <Text style={styles.actionButtonText}>Delegar</Text>
+                </TouchableOpacity>
+              )}
+              
               <TouchableOpacity
                 style={[styles.actionButton, styles.deleteButton]}
                 onPress={() => handleDeleteSubtask(item.id)}
@@ -225,6 +293,18 @@ export default function SubtasksList({ taskId, canEdit = true }) {
                 <Ionicons name="trash-outline" size={16} color="#FFF" />
                 <Text style={styles.actionButtonText}>Eliminar</Text>
               </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Mostrar asignado actual (si existe) */}
+          {item.assignedTo && (
+            <View style={styles.assignedSection}>
+              <View style={styles.assignedBadge}>
+                <Ionicons name="person" size={14} color="#9F2241" />
+                <Text style={styles.assignedText}>
+                  Asignado a: {item.assignedToName || item.assignedTo}
+                </Text>
+              </View>
             </View>
           )}
 
@@ -361,6 +441,78 @@ export default function SubtasksList({ taskId, canEdit = true }) {
             </View>
           </View>
         </SafeAreaView>
+      </Modal>
+
+      {/* Modal de Delegación de Subtarea */}
+      <Modal
+        visible={showDelegateModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowDelegateModal(false)}
+      >
+        <View style={styles.delegateModalOverlay}>
+          <View style={styles.delegateModalContent}>
+            <View style={styles.delegateModalHeader}>
+              <Text style={styles.delegateModalTitle}>Delegar Subtarea</Text>
+              <TouchableOpacity onPress={() => setShowDelegateModal(false)}>
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            {selectedSubtask && (
+              <View style={styles.selectedSubtaskInfo}>
+                <Ionicons name="checkbox-outline" size={16} color="#666" />
+                <Text style={styles.selectedSubtaskTitle} numberOfLines={2}>
+                  {selectedSubtask.title}
+                </Text>
+              </View>
+            )}
+
+            <Text style={styles.delegateModalSubtitle}>
+              Selecciona un director para asignarle esta subtarea:
+            </Text>
+
+            <ScrollView style={styles.delegateUsersList}>
+              {delegateUsers.length === 0 ? (
+                <View style={styles.noDelegateUsers}>
+                  <Ionicons name="people-outline" size={40} color="#999" />
+                  <Text style={styles.noDelegateUsersText}>
+                    No hay directores disponibles
+                  </Text>
+                </View>
+              ) : (
+                delegateUsers.map((director) => (
+                  <TouchableOpacity
+                    key={director.email}
+                    style={styles.delegateUserItem}
+                    onPress={() => handleDelegateSubtask(director)}
+                    disabled={delegating}
+                  >
+                    <View style={styles.delegateUserAvatar}>
+                      <Ionicons name="person" size={20} color="#FFF" />
+                    </View>
+                    <View style={styles.delegateUserInfo}>
+                      <Text style={styles.delegateUserName}>{director.displayName}</Text>
+                      <Text style={styles.delegateUserArea}>{director.area}</Text>
+                    </View>
+                    {delegating ? (
+                      <ActivityIndicator size="small" color="#9F2241" />
+                    ) : (
+                      <Ionicons name="chevron-forward" size={20} color="#9F2241" />
+                    )}
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.delegateCancelButton}
+              onPress={() => setShowDelegateModal(false)}
+            >
+              <Text style={styles.delegateCancelButtonText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -551,9 +703,35 @@ const styles = StyleSheet.create({
   deleteButton: {
     backgroundColor: '#FF6B6B',
   },
+  delegateButton: {
+    backgroundColor: '#FF9500',
+  },
   actionButtonText: {
     color: '#FFF',
     fontSize: 12,
+    fontWeight: '500',
+  },
+
+  // Sección de asignado
+  assignedSection: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#EEE',
+  },
+  assignedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF0F3',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    gap: 6,
+    alignSelf: 'flex-start',
+  },
+  assignedText: {
+    fontSize: 12,
+    color: '#9F2241',
     fontWeight: '500',
   },
 
@@ -662,5 +840,104 @@ const styles = StyleSheet.create({
     height: 100,
     paddingTop: 12,
     paddingBottom: 12,
+  },
+
+  // Estilos del modal de delegación
+  delegateModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  delegateModalContent: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: '70%',
+  },
+  delegateModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  delegateModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+  },
+  selectedSubtaskInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    gap: 8,
+  },
+  selectedSubtaskTitle: {
+    flex: 1,
+    fontSize: 13,
+    color: '#666',
+    fontWeight: '500',
+  },
+  delegateModalSubtitle: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 12,
+  },
+  delegateUsersList: {
+    maxHeight: 300,
+  },
+  noDelegateUsers: {
+    alignItems: 'center',
+    paddingVertical: 30,
+  },
+  noDelegateUsersText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#999',
+  },
+  delegateUserItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#F9F9F9',
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+  delegateUserAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#9F2241',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  delegateUserInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  delegateUserName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  delegateUserArea: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  delegateCancelButton: {
+    backgroundColor: '#EEE',
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  delegateCancelButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
   },
 });

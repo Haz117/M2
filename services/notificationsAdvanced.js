@@ -11,6 +11,9 @@ import {
   where,
   getDocs,
   serverTimestamp,
+  updateDoc,
+  doc,
+  getDoc,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { getCurrentSession } from './authFirestore';
@@ -293,6 +296,45 @@ export const markNotificationAsRead = async (notificationId) => {
 };
 
 /**
+ * 🗑️ Eliminar notificación
+ * @param {String} notificationId
+ * @returns {Promise<void>}
+ */
+export const deleteNotification = async (notificationId) => {
+  try {
+    // Primero buscar en notification_history
+    const notifRef = doc(db, NOTIFICATION_HISTORY_COLLECTION, notificationId);
+    const notifDoc = await getDoc(notifRef);
+    
+    if (notifDoc.exists()) {
+      await updateDoc(notifRef, {
+        deleted: true,
+        deletedAt: serverTimestamp(),
+      });
+      return;
+    }
+    
+    // Si no existe en notification_history, buscar en notifications
+    const notifRef2 = doc(db, 'notifications', notificationId);
+    const notifDoc2 = await getDoc(notifRef2);
+    
+    if (notifDoc2.exists()) {
+      await updateDoc(notifRef2, {
+        deleted: true,
+        deletedAt: serverTimestamp(),
+      });
+      return;
+    }
+    
+    // Si no se encontró en ninguna colección, solo logueamos sin error
+    console.log('Notificación ya no existe:', notificationId);
+  } catch (error) {
+    console.error('Error eliminando notificación:', error);
+    throw new Error(`No se pudo eliminar la notificación: ${error.message}`);
+  }
+};
+
+/**
  * Obtener notificaciones del usuario actual
  * @param {Number} limit - Limitde resultados
  * @returns {Promise<Array>}
@@ -320,7 +362,11 @@ export const getMyNotifications = async (limit = 50) => {
         );
         const snapshot1 = await getDocs(q1);
         snapshot1.docs.forEach((doc) => {
-          notifications.push({ id: doc.id, ...doc.data() });
+          const data = doc.data();
+          // No incluir notificaciones eliminadas
+          if (!data.deleted) {
+            notifications.push({ id: doc.id, ...data });
+          }
         });
       } catch (e) {
         console.log('Error buscando en notifications:', e);
@@ -336,9 +382,10 @@ export const getMyNotifications = async (limit = 50) => {
         );
         const snapshot2 = await getDocs(q2);
         snapshot2.docs.forEach((doc) => {
-          // Evitar duplicados
-          if (!notifications.find(n => n.id === doc.id)) {
-            notifications.push({ id: doc.id, ...doc.data() });
+          // Evitar duplicados y excluir eliminadas
+          const data = doc.data();
+          if (!data.deleted && !notifications.find(n => n.id === doc.id)) {
+            notifications.push({ id: doc.id, ...data });
           }
         });
       } catch (e) {
@@ -353,8 +400,10 @@ export const getMyNotifications = async (limit = 50) => {
         );
         const snapshot3 = await getDocs(q3);
         snapshot3.docs.forEach((doc) => {
-          if (!notifications.find(n => n.id === doc.id)) {
-            notifications.push({ id: doc.id, ...doc.data() });
+          const data = doc.data();
+          // No incluir notificaciones eliminadas y evitar duplicados
+          if (!data.deleted && !notifications.find(n => n.id === doc.id)) {
+            notifications.push({ id: doc.id, ...data });
           }
         });
       } catch (e) {
