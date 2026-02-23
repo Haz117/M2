@@ -381,6 +381,47 @@ export async function createTask(task) {
  */
 export async function updateTask(taskId, updates) {
   try {
+    // Si el status cambia a "cerrada", añadir completedBy automáticamente
+    if (updates.status === 'cerrada') {
+      try {
+        const sessionResult = await getCurrentSession();
+        if (sessionResult.success && sessionResult.session) {
+          const userEmail = sessionResult.session.email;
+          const userName = sessionResult.session.displayName || userEmail;
+          
+          // Obtener la tarea actual para ver los asignados
+          const taskRef = doc(db, COLLECTION_NAME, taskId);
+          const taskSnap = await getDoc(taskRef);
+          
+          if (taskSnap.exists()) {
+            const taskData = taskSnap.data();
+            const assignedTo = taskData.assignedTo || [];
+            const existingCompletedBy = taskData.completedBy || [];
+            
+            // Crear registros de completedBy para todos los asignados
+            const newCompletedBy = [...existingCompletedBy];
+            
+            assignedTo.forEach(email => {
+              // Solo añadir si no existe ya
+              if (!newCompletedBy.some(c => c.email?.toLowerCase() === email.toLowerCase())) {
+                newCompletedBy.push({
+                  email: email,
+                  completedAt: Timestamp.now(),
+                  displayName: email
+                });
+              }
+            });
+            
+            updates.completedBy = newCompletedBy;
+            updates.completedAt = Timestamp.now();
+            updates.progress = 100;
+          }
+        }
+      } catch (e) {
+        console.log('⚠️ Error añadiendo completedBy:', e.message);
+      }
+    }
+    
     // Actualizar cache local primero
     const cached = await getCachedTasks();
     const taskIndex = cached.findIndex(t => t.id === taskId);
