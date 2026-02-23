@@ -1,5 +1,6 @@
 // config/areas.js
 // Configuración centralizada de todas las Secretarías y Direcciones del municipio
+// Actualizado: Febrero 2026
 
 export const SECRETARIAS = [
   'Secretaría General Municipal',
@@ -7,7 +8,7 @@ export const SECRETARIAS = [
   'Secretaría de Obras Públicas y Desarrollo Urbano',
   'Secretaría de Planeación y Evaluación',
   'Secretaría de Bienestar Social',
-  'Secretaría de Seguridad Pública',
+  'Secretaría de Seguridad Pública, Tránsito Municipal, Auxilio Vial y Protección Civil',
   'Secretaría de Desarrollo para Pueblos y Comunidades Indígenas',
   'Secretaría de Desarrollo Económico y Turismo',
 ];
@@ -16,14 +17,14 @@ export const SECRETARIAS = [
 export const SECRETARIAS_DIRECCIONES = {
   'Secretaría General Municipal': [
     'Dirección de Gobierno',
-    'Dirección de Reglamentos, Comercio, Mercado y Espectáculos',
-    'Dirección de Recursos Materiales y Patrimonio',
-    'Dirección de Atención al Migrante',
-    'Dirección del Área Coordinadora de Archivo',
-    'Oficial del Registro del Estado Familiar',
-    'Unidad Central de Correspondencia',
-    'Junta de Reclutamiento',
     'Conciliación Municipal',
+    'Dirección de Reglamentos, Comercio, Mercado y Espectáculos',
+    'Unidad Central de Correspondencia',
+    'Oficial del Registro del Estado Familiar',
+    'Dirección del Área Coordinadora de Archivo',
+    'Dirección de Atención al Migrante',
+    'Dirección de Recursos Materiales y Patrimonio',
+    'Junta de Reclutamiento',
   ],
   'Secretaría de Tesorería Municipal': [
     'Dirección de Cuenta Pública',
@@ -38,16 +39,10 @@ export const SECRETARIAS_DIRECCIONES = {
     'Dirección de Desarrollo Urbano y Ordenamiento Territorial',
     'Dirección de Servicios Públicos y Limpias',
     'Dirección de Servicios Municipales',
-    'Dirección de Medio Ambiente y Desarrollo Sostenible',
   ],
   'Secretaría de Planeación y Evaluación': [
-    'Dirección Técnica de Planeación y Evaluación',
+    'Dirección de Planeación y Evaluación',
     'Dirección de Tecnologías de la Información',
-  ],
-  'Secretaría de Desarrollo Económico y Turismo': [
-    'Dirección de Turismo',
-    'Dirección de Desarrollo Económico',
-    'Dirección de Desarrollo Agropecuario y Proyectos Productivos',
   ],
   'Secretaría de Bienestar Social': [
     'Dirección de Cultura',
@@ -57,13 +52,15 @@ export const SECRETARIAS_DIRECCIONES = {
     'Dirección de Programas Sociales',
     'Instancia Municipal de la Juventud',
   ],
-  'Secretaría de Seguridad Pública': [
+  'Secretaría de Seguridad Pública, Tránsito Municipal, Auxilio Vial y Protección Civil': [
     'Dirección de Protección Civil y Bomberos',
-    'Dirección de Prevención del Delito',
-    'Dirección Administrativa (Seguridad Pública)',
-    'Dirección Preventiva de Tránsito Municipal y Auxilio Vial',
   ],
   'Secretaría de Desarrollo para Pueblos y Comunidades Indígenas': [],
+  'Secretaría de Desarrollo Económico y Turismo': [
+    'Dirección de Turismo',
+    'Dirección de Desarrollo Económico',
+    'Dirección de Desarrollo Agropecuario y Proyectos Productivos',
+  ],
 };
 
 // Función para obtener las direcciones de una secretaría
@@ -84,15 +81,14 @@ export const getSecretariaByDireccion = (direccion) => {
 export const DIRECCIONES = [
   // Secretaría General Municipal
   'Dirección de Gobierno',
+  'Conciliación Municipal',
   'Dirección de Reglamentos, Comercio, Mercado y Espectáculos',
-  'Dirección de Recursos Materiales y Patrimonio',
-  'Dirección de Atención al Migrante',
-  'Dirección de Enlace de la Secretaría de Relaciones Exteriores',
+  'Unidad Central de Correspondencia',
   'Oficial del Registro del Estado Familiar',
   'Dirección del Área Coordinadora de Archivo',
-  'Unidad Central de Correspondencia',
+  'Dirección de Atención al Migrante',
+  'Dirección de Recursos Materiales y Patrimonio',
   'Junta de Reclutamiento',
-  'Conciliación Municipal',
   
   // Secretaría de Tesorería Municipal
   'Dirección de Cuenta Pública',
@@ -107,10 +103,9 @@ export const DIRECCIONES = [
   'Dirección de Desarrollo Urbano y Ordenamiento Territorial',
   'Dirección de Servicios Públicos y Limpias',
   'Dirección de Servicios Municipales',
-  'Dirección de Medio Ambiente y Desarrollo Sostenible',
   
   // Secretaría de Planeación y Evaluación
-  'Dirección Técnica de Planeación y Evaluación',
+  'Dirección de Planeación y Evaluación',
   'Dirección de Tecnologías de la Información',
   
   // Secretaría de Desarrollo Económico y Turismo
@@ -126,20 +121,23 @@ export const DIRECCIONES = [
   'Dirección de Programas Sociales',
   'Instancia Municipal de la Juventud',
   
-  // Secretaría de Seguridad Pública
+  // Secretaría de Seguridad Pública, Tránsito Municipal, Auxilio Vial y Protección Civil
   'Dirección de Protección Civil y Bomberos',
-  'Dirección de Prevención del Delito',
-  'Dirección Administrativa (Seguridad Pública)',
-  'Dirección Preventiva de Tránsito Municipal y Auxilio Vial',
 ];
 
-// Otras áreas/organismos
+// Otras áreas/organismos (Despacho de la Presidencia y Asamblea)
 export const OTRAS_AREAS = [
+  'Despacho de la Presidencia',
+  'Asistente del Presidente',
+  'Secretaría Particular y Relaciones Públicas',
+  'Dirección de Logística y Eventos',
+  'Dirección de Audiencias',
   'Contraloría Municipal',
+  'Dirección de la Unidad de Investigación',
+  'Unidad Municipal de Transparencia y Acceso a la Información',
   'Dirección Jurídica',
-  'Dirección de Comunicación Social y Marketing Digital',
-  'Unidad Municipal de Transparencia',
   'Instancia Municipal para el Desarrollo de las Mujeres',
+  'Dirección de Comunicación Social y Marketing Digital',
   'Secretaría Ejecutiva de SIPINNA',
   'Asamblea Municipal',
 ];
