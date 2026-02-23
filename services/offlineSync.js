@@ -1,5 +1,9 @@
 // services/offlineSync.js
 // Servicio de sincronización offline-first
+// 🚨 PRODUCCION: logs deshabilitados
+const __DEV__ = false;
+const log = __DEV__ ? console.log : () => {};
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, query, orderBy, Timestamp } from 'firebase/firestore';
@@ -19,14 +23,14 @@ export const initConnectionListener = () => {
     const wasOffline = !isOnline;
     isOnline = state.isConnected && state.isInternetReachable !== false;
     
-    console.log('📶 Estado de conexión:', isOnline ? 'ONLINE' : 'OFFLINE');
+    log('📶 Estado de conexión:', isOnline ? 'ONLINE' : 'OFFLINE');
     
     // Notificar a los listeners
     connectionListeners.forEach(listener => listener(isOnline));
     
     // Si volvimos a estar online, sincronizar
     if (wasOffline && isOnline) {
-      console.log('🔄 Reconectado - iniciando sincronización...');
+      log('🔄 Reconectado - iniciando sincronización...');
       syncPendingOperations();
     }
   });
@@ -124,7 +128,7 @@ export const queueOperation = async (type, data, taskId = null) => {
       await AsyncStorage.setItem(PENDING_OPERATIONS_KEY, JSON.stringify(pendingOps));
     }
     
-    console.log('📥 Operación encolada:', type, taskId || 'nueva tarea');
+    log('📥 Operación encolada:', type, taskId || 'nueva tarea');
     return operation.id;
   } catch (error) {
     console.error('Error encolando operación:', error);
@@ -164,7 +168,7 @@ const removeOperation = async (operationId) => {
 export const clearPendingOperations = async () => {
   try {
     await AsyncStorage.removeItem(PENDING_OPERATIONS_KEY);
-    console.log('🗑️ Cola de operaciones limpiada');
+    log('🗑️ Cola de operaciones limpiada');
     return true;
   } catch (error) {
     console.error('Error limpiando operaciones:', error);
@@ -177,18 +181,18 @@ export const clearPendingOperations = async () => {
 // Sincronizar operaciones pendientes con Firebase
 export const syncPendingOperations = async () => {
   if (!isOnline) {
-    console.log('⏳ Sin conexión - sincronización pospuesta');
+    log('⏳ Sin conexión - sincronización pospuesta');
     return { success: false, synced: 0, pending: await getPendingCount() };
   }
   
   const pendingOps = await getPendingOperations();
   
   if (pendingOps.length === 0) {
-    console.log('✅ No hay operaciones pendientes');
+    log('✅ No hay operaciones pendientes');
     return { success: true, synced: 0, pending: 0 };
   }
   
-  console.log('🔄 Sincronizando', pendingOps.length, 'operaciones pendientes...');
+  log('🔄 Sincronizando', pendingOps.length, 'operaciones pendientes...');
   
   let synced = 0;
   let errors = 0;
@@ -213,7 +217,7 @@ export const syncPendingOperations = async () => {
       
       await removeOperation(op.id);
       synced++;
-      console.log('✅ Sincronizado:', op.type, op.taskId || 'nueva');
+      log('✅ Sincronizado:', op.type, op.taskId || 'nueva');
     } catch (error) {
       console.error('❌ Error sincronizando:', op.type, error.message);
       
@@ -223,19 +227,19 @@ export const syncPendingOperations = async () => {
           error.code === 'not-found') {
         await removeOperation(op.id);
         discarded++;
-        console.log('🗑️ Operación descartada (documento no existe):', op.taskId);
+        log('🗑️ Operación descartada (documento no existe):', op.taskId);
         continue;
       }
       
       errors++;
       // Descartar después de 2 reintentos para no acumular errores
       await removeOperation(op.id);
-      console.log('🗑️ Operación descartada por error:', op.taskId);
+      log('🗑️ Operación descartada por error:', op.taskId);
     }
   }
   
   const remaining = await getPendingCount();
-  console.log(`📊 Sincronización: ${synced} exitosos, ${discarded} descartados, ${errors} errores, ${remaining} pendientes`);
+  log(`📊 Sincronización: ${synced} exitosos, ${discarded} descartados, ${errors} errores, ${remaining} pendientes`);
   
   // Notificar a los listeners
   connectionListeners.forEach(listener => listener(isOnline));
@@ -266,7 +270,7 @@ const syncCreateOperation = async (op) => {
 // Sincronizar operación UPDATE
 const syncUpdateOperation = async (op) => {
   if (!op.taskId || op.taskId.startsWith('temp_')) {
-    console.log('⚠️ No se puede actualizar tarea temporal:', op.taskId);
+    log('⚠️ No se puede actualizar tarea temporal:', op.taskId);
     return;
   }
   
@@ -275,7 +279,7 @@ const syncUpdateOperation = async (op) => {
   // Verificar si el documento existe antes de actualizar
   const taskSnap = await getDoc(taskRef);
   if (!taskSnap.exists()) {
-    console.log('⚠️ Documento no existe, eliminando operación de la cola:', op.taskId);
+    log('⚠️ Documento no existe, eliminando operación de la cola:', op.taskId);
     return; // La operación se eliminará de la cola sin error
   }
   
@@ -303,7 +307,7 @@ const syncUpdateOperation = async (op) => {
 // Sincronizar operación DELETE
 const syncDeleteOperation = async (op) => {
   if (!op.taskId || op.taskId.startsWith('temp_')) {
-    console.log('⚠️ No se puede eliminar tarea temporal:', op.taskId);
+    log('⚠️ No se puede eliminar tarea temporal:', op.taskId);
     return;
   }
   
@@ -312,7 +316,7 @@ const syncDeleteOperation = async (op) => {
   // Verificar si el documento existe antes de eliminar
   const taskSnap = await getDoc(taskRef);
   if (!taskSnap.exists()) {
-    console.log('⚠️ Documento ya no existe, operación DELETE ignorada:', op.taskId);
+    log('⚠️ Documento ya no existe, operación DELETE ignorada:', op.taskId);
     return; // Ya está eliminado, no hay error
   }
   

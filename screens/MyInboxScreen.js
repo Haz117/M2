@@ -49,6 +49,9 @@ export default function MyInboxScreen({ navigation }) {
   const [searchText, setSearchText] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState(new Set());
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [taskToClose, setTaskToClose] = useState(null);
+  const [showHelpModal, setShowHelpModal] = useState(false);
   const [filters, setFilters] = useState({
     status: [],
     priority: [],
@@ -354,21 +357,36 @@ export default function MyInboxScreen({ navigation }) {
     }
   }, [overdueCount > 0]); // Solo cuando cambia de 0 a >0 o viceversa
 
-  const markClosed = async (task) => {
+  // Mostrar modal de confirmación para cerrar tarea
+  const askToClose = (task) => {
+    hapticMedium();
+    setTaskToClose(task);
+    setShowCloseConfirm(true);
+  };
+
+  // Confirmar cierre de tarea
+  const confirmClose = async () => {
+    if (!taskToClose) return;
     try {
       hapticMedium();
       // Cancelar notificación existente
-      if (task.notificationId) await cancelNotification(task.notificationId);
-      await updateTask(task.id, { status: 'cerrada' });
+      if (taskToClose.notificationId) await cancelNotification(taskToClose.notificationId);
+      await updateTask(taskToClose.id, { status: 'cerrada' });
       setToastMessage('Tarea completada exitosamente');
       setToastType('success');
       setToastVisible(true);
-      // La actualización del estado se hace automáticamente por el listener
     } catch (e) {
       setToastMessage('Error al marcar como cerrada: ' + e.message);
       setToastType('error');
       setToastVisible(true);
+    } finally {
+      setShowCloseConfirm(false);
+      setTaskToClose(null);
     }
+  };
+
+  const markClosed = async (task) => {
+    askToClose(task);
   };
 
   const postponeOneDay = async (task) => {
@@ -787,16 +805,16 @@ export default function MyInboxScreen({ navigation }) {
             <Ionicons name="checkmark" size={18} color="#FFFFFF" />
           </TouchableOpacity>
           <TouchableOpacity 
-            style={[styles.quickActionBtn, { backgroundColor: '#F59E0B' }]} 
-            onPress={() => postponeOneDay(item)}
-          >
-            <Ionicons name="time" size={18} color="#FFFFFF" />
-          </TouchableOpacity>
-          <TouchableOpacity 
             style={[styles.quickActionBtn, { backgroundColor: '#3B82F6' }]} 
             onPress={() => openChat(item)}
           >
             <Ionicons name="chatbubble" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.quickActionBtn, { backgroundColor: '#6B7280' }]} 
+            onPress={() => setShowHelpModal(true)}
+          >
+            <Ionicons name="help" size={18} color="#FFFFFF" />
           </TouchableOpacity>
           {isAdmin && (
             <TouchableOpacity 
@@ -1152,6 +1170,109 @@ export default function MyInboxScreen({ navigation }) {
                 <Text style={[styles.modalFooterBtnText, { color: '#FFFFFF' }]}>APLICAR FILTROS</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL DE CONFIRMACIÓN PARA CERRAR TAREA */}
+      <Modal
+        visible={showCloseConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCloseConfirm(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.confirmModalContent, { backgroundColor: theme.card }]}>
+            <View style={styles.confirmModalIcon}>
+              <Ionicons name="checkmark-circle" size={48} color="#10B981" />
+            </View>
+            <Text style={[styles.confirmModalTitle, { color: theme.text }]}>
+              ¿Cerrar esta tarea?
+            </Text>
+            <Text style={[styles.confirmModalSubtitle, { color: theme.textSecondary }]}>
+              {taskToClose?.title || 'Esta tarea'}
+            </Text>
+            <Text style={[styles.confirmModalDesc, { color: theme.textSecondary }]}>
+              La tarea será marcada como completada y no podrá deshacerse fácilmente.
+            </Text>
+            <View style={styles.confirmModalButtons}>
+              <TouchableOpacity
+                style={[styles.confirmModalBtn, styles.confirmModalBtnCancel, { borderColor: theme.border }]}
+                onPress={() => {
+                  setShowCloseConfirm(false);
+                  setTaskToClose(null);
+                }}
+              >
+                <Text style={[styles.confirmModalBtnText, { color: theme.text }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmModalBtn, styles.confirmModalBtnConfirm]}
+                onPress={confirmClose}
+              >
+                <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+                <Text style={styles.confirmModalBtnTextWhite}>Confirmar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL DE AYUDA - BOTONES RÁPIDOS */}
+      <Modal
+        visible={showHelpModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowHelpModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.helpModalContent, { backgroundColor: theme.card }]}>
+            <View style={styles.helpModalHeader}>
+              <Ionicons name="help-circle" size={32} color={theme.primary} />
+              <Text style={[styles.helpModalTitle, { color: theme.text }]}>Acciones Rápidas</Text>
+            </View>
+            
+            <View style={styles.helpModalItem}>
+              <View style={[styles.helpModalIcon, { backgroundColor: '#8B5CF6' }]}>
+                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+              </View>
+              <View style={styles.helpModalTextContainer}>
+                <Text style={[styles.helpModalItemTitle, { color: theme.text }]}>Confirmar participación</Text>
+                <Text style={[styles.helpModalItemDesc, { color: theme.textSecondary }]}>
+                  Acepta tu parte de la tarea cuando hay múltiples asignados
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.helpModalItem}>
+              <View style={[styles.helpModalIcon, { backgroundColor: '#10B981' }]}>
+                <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+              </View>
+              <View style={styles.helpModalTextContainer}>
+                <Text style={[styles.helpModalItemTitle, { color: theme.text }]}>Cerrar tarea</Text>
+                <Text style={[styles.helpModalItemDesc, { color: theme.textSecondary }]}>
+                  Marca la tarea como completada (requiere confirmación)
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.helpModalItem}>
+              <View style={[styles.helpModalIcon, { backgroundColor: '#3B82F6' }]}>
+                <Ionicons name="chatbubble" size={18} color="#FFFFFF" />
+              </View>
+              <View style={styles.helpModalTextContainer}>
+                <Text style={[styles.helpModalItemTitle, { color: theme.text }]}>Chat</Text>
+                <Text style={[styles.helpModalItemDesc, { color: theme.textSecondary }]}>
+                  Abre la conversación de la tarea para comunicarte
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.helpModalCloseBtn, { backgroundColor: theme.primary }]}
+              onPress={() => setShowHelpModal(false)}
+            >
+              <Text style={styles.helpModalCloseBtnText}>Entendido</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -2083,5 +2204,119 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     fontWeight: '800',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
+  },
+  // 🎨 ESTILOS MODAL CONFIRMACIÓN CERRAR
+  confirmModalContent: {
+    width: isDesktop ? 400 : '85%',
+    borderRadius: RADIUS.xl,
+    padding: SPACING.xl,
+    alignItems: 'center',
+  },
+  confirmModalIcon: {
+    marginBottom: SPACING.md,
+  },
+  confirmModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: SPACING.xs,
+    textAlign: 'center',
+  },
+  confirmModalSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: SPACING.sm,
+    textAlign: 'center',
+  },
+  confirmModalDesc: {
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: SPACING.lg,
+    lineHeight: 18,
+  },
+  confirmModalButtons: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+    width: '100%',
+  },
+  confirmModalBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: RADIUS.lg,
+    gap: SPACING.xs,
+  },
+  confirmModalBtnCancel: {
+    borderWidth: 1,
+    backgroundColor: 'transparent',
+  },
+  confirmModalBtnConfirm: {
+    backgroundColor: '#10B981',
+  },
+  confirmModalBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  confirmModalBtnTextWhite: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  // 🎨 ESTILOS MODAL AYUDA
+  helpModalContent: {
+    width: isDesktop ? 420 : '90%',
+    borderRadius: RADIUS.xl,
+    padding: SPACING.lg,
+  },
+  helpModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+    paddingBottom: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : '#E5E5E5',
+  },
+  helpModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  helpModalItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.md,
+    marginBottom: SPACING.md,
+    paddingVertical: SPACING.xs,
+  },
+  helpModalIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  helpModalTextContainer: {
+    flex: 1,
+  },
+  helpModalItemTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  helpModalItemDesc: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  helpModalCloseBtn: {
+    marginTop: SPACING.md,
+    paddingVertical: 14,
+    borderRadius: RADIUS.lg,
+    alignItems: 'center',
+  },
+  helpModalCloseBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

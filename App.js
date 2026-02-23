@@ -69,6 +69,7 @@ function MainTabs({ onLogout }) {
   const { theme, isDark } = useTheme();
   const [currentUser, setCurrentUser] = useState(null);
   const [overdueCount, setOverdueCount] = useState(0);
+  const [urgentCount, setUrgentCount] = useState(0); // 🔔 Tareas urgentes (vencidas + próximas <24h)
 
   // Obtener sesión actual solo una vez al montar
   useEffect(() => {
@@ -115,18 +116,39 @@ function MainTabs({ onLogout }) {
       if (!mounted) return;
       
       let userOverdue = [];
+      const now = Date.now();
+      const tomorrow = now + (24 * 60 * 60 * 1000); // 24 horas
+      
       if (currentUser.role === 'admin') {
-        userOverdue = tasks.filter(t => t.dueAt < Date.now() && t.status !== 'cerrada');
+        userOverdue = tasks.filter(t => t.dueAt < now && t.status !== 'cerrada');
       } else {
         userOverdue = tasks.filter(t => 
-          t.dueAt < Date.now() && 
+          t.dueAt < now && 
           t.status !== 'cerrada' && 
           t.assignedTo === currentUser.email
         );
       }
       
+      // 🔔 Calcular tareas urgentes (vencidas + próximas a vencer en <24h)
+      let urgentTasks = [];
+      if (currentUser.role === 'admin') {
+        urgentTasks = tasks.filter(t => 
+          t.status !== 'cerrada' && 
+          t.dueAt < tomorrow
+        );
+      } else {
+        urgentTasks = tasks.filter(t => 
+          t.status !== 'cerrada' && 
+          t.dueAt < tomorrow &&
+          (Array.isArray(t.assignedTo) 
+            ? t.assignedTo.includes(currentUser.email)
+            : t.assignedTo === currentUser.email)
+        );
+      }
+      
       const newCount = userOverdue.length;
       setOverdueCount(newCount);
+      setUrgentCount(urgentTasks.length);
       
       // Actualizar badge de app (solo si cambió)
       try {
@@ -265,6 +287,18 @@ function MainTabs({ onLogout }) {
         name="Home" 
         options={{ 
           title: 'Inicio',
+          tabBarBadge: urgentCount > 0 ? urgentCount : undefined,
+          tabBarBadgeStyle: { 
+            backgroundColor: urgentCount > 3 ? '#DC2626' : '#FF9500',
+            color: '#FFFFFF',
+            fontSize: 10,
+            fontWeight: '800',
+            minWidth: 18,
+            height: 18,
+            borderRadius: 9,
+            borderWidth: 2,
+            borderColor: theme.card,
+          },
         }}
       >
         {(props) => <HomeScreen {...props} onLogout={onLogout} />}

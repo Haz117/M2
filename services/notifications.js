@@ -5,7 +5,7 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { notifyTaskAssigned, notifyNewComment, notifyDeadlineApproaching } from './fcm';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 // Configurar handler de notificaciones
@@ -156,14 +156,17 @@ export async function scheduleDailyReminders(task, maxReminders = 3) {
   }
 }
 
-// Notificación al asignar tarea (Local optimizada)
+// Notificación al asignar tarea (Local optimizada + FCM para múltiples asignados)
 export async function notifyAssignment(task) {
-  // En web no enviar notificaciones
+  // En web no enviar notificaciones locales
   if (Platform.OS === 'web') {
+    // Pero sí intentar notificar via FCM a los asignados
+    await notifyMultipleAssignees(task);
     return null;
   }
   
   try {
+    // Notificación local para el dispositivo actual
     const localNotifId = await Notifications.scheduleNotificationAsync({
       content: {
         title: '📋 Nueva Tarea Asignada',
@@ -181,9 +184,55 @@ export async function notifyAssignment(task) {
       trigger: null // Notificación inmediata
     });
 
+    // También notificar via FCM a los demás asignados
+    await notifyMultipleAssignees(task);
+
     return localNotifId;
   } catch (e) {
     return null;
+  }
+}
+
+// 🔔 Notificar a MÚLTIPLES asignados via Firestore (para FCM/notificaciones in-app)
+async function notifyMultipleAssignees(task) {
+  try {
+    const assignees = Array.isArray(task.assignedTo) ? task.assignedTo : [task.assignedTo].filter(Boolean);
+    
+    if (assignees.length === 0) return;
+    
+    // Obtener usuarios para los emails asignados
+    const usersRef = collection(db, 'users');
+    const usersSnap = await getDocs(usersRef);
+    const assignedUsers = [];
+    
+    usersSnap.forEach(doc => {
+      const userData = doc.data();
+      if (assignees.map(e => e.toLowerCase()).includes(userData.email?.toLowerCase())) {
+        assignedUsers.push({ id: doc.id, ...userData });
+      }
+    });
+    
+    // Crear notificación en Firestore para cada usuario asignado
+    const notificationsRef = collection(db, 'notifications');
+    const now = new Date();
+    
+    for (const user of assignedUsers) {
+      await addDoc(notificationsRef, {
+        userId: user.id,
+        userEmail: user.email,
+        type: 'task_assigned',
+        title: '📋 Nueva Tarea Asignada',
+        message: `Te asignaron: "${task.title}"`,
+        taskId: task.id,
+        taskTitle: task.title,
+        dueAt: task.dueAt,
+        read: false,
+        createdAt: now,
+        priority: task.priority || 'media'
+      });
+    }
+  } catch (error) {
+    // Silent fail - notifications are not critical
   }
 }
 

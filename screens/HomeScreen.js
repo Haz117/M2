@@ -20,6 +20,7 @@ import LoadingIndicator from '../components/LoadingIndicator';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import SyncIndicator from '../components/SyncIndicator';
+import ProgressBar from '../components/ProgressBar';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTasks } from '../contexts/TasksContext';
 import { subscribeToTasks, deleteTask as deleteTaskFirebase, updateTask, createTask } from '../services/tasks';
@@ -28,6 +29,7 @@ import { getCurrentSession, refreshSession } from '../services/authFirestore';
 import { useResponsive } from '../utils/responsive';
 import { SPACING, TYPOGRAPHY, RADIUS, SHADOWS, MAX_WIDTHS } from '../theme/tokens';
 import { canChangeTaskStatus, canDeleteTask, ROLES } from '../services/permissions';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Swipeable = getSwipeable();
 
@@ -50,6 +52,38 @@ export default function HomeScreen({ navigation }) {
     tags: [],
     overdue: false,
   });
+  
+  // 💾 Cargar filtros guardados al iniciar
+  useEffect(() => {
+    const loadSavedFilters = async () => {
+      try {
+        const savedFilters = await AsyncStorage.getItem('@home_filters');
+        const savedSearch = await AsyncStorage.getItem('@home_search');
+        if (savedFilters) {
+          setAdvancedFilters(JSON.parse(savedFilters));
+        }
+        if (savedSearch) {
+          setSearchText(savedSearch);
+        }
+      } catch (error) {
+        // Ignorar errores de carga
+      }
+    };
+    loadSavedFilters();
+  }, []);
+  
+  // 💾 Guardar filtros cuando cambian
+  useEffect(() => {
+    const saveFilters = async () => {
+      try {
+        await AsyncStorage.setItem('@home_filters', JSON.stringify(advancedFilters));
+        await AsyncStorage.setItem('@home_search', searchText);
+      } catch (error) {
+        // Ignorar errores de guardado
+      }
+    };
+    saveFilters();
+  }, [advancedFilters, searchText]);
   const [currentUser, setCurrentUser] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
@@ -57,6 +91,36 @@ export default function HomeScreen({ navigation }) {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('success');
   const [toastAction, setToastAction] = useState(null);
+
+  // 📊 Calcular progreso del área del usuario
+  const areaProgress = useMemo(() => {
+    if (!currentUser || !tasks.length) return null;
+    
+    const userArea = currentUser.area || '';
+    const userAreas = currentUser.areasPermitidas || [userArea];
+    
+    // Filtrar tareas del área del usuario
+    const areaTasks = tasks.filter(t => {
+      if (currentUser.role === 'admin') return true;
+      return userAreas.includes(t.area);
+    });
+    
+    if (areaTasks.length === 0) return null;
+    
+    const completed = areaTasks.filter(t => t.status === 'cerrada').length;
+    const pending = areaTasks.filter(t => t.status === 'pendiente').length;
+    const inProgress = areaTasks.filter(t => t.status === 'en_proceso' || t.status === 'en_revision').length;
+    const percentage = Math.round((completed / areaTasks.length) * 100);
+    
+    return {
+      total: areaTasks.length,
+      completed,
+      pending,
+      inProgress,
+      percentage,
+      areaName: currentUser.role === 'admin' ? 'Todas las áreas' : userArea
+    };
+  }, [tasks, currentUser]);
 
   // Animation refs for stagger effect
   const headerOpacity = useRef(new Animated.Value(0)).current;
@@ -799,6 +863,51 @@ export default function HomeScreen({ navigation }) {
           ) : (
           <View style={styles.bentoGrid}>
             
+            {/* 📊 Card de Progreso del Área */}
+            {areaProgress && (
+              <View style={[styles.areaProgressCard, { backgroundColor: theme.card, borderColor: theme.borderLight }]}>
+                <View style={styles.areaProgressHeader}>
+                  <View style={styles.areaProgressTitleRow}>
+                    <Ionicons name="analytics" size={18} color={theme.primary} />
+                    <Text style={[styles.areaProgressTitle, { color: theme.text }]}>
+                      {areaProgress.areaName}
+                    </Text>
+                  </View>
+                  <View style={[styles.areaProgressBadge, { backgroundColor: areaProgress.percentage >= 75 ? '#4CAF5020' : areaProgress.percentage >= 50 ? '#FF950020' : '#FF3B3020' }]}>
+                    <Text style={[styles.areaProgressPercent, { color: areaProgress.percentage >= 75 ? '#4CAF50' : areaProgress.percentage >= 50 ? '#FF9500' : '#FF3B30' }]}>
+                      {areaProgress.percentage}%
+                    </Text>
+                  </View>
+                </View>
+                <ProgressBar 
+                  progress={areaProgress.percentage} 
+                  size="medium" 
+                  showLabel={false}
+                  color={areaProgress.percentage >= 75 ? '#4CAF50' : areaProgress.percentage >= 50 ? '#FF9500' : theme.primary}
+                />
+                <View style={styles.areaProgressStats}>
+                  <View style={styles.areaProgressStat}>
+                    <View style={[styles.areaProgressDot, { backgroundColor: '#4CAF50' }]} />
+                    <Text style={[styles.areaProgressStatText, { color: theme.textSecondary }]}>
+                      {areaProgress.completed} cerradas
+                    </Text>
+                  </View>
+                  <View style={styles.areaProgressStat}>
+                    <View style={[styles.areaProgressDot, { backgroundColor: '#2196F3' }]} />
+                    <Text style={[styles.areaProgressStatText, { color: theme.textSecondary }]}>
+                      {areaProgress.inProgress} en proceso
+                    </Text>
+                  </View>
+                  <View style={styles.areaProgressStat}>
+                    <View style={[styles.areaProgressDot, { backgroundColor: '#FF9500' }]} />
+                    <Text style={[styles.areaProgressStatText, { color: theme.textSecondary }]}>
+                      {areaProgress.pending} pendientes
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
             {/* Alerta de información important con mejor diseño */}
             {urgentTasks.length > 0 && (
               <TouchableOpacity
@@ -889,7 +998,7 @@ export default function HomeScreen({ navigation }) {
               // Admin, jefe y secretario pueden duplicar tareas
               onDuplicate={isAdmin || isJefe || isSecretario ? () => duplicateTask(item) : undefined}
               onShare={() => shareTask(item)}
-              onChangeStatus={(newStatus) => changeTaskStatus(item.id, newStatus)}
+              onChangeStatus={(task, newStatus) => changeTaskStatus(task.id, newStatus)}
               currentUserRole={currentUser?.role || 'operativo'}
             />
           );
@@ -1155,6 +1264,61 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding, 
     gap: SPACING.sm,
     marginBottom: SPACING.lg,
     paddingHorizontal: padding
+  },
+  // Area Progress Card Styles
+  areaProgressCard: {
+    padding: 16,
+    borderRadius: RADIUS.lg,
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    ...SHADOWS.sm,
+  },
+  areaProgressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  areaProgressTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  areaProgressTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
+  areaProgressBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  areaProgressPercent: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  areaProgressStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  areaProgressStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  areaProgressDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  areaProgressStatText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   bentoRow: {
     flexDirection: 'row',

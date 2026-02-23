@@ -345,7 +345,43 @@ const TaskItem = memo(function TaskItem({
                   </View>
                 )}
 
-                {/* Fila 4: Barra de Progreso (EN TIEMPO REAL) */}
+                {/* Fila 4: Botones de Acción Rápida */}
+                {onChangeStatus && task.status !== 'cerrada' && (
+                  <View style={styles.quickActionsRow}>
+                    {task.status === 'pendiente' && (
+                      <TouchableOpacity
+                        style={[styles.quickActionBtn, { backgroundColor: '#2196F320', borderColor: '#2196F3' }]}
+                        onPress={() => { hapticMedium(); onChangeStatus(task, 'en_proceso'); }}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="play-circle" size={16} color="#2196F3" />
+                        <Text style={[styles.quickActionText, { color: '#2196F3' }]}>Iniciar</Text>
+                      </TouchableOpacity>
+                    )}
+                    {(task.status === 'pendiente' || task.status === 'en_proceso') && (
+                      <TouchableOpacity
+                        style={[styles.quickActionBtn, { backgroundColor: '#9C27B020', borderColor: '#9C27B0' }]}
+                        onPress={() => { hapticMedium(); onChangeStatus(task, 'en_revision'); }}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="eye" size={16} color="#9C27B0" />
+                        <Text style={[styles.quickActionText, { color: '#9C27B0' }]}>Revisión</Text>
+                      </TouchableOpacity>
+                    )}
+                    {(task.status === 'en_proceso' || task.status === 'en_revision') && (
+                      <TouchableOpacity
+                        style={[styles.quickActionBtn, { backgroundColor: '#4CAF5020', borderColor: '#4CAF50' }]}
+                        onPress={() => { hapticMedium(); onChangeStatus(task, 'cerrada'); }}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                        <Text style={[styles.quickActionText, { color: '#4CAF50' }]}>Cerrar</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+
+                {/* Fila 5: Barra de Progreso (EN TIEMPO REAL) */}
                 {progressData && progressData.subtaskStats && progressData.subtaskStats.total > 0 && (
                   <View style={styles.progressSection}>
                     <View style={styles.progressHeader}>
@@ -753,5 +789,26 @@ const styles = StyleSheet.create({
   actionsColumn: {
     alignItems: 'flex-end',
     justifyContent: 'flex-start',
+  },
+  // Botones de acción rápida
+  quickActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+    marginBottom: 4,
+    flexWrap: 'wrap',
+  },
+  quickActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  quickActionText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

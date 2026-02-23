@@ -95,7 +95,19 @@ export async function createTaskMultiple(task) {
     
     const docRef = await addDoc(collection(db, TASKS_COLLECTION), taskData);
     
-    // TODO: Enviar notificaciones a múltiples asignados
+    // 🔔 Enviar notificaciones a múltiples asignados
+    try {
+      const { notifyAssignment } = await import('./notifications');
+      await notifyAssignment({
+        id: docRef.id,
+        title: task.title,
+        dueAt: task.dueAt,
+        assignedTo: assignedEmails,
+        priority: task.priority
+      });
+    } catch (notifError) {
+      // Notificaciones no son críticas, continuar
+    }
     
     return docRef.id;
   } catch (error) {

@@ -1,6 +1,10 @@
 // services/tasks.js
 // Servicio para gestionar tareas con Firebase Firestore en tiempo real
 // Con soporte OFFLINE-FIRST
+// 🚨 PRODUCCION: console.logs deshabilitados
+const __DEV__ = false; // Cambiar a true para depuración
+const log = __DEV__ ? console.log : () => {};
+
 import { 
   collection, 
   addDoc, 
@@ -79,7 +83,7 @@ async function waitForSession(maxRetries = 30, initialDelay = 100) {
     try {
       const result = await getCurrentSession();
       if (result.success && result.session) {
-        console.log(`✅ Sesión encontrada en intento ${attempt + 1}`);
+        log(`✅ Sesión encontrada en intento ${attempt + 1}`);
         return result.session;
       }
     } catch (error) {
@@ -172,7 +176,7 @@ export async function subscribeToTasks(callback) {
     // 📦 PASO 2: Cargar del cache local inmediatamente
     const cachedTasks = await getCachedTasks();
     if (cachedTasks.length > 0) {
-      console.log('📦 Cargando', cachedTasks.length, 'tareas del cache local');
+      log('📦 Cargando', cachedTasks.length, 'tareas del cache local');
       callback(filterTasksByRole(cachedTasks));
     }
 
@@ -252,13 +256,13 @@ export async function subscribeToTasks(callback) {
       }
     );
     } else {
-      console.log('📴 Sin conexión - usando solo cache local');
+      log('📴 Sin conexión - usando solo cache local');
     }
 
     // 🔄 Suscribirse a cambios de conexión
     const unsubscribeConnection = subscribeToConnectionState((online) => {
       if (online && !unsubscribeListener) {
-        console.log('🔄 Reconectado - reiniciando suscripción a Firebase');
+        log('🔄 Reconectado - reiniciando suscripción a Firebase');
         // Reiniciar suscripción cuando vuelva la conexión
         subscribeToTasks(callback);
       }
@@ -331,7 +335,7 @@ export async function createTask(task) {
       return docRef.id;
     } else {
       // MODO OFFLINE: Guardar localmente y encolar para sincronización
-      console.log('📴 Creando tarea offline');
+      log('📴 Creando tarea offline');
       
       const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const offlineTask = {
@@ -352,7 +356,7 @@ export async function createTask(task) {
     }
   } catch (error) {
     // Si falla por cualquier razón, intentar modo offline
-    console.log('⚠️ Error creando tarea, guardando offline:', error.message);
+    log('⚠️ Error creando tarea, guardando offline:', error.message);
     
     const tempId = `temp_${Date.now()}`;
     const taskData = {
@@ -418,7 +422,7 @@ export async function updateTask(taskId, updates) {
           }
         }
       } catch (e) {
-        console.log('⚠️ Error añadiendo completedBy:', e.message);
+        log('⚠️ Error añadiendo completedBy:', e.message);
       }
     }
     
@@ -437,7 +441,7 @@ export async function updateTask(taskId, updates) {
 
     // Si es una tarea temporal (offline), solo encolar
     if (taskId.startsWith('temp_')) {
-      console.log('📴 Tarea temporal - actualizando solo localmente');
+      log('📴 Tarea temporal - actualizando solo localmente');
       return;
     }
 
@@ -457,12 +461,12 @@ export async function updateTask(taskId, updates) {
       await updateDoc(taskRef, updateData);
     } else {
       // MODO OFFLINE: Encolar para sincronización
-      console.log('📴 Actualizando tarea offline');
+      log('📴 Actualizando tarea offline');
       await queueOperation(OPERATION_TYPES.UPDATE, updates, taskId);
     }
   } catch (error) {
     // Si falla Firebase, encolar para después
-    console.log('⚠️ Error actualizando, encolando para después:', error.message);
+    log('⚠️ Error actualizando, encolando para después:', error.message);
     await queueOperation(OPERATION_TYPES.UPDATE, updates, taskId);
   }
 }
@@ -536,7 +540,7 @@ export async function deleteTask(taskId) {
 
     // Si es una tarea temporal, solo eliminar del cache
     if (taskId.startsWith('temp_')) {
-      console.log('📴 Tarea temporal eliminada del cache');
+      log('📴 Tarea temporal eliminada del cache');
       return;
     }
 
@@ -547,14 +551,14 @@ export async function deleteTask(taskId) {
       await new Promise(resolve => setTimeout(resolve, 200));
     } else {
       // MODO OFFLINE: Encolar para sincronización
-      console.log('📴 Eliminación encolada para sincronización');
+      log('📴 Eliminación encolada para sincronización');
       await queueOperation(OPERATION_TYPES.DELETE, {}, taskId);
     }
     return;
     
   } catch (error) {
     // Si falla Firebase, encolar para después
-    console.log('⚠️ Error eliminando, encolando para después:', error.message);
+    log('⚠️ Error eliminando, encolando para después:', error.message);
     await queueOperation(OPERATION_TYPES.DELETE, {}, taskId);
   }
 }
