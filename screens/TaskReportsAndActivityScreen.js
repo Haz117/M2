@@ -396,13 +396,18 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
                 Fotos de Evidencia ({item.images.length})
               </Text>
               <View style={styles.imageGrid}>
-                {item.images.map((image, idx) => (
-                  <Image
-                    key={idx}
-                    source={{ uri: image.url }}
-                    style={styles.reportImage}
-                  />
-                ))}
+                {item.images.map((image, idx) => {
+                  const imageUri = image.url || image.uri || image.dataUrl;
+                  if (!imageUri) return null;
+                  return (
+                    <Image
+                      key={idx}
+                      source={{ uri: imageUri }}
+                      style={styles.reportImage}
+                      onError={(e) => console.log('Image load error:', e.nativeEvent.error)}
+                    />
+                  );
+                })}
               </View>
             </View>
           )}

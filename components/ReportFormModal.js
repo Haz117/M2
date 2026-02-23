@@ -269,18 +269,34 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
       
       console.log('✅ Report created successfully with ID:', reportId);
 
-      // Subir imágenes a Storage si hay
+      // Subir imágenes - intentar Storage, fallback a base64
       if (images.length > 0) {
-        console.log('📸 Uploading', images.length, 'images to Storage...');
+        console.log('📸 Processing', images.length, 'images...');
         for (const img of images) {
           try {
+            // Primero intentar convertir a base64 como fallback
+            let base64Data = null;
+            try {
+              const response = await fetch(img.uri);
+              const blob = await response.blob();
+              base64Data = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+              });
+            } catch (convError) {
+              console.warn('⚠️ Could not convert to base64:', convError);
+            }
+            
             await uploadReportImage(taskId, reportId, {
               uri: img.uri,
+              base64: base64Data ? base64Data.split(',')[1] : null,
+              dataUrl: base64Data,
               uploadedBy: currentUser.userId,
             });
-            console.log('✅ Image uploaded:', img.uri);
+            console.log('✅ Image processed:', img.uri.substring(0, 50) + '...');
           } catch (imgError) {
-            console.error('⚠️ Error uploading image:', imgError);
+            console.error('⚠️ Error processing image:', imgError);
             // Continuar con las otras imágenes
           }
         }

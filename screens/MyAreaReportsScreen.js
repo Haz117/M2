@@ -331,13 +331,17 @@ const MyAreaReportsScreen = ({ navigation }) => {
                     Imágenes ({selectedReport.images.length})
                   </Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    {selectedReport.images.map((img, index) => (
-                      <Image
-                        key={index}
-                        source={{ uri: typeof img === 'string' ? img : img.url }}
-                        style={styles.previewImage}
-                      />
-                    ))}
+                    {selectedReport.images.map((img, index) => {
+                      const imageUri = typeof img === 'string' ? img : (img.url || img.uri || img.dataUrl);
+                      if (!imageUri) return null;
+                      return (
+                        <Image
+                          key={index}
+                          source={{ uri: imageUri }}
+                          style={styles.previewImage}
+                        />
+                      );
+                    })}
                   </ScrollView>
                 </View>
               )}

@@ -342,20 +342,24 @@ const AdminReportsScreen = ({ navigation }) => {
                     Imágenes ({selectedReport.images.length})
                   </Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    {selectedReport.images.map((img, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        onPress={() => {
-                          setSelectedImage(typeof img === 'string' ? img : img.url);
-                          setShowImageModal(true);
-                        }}
-                      >
-                        <Image
-                          source={{ uri: typeof img === 'string' ? img : img.url }}
-                          style={styles.previewImage}
-                        />
-                      </TouchableOpacity>
-                    ))}
+                    {selectedReport.images.map((img, index) => {
+                      const imageUri = typeof img === 'string' ? img : (img.url || img.uri || img.dataUrl);
+                      if (!imageUri) return null;
+                      return (
+                        <TouchableOpacity
+                          key={index}
+                          onPress={() => {
+                            setSelectedImage(imageUri);
+                            setShowImageModal(true);
+                          }}
+                        >
+                          <Image
+                            source={{ uri: imageUri }}
+                            style={styles.previewImage}
+                          />
+                        </TouchableOpacity>
+                      );
+                    })}
                   </ScrollView>
                 </View>
               )}

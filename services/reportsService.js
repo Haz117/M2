@@ -193,35 +193,67 @@ export const uploadReportImage = async (taskId, reportId, imageData) => {
 
     // Convert various formats to blob
     let blob = imageData.blob;
+    let dataUrl = imageData.dataUrl || null;  // Usar el dataUrl que viene como parámetro
     
     // Si no hay blob, convertir de uri o base64
     if (!blob) {
-      if (imageData.uri) {
-        // Convertir URI de imagen (expo-image-picker) a blob
-        console.log('📸 Converting URI to blob:', imageData.uri);
-        const response = await fetch(imageData.uri);
-        blob = await response.blob();
-        console.log('✅ URI converted to blob, size:', blob.size);
-      } else if (imageData.base64) {
+      if (imageData.base64) {
         // Convertir base64 a blob
-        const bstr = atob(imageData.base64);
-        const n = bstr.length;
-        const u8arr = new Uint8Array(n);
-        for (let i = 0; i < n; i++) {
-          u8arr[i] = bstr.charCodeAt(i);
+        dataUrl = dataUrl || `data:image/jpeg;base64,${imageData.base64}`;
+        try {
+          const bstr = atob(imageData.base64);
+          const n = bstr.length;
+          const u8arr = new Uint8Array(n);
+          for (let i = 0; i < n; i++) {
+            u8arr[i] = bstr.charCodeAt(i);
+          }
+          blob = new Blob([u8arr], { type: 'image/jpeg' });
+        } catch (decodeError) {
+          console.warn('⚠️ Could not decode base64:', decodeError);
         }
-        blob = new Blob([u8arr], { type: 'image/jpeg' });
+      } else if (imageData.uri && !dataUrl) {
+        // Convertir URI de imagen (expo-image-picker) a blob
+        console.log('📸 Converting URI to blob:', imageData.uri.substring(0, 50) + '...');
+        try {
+          const response = await fetch(imageData.uri);
+          blob = await response.blob();
+          console.log('✅ URI converted to blob, size:', blob.size);
+          
+          // También crear dataUrl como fallback
+          const reader = new FileReader();
+          dataUrl = await new Promise((resolve) => {
+            reader.onloadend = () => resolve(reader.result);
+            reader.readAsDataURL(blob);
+          });
+        } catch (fetchError) {
+          console.warn('⚠️ Could not fetch URI:', fetchError);
+        }
       }
     }
 
-    if (!blob) {
-      throw new Error('No valid image data provided (uri, blob, or base64 required)');
+    let downloadURL = null;
+    
+    // Intentar subir a Storage
+    if (blob) {
+      try {
+        console.log('📤 Uploading image to Storage:', storagePath);
+        await uploadBytes(storageRef, blob);
+        downloadURL = await getDownloadURL(storageRef);
+        console.log('✅ Image uploaded to Storage, URL:', downloadURL.substring(0, 60) + '...');
+      } catch (storageError) {
+        console.warn('⚠️ Storage upload failed:', storageError.message);
+      }
     }
 
-    console.log('📤 Uploading image to Storage:', storagePath);
-    await uploadBytes(storageRef, blob);
-    const downloadURL = await getDownloadURL(storageRef);
-    console.log('✅ Image uploaded, URL:', downloadURL);
+    // Si Storage falló, usar dataUrl como fallback (imágen embebida)
+    if (!downloadURL && dataUrl) {
+      console.log('📦 Using embedded dataUrl as fallback (Storage unavailable)');
+      downloadURL = dataUrl;
+    }
+
+    if (!downloadURL) {
+      throw new Error('No valid image data could be processed - no Storage or dataUrl available');
+    }
 
     // Update report with image URL
     await updateDoc(doc(db, 'task_reports', reportId), {
@@ -233,6 +265,7 @@ export const uploadReportImage = async (taskId, reportId, imageData) => {
       updatedAt: serverTimestamp(),
     });
 
+    console.log('✅ Image saved to report');
     return downloadURL;
   } catch (error) {
     console.error('❌ Error uploading report image:', error);
