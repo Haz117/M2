@@ -21,6 +21,7 @@ import { getCurrentSession } from '../services/authFirestore';
 import { useResponsive } from '../utils/responsive';
 import { SPACING, TYPOGRAPHY, RADIUS, SHADOWS, MAX_WIDTHS } from '../theme/tokens';
 import WebSafeBlur from '../components/WebSafeBlur';
+import HelpButton from '../components/HelpButton';
 
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const MONTHS_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -468,22 +469,36 @@ export default function CalendarScreen({ navigation }) {
               </View>
               <Text style={styles.heading}>Calendario</Text>
             </View>
-            <RippleButton 
-              style={styles.todayButton}
-              onPress={() => {
-                hapticMedium();
-                animateMonthChange(0);
-                setCurrentDate(new Date());
-                setToastMessage('✨ ¡Vista actualizada a hoy!');
-                setToastType('success');
-                setToastVisible(true);
-                hapticSuccess();
-              }}
-              rippleColor="rgba(255,255,255,0.3)"
-            >
-              <Ionicons name="today-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.todayButtonText}>HOY</Text>
-            </RippleButton>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <HelpButton
+                title="Calendario"
+                variant="header"
+                size="medium"
+                items={[
+                  { icon: 'calendar-outline', title: 'Vista Mensual', description: 'Visualiza todas las tareas del mes organizadas por día. Los días con tareas muestran indicadores de colores.' },
+                  { icon: 'ellipse', title: 'Indicadores', description: 'Verde = completadas, Amarillo = en proceso, Rojo = pendientes/vencidas. Así sabes el estado rápido.' },
+                  { icon: 'hand-left-outline', title: 'Seleccionar Día', description: 'Pulsa sobre cualquier día para ver las tareas programadas para esa fecha.' },
+                  { icon: 'arrow-back-outline', title: 'Navegación', description: 'Usa las flechas izquierda/derecha para cambiar de mes. El botón HOY te regresa al día actual.' },
+                  { icon: 'stats-chart-outline', title: 'Estadísticas', description: 'La barra inferior muestra un resumen rápido: cerradas, en proceso, pendientes y porcentaje.', color: '#10B981' },
+                ]}
+              />
+              <RippleButton 
+                style={styles.todayButton}
+                onPress={() => {
+                  hapticMedium();
+                  animateMonthChange(0);
+                  setCurrentDate(new Date());
+                  setToastMessage('✨ ¡Vista actualizada a hoy!');
+                  setToastType('success');
+                  setToastVisible(true);
+                  hapticSuccess();
+                }}
+                rippleColor="rgba(255,255,255,0.3)"
+              >
+                <Ionicons name="today-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.todayButtonText}>HOY</Text>
+              </RippleButton>
+            </View>
           </View>
         </LinearGradient>
       </Animated.View>

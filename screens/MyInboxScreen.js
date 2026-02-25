@@ -23,6 +23,7 @@ import { scheduleOverdueTasksNotification, scheduleMultipleDailyOverdueNotificat
 import OverdueAlert from '../components/OverdueAlert';
 import { useResponsive } from '../utils/responsive';
 import { SPACING, TYPOGRAPHY, RADIUS, SHADOWS, MAX_WIDTHS } from '../theme/tokens';
+import HelpButton from '../components/HelpButton';
 
 // Helper function to check if a task is assigned to a user (supports both string and array formats)
 function isTaskAssignedToUser(task, userEmail) {
@@ -916,6 +917,20 @@ export default function MyInboxScreen({ navigation }) {
             </View>
             
             <View style={styles.headerRight}>
+              {/* Botón de ayuda */}
+              <HelpButton
+                title="Mi Bandeja"
+                variant="header"
+                size="medium"
+                items={[
+                  { icon: 'file-tray-full-outline', title: 'Bandeja Personal', description: 'Aquí verás todas las tareas asignadas directamente a ti, organizadas por fecha.' },
+                  { icon: 'calendar-outline', title: 'Por Vencer', description: 'Las tareas se organizan por proximidad de vencimiento. Las más urgentes aparecen primero.' },
+                  { icon: 'checkmark-circle-outline', title: 'Marcar Completada', description: 'Desliza hacia la derecha para marcar una tarea como completada rápidamente.' },
+                  { icon: 'time-outline', title: 'Posponer', description: 'Desliza hacia la izquierda para posponer la tarea un día.' },
+                  { icon: 'chatbubbles-outline', title: 'Mensajes', description: 'El ícono de chat muestra los mensajes recientes de tus tareas.', color: '#10B981' },
+                ]}
+              />
+              
               {/* Badge vencidas */}
               {filtered.filter(t => t.dueAt < Date.now() && t.status !== 'cerrada').length > 0 && (
                 <TouchableOpacity 

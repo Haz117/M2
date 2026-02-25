@@ -25,6 +25,7 @@ import { db } from '../firebase';
 import ProgressBar from '../components/ProgressBar';
 import Avatar from '../components/Avatar';
 import TrafficLightDashboard from '../components/TrafficLightDashboard';
+import HelpButton from '../components/HelpButton';
 
 const { width } = Dimensions.get('window');
 const chartWidth = Math.min(width - 48, 500);
@@ -755,9 +756,23 @@ export default function AdminExecutiveDashboard({ navigation }) {
             <Text style={styles.headerLabel}>PANEL DE CONTROL</Text>
             <Text style={styles.headerTitle}>Dashboard Admin</Text>
           </View>
-          <View style={styles.headerBadge}>
-            <Text style={styles.headerBadgeText}>{globalMetrics.totalTasks}</Text>
-            <Text style={styles.headerBadgeLabel}>tareas</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <HelpButton
+              title="Dashboard Admin"
+              variant="header"
+              size="medium"
+              items={[
+                { icon: 'grid-outline', title: 'Resumen General', description: 'Vista rápida de KPIs: tareas totales, completadas, en proceso y vencidas.' },
+                { icon: 'speedometer-outline', title: 'Semáforo', description: 'Visualiza el estado de cada área con indicadores verde/amarillo/rojo.' },
+                { icon: 'trending-up-outline', title: 'Evolución', description: 'Gráficos de línea que muestran la tendencia de cumplimiento en el tiempo.' },
+                { icon: 'people-outline', title: 'Cumplimiento', description: 'Analiza el rendimiento individual de cada usuario y su tasa de cierre.' },
+                { icon: 'business-outline', title: 'Secretarías', description: 'Compara el desempeño entre las diferentes áreas de la organización.', color: '#10B981' },
+              ]}
+            />
+            <View style={styles.headerBadge}>
+              <Text style={styles.headerBadgeText}>{globalMetrics.totalTasks}</Text>
+              <Text style={styles.headerBadgeLabel}>tareas</Text>
+            </View>
           </View>
         </View>
       </LinearGradient>

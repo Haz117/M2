@@ -23,6 +23,7 @@ import Card from '../components/Card';
 import SyncIndicator from '../components/SyncIndicator';
 import ProgressBar from '../components/ProgressBar';
 import PersonalWeeklyStats from '../components/PersonalWeeklyStats';
+import HelpButton from '../components/HelpButton';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTasks } from '../contexts/TasksContext';
 import { subscribeToTasks, deleteTask as deleteTaskFirebase, updateTask, createTask } from '../services/tasks';
@@ -692,6 +693,18 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.heading}>Mis Tareas</Text>
               </View>
               <View style={styles.headerActions}>
+                <HelpButton
+                  title="Mis Tareas"
+                  variant="header"
+                  size="medium"
+                  items={[
+                    { icon: 'list-outline', title: 'Lista de Tareas', description: 'Aquí verás todas las tareas asignadas a ti o a tu área. Desliza para ver más opciones.' },
+                    { icon: 'search-outline', title: 'Buscar y Filtrar', description: 'Usa la barra de búsqueda para encontrar tareas específicas. Los filtros avanzados te ayudan a organizar mejor.' },
+                    { icon: 'swap-vertical-outline', title: 'Cambiar Estado', description: 'Pulsa en una tarea para ver sus detalles y cambiar su estado de avance.' },
+                    { icon: 'stats-chart-outline', title: 'Estadísticas', description: 'Las estadísticas muestran tu progreso personal y del área en tiempo real.', color: '#10B981' },
+                    { icon: 'notifications-outline', title: 'Notificaciones', description: 'El ícono de campana te muestra las alertas y notificaciones pendientes.' },
+                  ]}
+                />
                 <TouchableOpacity 
                   style={styles.notificationButton}
                   onPress={() => navigation.navigate('Notifications')}
