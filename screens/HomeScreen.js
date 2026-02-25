@@ -689,10 +689,6 @@ export default function HomeScreen({ navigation }) {
           >
             <View style={styles.header}>
               <View style={{ flex: 1 }}>
-                <View style={styles.greetingContainer}>
-                  <Ionicons name="hand-right" size={20} color="#FFFFFF" style={{ marginRight: 8, opacity: 0.9 }} />
-                  <Text style={styles.greeting}>Hola!</Text>
-                </View>
                 <Text style={styles.heading}>Mis Tareas</Text>
               </View>
               <View style={styles.headerActions}>
@@ -816,7 +812,7 @@ export default function HomeScreen({ navigation }) {
           opacity: searchOpacity, 
           transform: [{ translateY: searchSlide }],
           marginHorizontal: 16,
-          marginTop: 16,
+          marginTop: 12,
           marginBottom: 8,
         }}>
           <View style={[
@@ -865,47 +861,25 @@ export default function HomeScreen({ navigation }) {
           ) : (
           <View style={styles.bentoGrid}>
             
-            {/* 📊 Card de Progreso del Área */}
+            {/* 📊 Stats Inline Compacto */}
             {areaProgress && (
-              <View style={[styles.areaProgressCard, { backgroundColor: theme.card, borderColor: theme.borderLight }]}>
-                <View style={styles.areaProgressHeader}>
-                  <View style={styles.areaProgressTitleRow}>
-                    <Ionicons name="analytics" size={18} color={theme.primary} />
-                    <Text style={[styles.areaProgressTitle, { color: theme.text }]}>
-                      {areaProgress.areaName}
-                    </Text>
-                  </View>
-                  <View style={[styles.areaProgressBadge, { backgroundColor: areaProgress.percentage >= 75 ? '#4CAF5020' : areaProgress.percentage >= 50 ? '#FF950020' : '#FF3B3020' }]}>
-                    <Text style={[styles.areaProgressPercent, { color: areaProgress.percentage >= 75 ? '#4CAF50' : areaProgress.percentage >= 50 ? '#FF9500' : '#FF3B30' }]}>
-                      {areaProgress.percentage}%
-                    </Text>
-                  </View>
+              <View style={[styles.statsInlineBar, { backgroundColor: theme.card, borderColor: theme.borderLight }]}>
+                <View style={styles.statsInlineItem}>
+                  <View style={[styles.statsInlineDot, { backgroundColor: '#4CAF50' }]} />
+                  <Text style={[styles.statsInlineValue, { color: '#4CAF50' }]}>{areaProgress.completed}</Text>
+                  <Text style={[styles.statsInlineLabel, { color: theme.textSecondary }]}>cerradas</Text>
                 </View>
-                <ProgressBar 
-                  progress={areaProgress.percentage} 
-                  size="medium" 
-                  showLabel={false}
-                  color={areaProgress.percentage >= 75 ? '#4CAF50' : areaProgress.percentage >= 50 ? '#FF9500' : theme.primary}
-                />
-                <View style={styles.areaProgressStats}>
-                  <View style={styles.areaProgressStat}>
-                    <View style={[styles.areaProgressDot, { backgroundColor: '#4CAF50' }]} />
-                    <Text style={[styles.areaProgressStatText, { color: theme.textSecondary }]}>
-                      {areaProgress.completed} cerradas
-                    </Text>
-                  </View>
-                  <View style={styles.areaProgressStat}>
-                    <View style={[styles.areaProgressDot, { backgroundColor: '#2196F3' }]} />
-                    <Text style={[styles.areaProgressStatText, { color: theme.textSecondary }]}>
-                      {areaProgress.inProgress} en proceso
-                    </Text>
-                  </View>
-                  <View style={styles.areaProgressStat}>
-                    <View style={[styles.areaProgressDot, { backgroundColor: '#FF9500' }]} />
-                    <Text style={[styles.areaProgressStatText, { color: theme.textSecondary }]}>
-                      {areaProgress.pending} pendientes
-                    </Text>
-                  </View>
+                <View style={styles.statsInlineDivider} />
+                <View style={styles.statsInlineItem}>
+                  <View style={[styles.statsInlineDot, { backgroundColor: '#2196F3' }]} />
+                  <Text style={[styles.statsInlineValue, { color: '#2196F3' }]}>{areaProgress.inProgress}</Text>
+                  <Text style={[styles.statsInlineLabel, { color: theme.textSecondary }]}>en proceso</Text>
+                </View>
+                <View style={styles.statsInlineDivider} />
+                <View style={styles.statsInlineItem}>
+                  <View style={[styles.statsInlineDot, { backgroundColor: '#FF9500' }]} />
+                  <Text style={[styles.statsInlineValue, { color: '#FF9500' }]}>{areaProgress.pending}</Text>
+                  <Text style={[styles.statsInlineLabel, { color: theme.textSecondary }]}>pendientes</Text>
                 </View>
               </View>
             )}
@@ -917,30 +891,6 @@ export default function HomeScreen({ navigation }) {
                 userId={currentUser.email}
                 userName={currentUser.displayName || currentUser.email}
               />
-            )}
-
-            {/* Alerta de información important con mejor diseño */}
-            {urgentTasks.length > 0 && (
-              <TouchableOpacity
-                style={[styles.infoAlert, { backgroundColor: theme.primary + '95', borderColor: theme.primary }]}
-                onPress={() => setShowUrgentModal(false)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.infoAlertContent}>
-                  <View style={[styles.infoAlertIcon, { backgroundColor: 'rgba(255,255,255,0.3)' }]}>
-                    <Ionicons name="information-circle" size={20} color="#FFFFFF" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.infoAlertTitle}>Solo administradores y jefes pueden editar tareas</Text>
-                  </View>
-                  <TouchableOpacity 
-                    onPress={() => setShowUrgentModal(false)}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Ionicons name="close" size={20} color="#FFFFFF" />
-                  </TouchableOpacity>
-                </View>
-              </TouchableOpacity>
             )}
 
             {/* Fila 1: Estadísticas principales - REMOVIDA para reducir alertas
@@ -975,16 +925,13 @@ export default function HomeScreen({ navigation }) {
             </View>
             */}
 
-            <View style={styles.sectionTitleContainer}>
-              <LinearGradient
-                colors={[theme.primary, isDark ? '#7F1D35' : '#C53860']}
-                style={styles.sectionIconBadge}
-              >
-                <Ionicons name="list" size={18} color="#FFFFFF" />
-              </LinearGradient>
-              <Text style={styles.sectionTitle}>Todas las Tareas</Text>
-              <View style={[styles.taskCountBadge, { backgroundColor: isDark ? 'rgba(159, 34, 65, 0.2)' : 'rgba(159, 34, 65, 0.1)' }]}>
-                <Text style={[styles.taskCountText, { color: theme.primary }]}>{filteredTasks.length}</Text>
+            <View style={[styles.sectionTitleContainer, { borderTopColor: theme.borderLight }]}>
+              <View style={[styles.sectionIconSmall, { backgroundColor: theme.primary + '15' }]}>
+                <Ionicons name="list" size={16} color={theme.primary} />
+              </View>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>Todas las Tareas</Text>
+              <View style={[styles.taskCountBadge, { backgroundColor: theme.primary }]}>
+                <Text style={styles.taskCountText}>{filteredTasks.length}</Text>
               </View>
             </View>
           </View>
@@ -1147,31 +1094,31 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding, 
     width: '100%'
   },
   headerGradient: {
-    borderBottomLeftRadius: 36,
-    borderBottomRightRadius: 36,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
     shadowColor: theme.primary,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.4,
-    shadowRadius: 18,
-    elevation: 14,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
+    elevation: 10,
     paddingHorizontal: padding,
-    paddingTop: isDesktop ? SPACING.xxxl : 52,
-    paddingBottom: 28
+    paddingTop: isDesktop ? SPACING.xxl : 44,
+    paddingBottom: 18
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   notificationButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1192,13 +1139,13 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding, 
     textShadowRadius: 2
   },
   heading: { 
-    fontSize: 44, 
-    fontWeight: '900',
+    fontSize: 32, 
+    fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: -2.2,
-    textShadowColor: 'rgba(0,0,0,0.2)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4
+    letterSpacing: -1.5,
+    textShadowColor: 'rgba(0,0,0,0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3
   },
   urgentBadge: {
     flexDirection: 'row',
@@ -1301,64 +1248,44 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding, 
   },
   // Bento Grid Styles
   bentoGrid: {
-    gap: SPACING.sm,
-    marginBottom: SPACING.lg,
+    gap: SPACING.xs,
+    marginBottom: SPACING.sm,
     paddingHorizontal: padding
   },
-  // Area Progress Card Styles
-  areaProgressCard: {
-    padding: 16,
+  // Stats Inline Bar - Compacto
+  statsInlineBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderRadius: RADIUS.lg,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm,
     borderWidth: 1,
-    ...SHADOWS.sm,
+    ...SHADOWS.xs,
   },
-  areaProgressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  areaProgressTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-  },
-  areaProgressTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    flex: 1,
-  },
-  areaProgressBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  areaProgressPercent: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  areaProgressStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 12,
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  areaProgressStat: {
+  statsInlineItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  areaProgressDot: {
+  statsInlineDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
   },
-  areaProgressStatText: {
-    fontSize: 12,
-    fontWeight: '500',
+  statsInlineValue: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  statsInlineLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  statsInlineDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: 'rgba(0,0,0,0.08)',
   },
   bentoRow: {
     flexDirection: 'row',
@@ -1608,19 +1535,27 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding, 
     letterSpacing: -0.3
   },
   sectionTitle: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: theme.text,
-    letterSpacing: -0.5,
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.3,
     flex: 1,
   },
   sectionTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-    marginTop: 12,
+    marginBottom: 12,
+    marginTop: 8,
+    paddingTop: 12,
     paddingHorizontal: 4,
-    gap: 12,
+    gap: 10,
+    borderTopWidth: 1,
+  },
+  sectionIconSmall: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   sectionIconBadge: {
     width: 38,
@@ -1641,15 +1576,16 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding, 
     }),
   },
   taskCountBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    minWidth: 40,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    minWidth: 32,
     alignItems: 'center',
   },
   taskCountText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
+    color: '#FFFFFF',
   },
   searchBarContainer: {
     borderRadius: 20,
