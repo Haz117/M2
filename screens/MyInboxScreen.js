@@ -659,6 +659,75 @@ export default function MyInboxScreen({ navigation }) {
   // Obtener áreas únicas disponibles para filtros
   const uniqueAreas = [...new Set(tasks.map(t => t.area).filter(Boolean))].sort();
 
+  // 📊 Calcular estadísticas rápidas para Quick Stats
+  const quickStats = React.useMemo(() => {
+    const now = Date.now();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    const in48Hours = now + (48 * 60 * 60 * 1000);
+
+    const activeTasks = filtered.filter(t => t.status !== 'cerrada');
+    const overdue = activeTasks.filter(t => t.dueAt && new Date(t.dueAt).getTime() < now);
+    const dueToday = activeTasks.filter(t => {
+      if (!t.dueAt) return false;
+      const due = new Date(t.dueAt).getTime();
+      return due >= todayStart.getTime() && due <= todayEnd.getTime();
+    });
+    const upcoming = activeTasks.filter(t => {
+      if (!t.dueAt) return false;
+      const due = new Date(t.dueAt).getTime();
+      return due > todayEnd.getTime() && due <= in48Hours;
+    });
+    const completed = filtered.filter(t => t.status === 'cerrada');
+
+    return {
+      total: filtered.length,
+      overdue: overdue.length,
+      dueToday: dueToday.length,
+      upcoming: upcoming.length,
+      completed: completed.length,
+      pending: activeTasks.length,
+    };
+  }, [filtered]);
+
+  // 📋 Organizar tareas en secciones
+  const taskSections = React.useMemo(() => {
+    const now = Date.now();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    
+    const sections = {
+      overdue: [],
+      today: [],
+      upcoming: [],
+      noDate: [],
+      completed: [],
+    };
+
+    filtered.forEach(task => {
+      if (task.status === 'cerrada') {
+        sections.completed.push(task);
+      } else if (task.dueAt) {
+        const due = new Date(task.dueAt).getTime();
+        if (due < now) {
+          sections.overdue.push(task);
+        } else if (due >= todayStart.getTime() && due <= todayEnd.getTime()) {
+          sections.today.push(task);
+        } else {
+          sections.upcoming.push(task);
+        }
+      } else {
+        sections.noDate.push(task);
+      }
+    });
+
+    return sections;
+  }, [filtered]);
+
   const toggleComplete = async (task) => {
     // Validar permisos: solo admin puede reabrir
     if (task.status === 'cerrada' && currentUser?.role !== 'admin') {
@@ -781,50 +850,40 @@ export default function MyInboxScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Acciones compactas con iconos */}
-        <View style={styles.quickActionsRow}>
-          {/* Botón confirmar mi parte - Solo si tiene múltiples asignados y no ha confirmado */}
-          {Array.isArray(item.assignedTo) && item.assignedTo.length > 1 && !hasUserConfirmed(item, currentUser?.email) && item.status !== 'cerrada' && (
+        {/* Acciones compactas con iconos - Simplificadas */}
+        {item.status !== 'cerrada' && (
+          <View style={styles.quickActionsRow}>
+            {/* Botón confirmar mi parte - Solo si tiene múltiples asignados y no ha confirmado */}
+            {Array.isArray(item.assignedTo) && item.assignedTo.length > 1 && !hasUserConfirmed(item, currentUser?.email) && (
+              <TouchableOpacity 
+                style={[styles.quickActionBtn, { backgroundColor: '#8B5CF6' }]} 
+                onPress={() => confirmMyPart(item)}
+              >
+                <Ionicons name="checkmark-done" size={16} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity 
-              style={[styles.quickActionBtn, { backgroundColor: '#8B5CF6' }]} 
-              onPress={() => confirmMyPart(item)}
+              style={[styles.quickActionBtn, { backgroundColor: '#10B981' }]} 
+              onPress={() => markClosed(item)}
             >
-              <Ionicons name="checkmark-done" size={18} color="#FFFFFF" />
+              <Ionicons name="checkmark" size={16} color="#FFFFFF" />
             </TouchableOpacity>
-          )}
-          {/* Indicador de que ya confirmó */}
-          {Array.isArray(item.assignedTo) && item.assignedTo.length > 1 && hasUserConfirmed(item, currentUser?.email) && item.status !== 'cerrada' && (
-            <View style={[styles.quickActionBtn, { backgroundColor: '#D1D5DB' }]}>
-              <Ionicons name="checkmark-done" size={18} color="#6B7280" />
-            </View>
-          )}
-          <TouchableOpacity 
-            style={[styles.quickActionBtn, { backgroundColor: '#10B981' }]} 
-            onPress={() => markClosed(item)}
-          >
-            <Ionicons name="checkmark" size={18} color="#FFFFFF" />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.quickActionBtn, { backgroundColor: '#3B82F6' }]} 
-            onPress={() => openChat(item)}
-          >
-            <Ionicons name="chatbubble" size={18} color="#FFFFFF" />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.quickActionBtn, { backgroundColor: '#6B7280' }]} 
-            onPress={() => setShowHelpModal(true)}
-          >
-            <Ionicons name="help" size={18} color="#FFFFFF" />
-          </TouchableOpacity>
-          {isAdmin && (
             <TouchableOpacity 
-              style={[styles.quickActionBtn, { backgroundColor: '#EF4444' }]} 
-              onPress={() => deleteTask(item.id)}
+              style={[styles.quickActionBtn, { backgroundColor: '#3B82F6' }]} 
+              onPress={() => openChat(item)}
             >
-              <Ionicons name="trash" size={18} color="#FFFFFF" />
+              <Ionicons name="chatbubble" size={16} color="#FFFFFF" />
             </TouchableOpacity>
-          )}
-        </View>
+            {isAdmin && (
+              <TouchableOpacity 
+                style={[styles.quickActionBtn, { backgroundColor: '#EF4444' }]} 
+                onPress={() => deleteTask(item.id)}
+              >
+                <Ionicons name="trash" size={16} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </View>
     );
   };
@@ -945,6 +1004,123 @@ export default function MyInboxScreen({ navigation }) {
           </View>
         </View>
       </Animated.View>
+
+      {/* 📊 Quick Stats - Estadísticas rápidas */}
+      <View style={styles.quickStatsContainer}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.quickStatsScroll}
+        >
+          {quickStats.overdue > 0 && (
+            <TouchableOpacity 
+              style={[styles.quickStatItem, styles.quickStatOverdue]}
+              onPress={() => setFilters(prev => ({ ...prev, overdue: true }))}
+            >
+              <Ionicons name="alert-circle" size={18} color="#FFFFFF" />
+              <Text style={styles.quickStatValue}>{quickStats.overdue}</Text>
+              <Text style={styles.quickStatLabel}>Vencidas</Text>
+            </TouchableOpacity>
+          )}
+          
+          <TouchableOpacity 
+            style={[styles.quickStatItem, { backgroundColor: isDark ? '#2A2A2A' : '#FEF3C7', borderColor: '#F59E0B' }]}
+            onPress={() => {/* Filter by today */}}
+          >
+            <Ionicons name="today" size={18} color="#F59E0B" />
+            <Text style={[styles.quickStatValue, { color: '#F59E0B' }]}>{quickStats.dueToday}</Text>
+            <Text style={[styles.quickStatLabel, { color: '#B45309' }]}>Hoy</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.quickStatItem, { backgroundColor: isDark ? '#2A2A2A' : '#EDE9FE', borderColor: '#8B5CF6' }]}
+            onPress={() => {/* Filter by upcoming */}}
+          >
+            <Ionicons name="calendar" size={18} color="#8B5CF6" />
+            <Text style={[styles.quickStatValue, { color: '#8B5CF6' }]}>{quickStats.upcoming}</Text>
+            <Text style={[styles.quickStatLabel, { color: '#6D28D9' }]}>Próximas</Text>
+          </TouchableOpacity>
+          
+          <View style={[styles.quickStatItem, { backgroundColor: isDark ? '#2A2A2A' : '#D1FAE5', borderColor: '#10B981' }]}>
+            <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+            <Text style={[styles.quickStatValue, { color: '#10B981' }]}>{quickStats.completed}</Text>
+            <Text style={[styles.quickStatLabel, { color: '#047857' }]}>Cerradas</Text>
+          </View>
+          
+          <View style={[styles.quickStatItem, { backgroundColor: isDark ? '#2A2A2A' : '#F3F4F6', borderColor: theme.border }]}>
+            <Ionicons name="list" size={18} color={theme.textSecondary} />
+            <Text style={[styles.quickStatValue, { color: theme.text }]}>{quickStats.total}</Text>
+            <Text style={[styles.quickStatLabel, { color: theme.textSecondary }]}>Total</Text>
+          </View>
+        </ScrollView>
+      </View>
+
+      {/* Chips de filtros activos */}
+      {(filters.status.length > 0 || filters.priority.length > 0 || filters.area.length > 0 || filters.overdue || searchText) && (
+        <View style={styles.activeFiltersContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.activeFiltersScroll}>
+            {searchText && (
+              <TouchableOpacity 
+                style={[styles.activeFilterChip, { backgroundColor: theme.primary }]}
+                onPress={() => setSearchText('')}
+              >
+                <Ionicons name="search" size={14} color="#FFFFFF" />
+                <Text style={styles.activeFilterChipText}>"{searchText}"</Text>
+                <Ionicons name="close" size={14} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+            {filters.overdue && (
+              <TouchableOpacity 
+                style={[styles.activeFilterChip, { backgroundColor: '#EF4444' }]}
+                onPress={() => setFilters(prev => ({ ...prev, overdue: false }))}
+              >
+                <Ionicons name="alert-circle" size={14} color="#FFFFFF" />
+                <Text style={styles.activeFilterChipText}>Vencidas</Text>
+                <Ionicons name="close" size={14} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+            {filters.status.map(s => (
+              <TouchableOpacity 
+                key={s}
+                style={[styles.activeFilterChip, { backgroundColor: '#3B82F6' }]}
+                onPress={() => setFilters(prev => ({ ...prev, status: prev.status.filter(x => x !== s) }))}
+              >
+                <Text style={styles.activeFilterChipText}>{s}</Text>
+                <Ionicons name="close" size={14} color="#FFFFFF" />
+              </TouchableOpacity>
+            ))}
+            {filters.priority.map(p => (
+              <TouchableOpacity 
+                key={p}
+                style={[styles.activeFilterChip, { backgroundColor: p === 'alta' ? '#EF4444' : p === 'media' ? '#F59E0B' : '#10B981' }]}
+                onPress={() => setFilters(prev => ({ ...prev, priority: prev.priority.filter(x => x !== p) }))}
+              >
+                <Text style={styles.activeFilterChipText}>{p}</Text>
+                <Ionicons name="close" size={14} color="#FFFFFF" />
+              </TouchableOpacity>
+            ))}
+            {filters.area.map(a => (
+              <TouchableOpacity 
+                key={a}
+                style={[styles.activeFilterChip, { backgroundColor: '#8B5CF6' }]}
+                onPress={() => setFilters(prev => ({ ...prev, area: prev.area.filter(x => x !== a) }))}
+              >
+                <Text style={styles.activeFilterChipText} numberOfLines={1}>{a.substring(0, 15)}</Text>
+                <Ionicons name="close" size={14} color="#FFFFFF" />
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity 
+              style={[styles.clearAllChip, { borderColor: theme.primary }]}
+              onPress={() => {
+                setFilters({ status: [], priority: [], area: [], overdue: false });
+                setSearchText('');
+              }}
+            >
+              <Text style={[styles.clearAllChipText, { color: theme.primary }]}>Limpiar todo</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      )}
 
       {/* Filtros expandibles - MEJORADO */}
       {/* 🎨 MODAL DE FILTROS AVANZADOS */}
@@ -1670,21 +1846,91 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
   quickActionsRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 8,
+    gap: 6,
     paddingHorizontal: 12,
-    paddingBottom: 12,
+    paddingBottom: 8,
+    marginTop: -4,
   },
   quickActionBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.12,
     shadowRadius: 2,
     elevation: 2,
+  },
+  // Quick Stats
+  quickStatsContainer: {
+    marginTop: 12,
+    paddingHorizontal: padding,
+  },
+  quickStatsScroll: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingRight: 16,
+  },
+  quickStatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    minWidth: 80,
+  },
+  quickStatOverdue: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#EF4444',
+  },
+  quickStatValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
+  quickStatLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#B91C1C',
+  },
+  // Active Filters Chips
+  activeFiltersContainer: {
+    marginTop: 10,
+    paddingHorizontal: padding,
+  },
+  activeFiltersScroll: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingRight: 16,
+  },
+  activeFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  activeFilterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    maxWidth: 100,
+  },
+  clearAllChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    backgroundColor: 'transparent',
+  },
+  clearAllChipText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   messagesButton: {
     borderRadius: RADIUS.xl,
