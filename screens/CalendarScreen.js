@@ -39,7 +39,6 @@ export default function CalendarScreen({ navigation }) {
   const [toastType, setToastType] = useState('success');
   const [currentUser, setCurrentUser] = useState(null);
   const [monthDirection, setMonthDirection] = useState(0); // -1 prev, 1 next
-  const [viewMode, setViewMode] = useState('month'); // 'month' or 'week'
   
   // Animaciones de entrada mejoradas
   const headerSlide = useRef(new Animated.Value(-50)).current;
@@ -211,21 +210,6 @@ export default function CalendarScreen({ navigation }) {
       completionRate
     };
   }, [tasks, currentDate]);
-
-  // 📅 Semana actual para mini preview
-  const currentWeekDays = useMemo(() => {
-    const today = new Date();
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay());
-    
-    const days = [];
-    for (let i = 0; i < 7; i++) {
-      const day = new Date(startOfWeek);
-      day.setDate(startOfWeek.getDate() + i);
-      days.push(day);
-    }
-    return days;
-  }, []);
 
   const getTasksForDate = (date) => {
     if (!date) return [];
@@ -515,123 +499,37 @@ export default function CalendarScreen({ navigation }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* 📊 Quick Stats del Mes */}
-        <FadeInView duration={400} delay={100}>
-          <View style={[styles.quickStatsContainer, { backgroundColor: theme.glass }]}>
-            <View style={styles.quickStatsHeader}>
-              <View style={styles.quickStatsHeaderLeft}>
-                <Ionicons name="analytics" size={18} color={theme.primary} />
-                <Text style={[styles.quickStatsTitle, { color: theme.text }]}>
-                  Resumen de {MONTHS[currentDate.getMonth()]}
-                </Text>
-              </View>
-              <View style={styles.completionBadge}>
-                <Text style={styles.completionBadgeText}>{monthStats.completionRate}%</Text>
-              </View>
+        {/* 📊 Quick Stats Inline - Compacto */}
+        <FadeInView duration={300} delay={50}>
+          <View style={[styles.quickStatsInline, { backgroundColor: theme.glass }]}>
+            <View style={styles.quickStatInlineItem}>
+              <Text style={[styles.quickStatInlineValue, { color: '#3B82F6' }]}>{monthStats.totalTasks}</Text>
+              <Text style={[styles.quickStatInlineLabel, { color: theme.textSecondary }]}>Total</Text>
             </View>
-            
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.quickStatsScroll}
-            >
-              <View style={[styles.quickStatCard, { backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : '#EFF6FF' }]}>
-                <Ionicons name="calendar-outline" size={20} color="#3B82F6" />
-                <Text style={[styles.quickStatValue, { color: '#3B82F6' }]}>{monthStats.totalTasks}</Text>
-                <Text style={[styles.quickStatLabel, { color: theme.textSecondary }]}>Total</Text>
-              </View>
-              
-              <View style={[styles.quickStatCard, { backgroundColor: isDark ? 'rgba(16,185,129,0.15)' : '#ECFDF5' }]}>
-                <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                <Text style={[styles.quickStatValue, { color: '#10B981' }]}>{monthStats.completedTasks}</Text>
-                <Text style={[styles.quickStatLabel, { color: theme.textSecondary }]}>Completadas</Text>
-              </View>
-              
-              <View style={[styles.quickStatCard, { backgroundColor: isDark ? 'rgba(139,92,246,0.15)' : '#F5F3FF' }]}>
-                <Ionicons name="sync" size={20} color="#8B5CF6" />
-                <Text style={[styles.quickStatValue, { color: '#8B5CF6' }]}>{monthStats.inProgressTasks}</Text>
-                <Text style={[styles.quickStatLabel, { color: theme.textSecondary }]}>En proceso</Text>
-              </View>
-              
-              {monthStats.highPriorityTasks > 0 && (
-                <View style={[styles.quickStatCard, { backgroundColor: isDark ? 'rgba(239,68,68,0.15)' : '#FEF2F2' }]}>
-                  <Ionicons name="alert-circle" size={20} color="#EF4444" />
-                  <Text style={[styles.quickStatValue, { color: '#EF4444' }]}>{monthStats.highPriorityTasks}</Text>
-                  <Text style={[styles.quickStatLabel, { color: theme.textSecondary }]}>Urgentes</Text>
-                </View>
-              )}
-              
-              {monthStats.overdueTasks > 0 && (
-                <View style={[styles.quickStatCard, { backgroundColor: isDark ? 'rgba(239,68,68,0.2)' : '#FEE2E2' }]}>
-                  <Ionicons name="time" size={20} color="#DC2626" />
-                  <Text style={[styles.quickStatValue, { color: '#DC2626' }]}>{monthStats.overdueTasks}</Text>
-                  <Text style={[styles.quickStatLabel, { color: theme.textSecondary }]}>Vencidas</Text>
-                </View>
-              )}
-              
-              <View style={[styles.quickStatCard, { backgroundColor: isDark ? 'rgba(159,34,65,0.15)' : '#FDF2F4' }]}>
-                <Ionicons name="today" size={20} color={theme.primary} />
-                <Text style={[styles.quickStatValue, { color: theme.primary }]}>{monthStats.daysWithTasks}</Text>
-                <Text style={[styles.quickStatLabel, { color: theme.textSecondary }]}>Días activos</Text>
-              </View>
-            </ScrollView>
-          </View>
-        </FadeInView>
-
-        {/* Mini Week Preview - Semana Actual */}
-        <FadeInView duration={400} delay={150}>
-          <View style={[styles.weekPreviewContainer, { backgroundColor: theme.glass }]}>
-            <View style={styles.weekPreviewHeader}>
-              <Ionicons name="today-outline" size={16} color={theme.primary} />
-              <Text style={[styles.weekPreviewTitle, { color: theme.text }]}>Esta semana</Text>
+            <View style={styles.quickStatInlineDivider} />
+            <View style={styles.quickStatInlineItem}>
+              <Text style={[styles.quickStatInlineValue, { color: '#10B981' }]}>{monthStats.completedTasks}</Text>
+              <Text style={[styles.quickStatInlineLabel, { color: theme.textSecondary }]}>✓</Text>
             </View>
-            <View style={styles.weekPreviewDays}>
-              {currentWeekDays.map((day, idx) => {
-                const dayTasks = getTasksForDate(day);
-                const isCurrentDay = isToday(day);
-                const hasTasks = dayTasks.length > 0;
-                const hasHighPriority = dayTasks.some(t => t.priority === 'alta');
-                
-                return (
-                  <TouchableOpacity 
-                    key={idx}
-                    style={[
-                      styles.weekPreviewDay,
-                      isCurrentDay && styles.weekPreviewDayCurrent,
-                      hasHighPriority && !isCurrentDay && styles.weekPreviewDayUrgent,
-                    ]}
-                    onPress={() => {
-                      if (hasTasks) {
-                        hapticLight();
-                        setSelectedDate(day);
-                        setModalVisible(true);
-                      }
-                    }}
-                    activeOpacity={hasTasks ? 0.7 : 1}
-                  >
-                    <Text style={[
-                      styles.weekPreviewDayLabel, 
-                      { color: isCurrentDay ? '#FFF' : theme.textSecondary }
-                    ]}>
-                      {DAYS[idx].charAt(0)}
-                    </Text>
-                    <Text style={[
-                      styles.weekPreviewDayNumber,
-                      { color: isCurrentDay ? '#FFF' : theme.text },
-                      hasHighPriority && !isCurrentDay && { color: '#EF4444' }
-                    ]}>
-                      {day.getDate()}
-                    </Text>
-                    {hasTasks && (
-                      <View style={[
-                        styles.weekPreviewDot,
-                        isCurrentDay && styles.weekPreviewDotCurrent,
-                        hasHighPriority && !isCurrentDay && styles.weekPreviewDotUrgent,
-                      ]} />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
+            <View style={styles.quickStatInlineDivider} />
+            <View style={styles.quickStatInlineItem}>
+              <Text style={[styles.quickStatInlineValue, { color: '#8B5CF6' }]}>{monthStats.inProgressTasks}</Text>
+              <Text style={[styles.quickStatInlineLabel, { color: theme.textSecondary }]}>En proc.</Text>
+            </View>
+            {monthStats.highPriorityTasks > 0 && (
+              <>
+                <View style={styles.quickStatInlineDivider} />
+                <View style={styles.quickStatInlineItem}>
+                  <Text style={[styles.quickStatInlineValue, { color: '#EF4444' }]}>{monthStats.highPriorityTasks}</Text>
+                  <Text style={[styles.quickStatInlineLabel, { color: theme.textSecondary }]}>⚠️</Text>
+                </View>
+              </>
+            )}
+            <View style={styles.quickStatInlineDivider} />
+            <View style={[styles.completionPill, { backgroundColor: monthStats.completionRate > 50 ? (isDark ? 'rgba(16,185,129,0.2)' : '#ECFDF5') : (isDark ? 'rgba(245,158,11,0.2)' : '#FFFBEB') }]}>
+              <Text style={[styles.completionPillText, { color: monthStats.completionRate > 50 ? '#10B981' : '#F59E0B' }]}>
+                {monthStats.completionRate}%
+              </Text>
             </View>
           </View>
         </FadeInView>
@@ -679,39 +577,6 @@ export default function CalendarScreen({ navigation }) {
             >
               <Ionicons name="chevron-forward" size={22} color="#FFFFFF" />
             </TouchableOpacity>
-          </View>
-          
-          {/* Mini Month Track */}
-          <View style={styles.monthTrack}>
-            {[-2, -1, 0, 1, 2].map((offset) => {
-              const monthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1);
-              const isCurrent = offset === 0;
-              return (
-                <TouchableOpacity
-                  key={offset}
-                  style={[
-                    styles.monthTrackItem,
-                    isCurrent && styles.monthTrackItemCurrent,
-                  ]}
-                  onPress={() => {
-                    if (!isCurrent) {
-                      hapticLight();
-                      animateMonthChange(offset > 0 ? 1 : -1);
-                      setCurrentDate(monthDate);
-                    }
-                  }}
-                  activeOpacity={isCurrent ? 1 : 0.7}
-                >
-                  <Text style={[
-                    styles.monthTrackText,
-                    { color: isCurrent ? theme.primary : theme.textSecondary },
-                    isCurrent && styles.monthTrackTextCurrent,
-                  ]}>
-                    {MONTHS_SHORT[monthDate.getMonth()]}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
           </View>
         </Animated.View>
 
@@ -937,155 +802,55 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     padding: isDesktop ? 24 : isTablet ? 16 : 14,
     paddingBottom: isDesktop ? 48 : 40,
   },
-  // Quick Stats Container
-  quickStatsContainer: {
-    marginBottom: SPACING.md,
-    padding: isDesktop ? 18 : 14,
-    borderRadius: isDesktop ? 20 : 16,
+  // Quick Stats Inline - Compacto
+  quickStatsInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    marginBottom: SPACING.sm,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 14,
     backgroundColor: isDark ? 'rgba(30, 30, 35, 0.95)' : '#FFFFFF',
     borderWidth: 1,
     borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#E5E7EB',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 6,
       },
-      android: { elevation: 4 },
+      android: { elevation: 2 },
       default: {},
     }),
   },
-  quickStatsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  quickStatInlineItem: {
     alignItems: 'center',
-    marginBottom: 14,
+    paddingHorizontal: 8,
   },
-  quickStatsHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  quickStatInlineValue: {
+    fontSize: 18,
+    fontWeight: '800',
   },
-  quickStatsTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: -0.2,
+  quickStatInlineLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 2,
   },
-  completionBadge: {
-    backgroundColor: isDark ? 'rgba(16,185,129,0.2)' : '#ECFDF5',
+  quickStatInlineDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : '#E5E7EB',
+  },
+  completionPill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
-  completionBadgeText: {
+  completionPillText: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#10B981',
-  },
-  quickStatsScroll: {
-    gap: 10,
-    paddingRight: 4,
-  },
-  quickStatCard: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    alignItems: 'center',
-    minWidth: 80,
-    gap: 4,
-  },
-  quickStatValue: {
-    fontSize: 20,
-    fontWeight: '800',
-    marginTop: 2,
-  },
-  quickStatLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  // Week Preview
-  weekPreviewContainer: {
-    marginBottom: SPACING.md,
-    padding: isDesktop ? 16 : 12,
-    borderRadius: isDesktop ? 18 : 14,
-    backgroundColor: isDark ? 'rgba(30, 30, 35, 0.95)' : '#FFFFFF',
-    borderWidth: 1,
-    borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#E5E7EB',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-      },
-      android: { elevation: 3 },
-      default: {},
-    }),
-  },
-  weekPreviewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 12,
-  },
-  weekPreviewTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  weekPreviewDays: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  weekPreviewDay: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 8,
-    marginHorizontal: 2,
-    borderRadius: 12,
-    backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#F9FAFB',
-  },
-  weekPreviewDayCurrent: {
-    backgroundColor: theme.primary,
-    ...Platform.select({
-      ios: {
-        shadowColor: theme.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.35,
-        shadowRadius: 8,
-      },
-      android: { elevation: 4 },
-      default: {},
-    }),
-  },
-  weekPreviewDayUrgent: {
-    backgroundColor: isDark ? 'rgba(239,68,68,0.15)' : '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#EF4444',
-  },
-  weekPreviewDayLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  weekPreviewDayNumber: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  weekPreviewDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: theme.primary,
-    marginTop: 4,
-  },
-  weekPreviewDotCurrent: {
-    backgroundColor: '#FFFFFF',
-  },
-  weekPreviewDotUrgent: {
-    backgroundColor: '#EF4444',
   },
   // Month controls con glassmorphism premium
   monthControlsWrapper: {
@@ -1143,30 +908,6 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     fontSize: 13,
     fontWeight: '600',
     marginTop: 2,
-  },
-  monthTrack: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 10,
-    gap: 6,
-    paddingBottom: 4,
-  },
-  monthTrackItem: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#F3F4F6',
-  },
-  monthTrackItemCurrent: {
-    backgroundColor: isDark ? 'rgba(159,34,65,0.2)' : 'rgba(159,34,65,0.1)',
-  },
-  monthTrackText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  monthTrackTextCurrent: {
-    fontWeight: '800',
   },
   // Calendario principal con glassmorphism premium
   calendarContainer: {
