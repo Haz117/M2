@@ -1,16 +1,28 @@
 // components/PersonalWeeklyStats.js
 // Widget de estadísticas personales - "Tu productividad esta semana"
+// Colapsable y con actualización en tiempo real
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Dimensions,
+  TouchableOpacity,
+  Animated,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import AnimatedNumber from './AnimatedNumber';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Habilitar LayoutAnimation en Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -22,6 +34,42 @@ const { width: screenWidth } = Dimensions.get('window');
  */
 export default function PersonalWeeklyStats({ tasks = [], userId, userName = 'tu' }) {
   const { theme, isDark } = useTheme();
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const heightAnim = useRef(new Animated.Value(1)).current;
+
+  // Cargar estado colapsado guardado
+  useEffect(() => {
+    AsyncStorage.getItem('@weekly_stats_collapsed').then(val => {
+      if (val === 'true') {
+        setIsCollapsed(true);
+        rotateAnim.setValue(1);
+        heightAnim.setValue(0);
+      }
+    });
+  }, []);
+
+  // Toggle colapsar con animación
+  const toggleCollapse = () => {
+    const newState = !isCollapsed;
+    setIsCollapsed(newState);
+    AsyncStorage.setItem('@weekly_stats_collapsed', newState.toString());
+    
+    // Animar icono de chevron
+    Animated.timing(rotateAnim, {
+      toValue: newState ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+
+    // Animar altura del contenido
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  };
+
+  const chevronRotation = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '-90deg'],
+  });
   
   // Calcular estadísticas de la semana actual
   const weeklyStats = useMemo(() => {
@@ -143,11 +191,18 @@ export default function PersonalWeeklyStats({ tasks = [], userId, userName = 'tu
 
   return (
     <View style={[styles.container, { backgroundColor: isDark ? theme.card : '#FFFFFF' }]}>
-      {/* Header */}
-      <View style={styles.header}>
+      {/* Header - Clickable para colapsar */}
+      <TouchableOpacity 
+        style={styles.header} 
+        onPress={toggleCollapse}
+        activeOpacity={0.7}
+      >
         <View style={styles.headerLeft}>
           <Ionicons name="bar-chart" size={20} color={theme.primary} />
           <Text style={[styles.title, { color: theme.text }]}>Tu semana</Text>
+          <Animated.View style={{ transform: [{ rotate: chevronRotation }], marginLeft: 4 }}>
+            <Ionicons name="chevron-down" size={16} color={theme.textSecondary} />
+          </Animated.View>
         </View>
         <View style={[styles.scoreBadge, { backgroundColor: weeklyStats.moodColor + '20' }]}>
           <Ionicons name={weeklyStats.moodIcon} size={16} color={weeklyStats.moodColor} />
@@ -158,124 +213,128 @@ export default function PersonalWeeklyStats({ tasks = [], userId, userName = 'tu
             delay={200}
           />
         </View>
-      </View>
+      </TouchableOpacity>
 
-      {/* Mensaje motivacional */}
-      <View style={[styles.moodBanner, { backgroundColor: weeklyStats.moodColor + '15' }]}>
-        <Ionicons name={weeklyStats.moodIcon} size={24} color={weeklyStats.moodColor} />
-        <Text style={[styles.moodMessage, { color: weeklyStats.moodColor }]}>
-          {weeklyStats.moodMessage}
-        </Text>
-      </View>
+      {/* Contenido colapsable */}
+      {!isCollapsed && (
+        <>
+          {/* Mensaje motivacional */}
+          <View style={[styles.moodBanner, { backgroundColor: weeklyStats.moodColor + '15' }]}>
+            <Ionicons name={weeklyStats.moodIcon} size={24} color={weeklyStats.moodColor} />
+            <Text style={[styles.moodMessage, { color: weeklyStats.moodColor }]}>
+              {weeklyStats.moodMessage}
+            </Text>
+          </View>
 
-      {/* Métricas principales */}
-      <View style={styles.metricsRow}>
-        <View style={styles.metricItem}>
-          <View style={[styles.metricIcon, { backgroundColor: '#10B98120' }]}>
-            <Ionicons name="checkmark-done" size={18} color="#10B981" />
-          </View>
-          <AnimatedNumber
-            value={weeklyStats.completed}
-            duration={600}
-            delay={100}
-            style={[styles.metricValue, { color: theme.text }]}
-          />
-          <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Completadas</Text>
-        </View>
-        
-        <View style={styles.metricItem}>
-          <View style={[styles.metricIcon, { backgroundColor: '#3B82F620' }]}>
-            <Ionicons name="hourglass" size={18} color="#3B82F6" />
-          </View>
-          <AnimatedNumber
-            value={weeklyStats.pending}
-            duration={600}
-            delay={200}
-            style={[styles.metricValue, { color: theme.text }]}
-          />
-          <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Pendientes</Text>
-        </View>
-        
-        <View style={styles.metricItem}>
-          <View style={[styles.metricIcon, { backgroundColor: '#EF444420' }]}>
-            <Ionicons name="alert-circle" size={18} color="#EF4444" />
-          </View>
-          <AnimatedNumber
-            value={weeklyStats.overdue}
-            duration={600}
-            delay={300}
-            style={[styles.metricValue, { color: theme.text }]}
-          />
-          <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Vencidas</Text>
-        </View>
-        
-        <View style={styles.metricItem}>
-          <View style={[styles.metricIcon, { backgroundColor: '#F59E0B20' }]}>
-            <Ionicons name="calendar" size={18} color="#F59E0B" />
-          </View>
-          <AnimatedNumber
-            value={weeklyStats.upcoming}
-            duration={600}
-            delay={400}
-            style={[styles.metricValue, { color: theme.text }]}
-          />
-          <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Próximas</Text>
-        </View>
-      </View>
-
-      {/* Días de la semana - indicador visual */}
-      <View style={styles.weekDays}>
-        {dayNames.map((day, index) => {
-          const isToday = index === today;
-          const isPast = index < today;
-          
-          return (
-            <View 
-              key={day} 
-              style={[
-                styles.dayCircle,
-                isToday && styles.dayCircleToday,
-                { 
-                  backgroundColor: isToday ? theme.primary : 
-                                   isPast ? (isDark ? '#374151' : '#E5E7EB') : 
-                                   (isDark ? '#1F2937' : '#F3F4F6'),
-                }
-              ]}
-            >
-              <Text style={[
-                styles.dayText,
-                { color: isToday ? '#FFFFFF' : theme.textSecondary }
-              ]}>
-                {day}
-              </Text>
+          {/* Métricas principales */}
+          <View style={styles.metricsRow}>
+            <View style={styles.metricItem}>
+              <View style={[styles.metricIcon, { backgroundColor: '#10B98120' }]}>
+                <Ionicons name="checkmark-done" size={18} color="#10B981" />
+              </View>
+              <AnimatedNumber
+                value={weeklyStats.completed}
+                duration={600}
+                delay={100}
+                style={[styles.metricValue, { color: theme.text }]}
+              />
+              <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Completadas</Text>
             </View>
-          );
-        })}
-      </View>
+            
+            <View style={styles.metricItem}>
+              <View style={[styles.metricIcon, { backgroundColor: '#3B82F620' }]}>
+                <Ionicons name="hourglass" size={18} color="#3B82F6" />
+              </View>
+              <AnimatedNumber
+                value={weeklyStats.pending}
+                duration={600}
+                delay={200}
+                style={[styles.metricValue, { color: theme.text }]}
+              />
+              <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Pendientes</Text>
+            </View>
+            
+            <View style={styles.metricItem}>
+              <View style={[styles.metricIcon, { backgroundColor: '#EF444420' }]}>
+                <Ionicons name="alert-circle" size={18} color="#EF4444" />
+              </View>
+              <AnimatedNumber
+                value={weeklyStats.overdue}
+                duration={600}
+                delay={300}
+                style={[styles.metricValue, { color: theme.text }]}
+              />
+              <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Vencidas</Text>
+            </View>
+            
+            <View style={styles.metricItem}>
+              <View style={[styles.metricIcon, { backgroundColor: '#F59E0B20' }]}>
+                <Ionicons name="calendar" size={18} color="#F59E0B" />
+              </View>
+              <AnimatedNumber
+                value={weeklyStats.upcoming}
+                duration={600}
+                delay={400}
+                style={[styles.metricValue, { color: theme.text }]}
+              />
+              <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Próximas</Text>
+            </View>
+          </View>
 
-      {/* Barra de progreso de a tiempo */}
-      {weeklyStats.completed > 0 && (
-        <View style={styles.onTimeProgress}>
-          <View style={styles.onTimeHeader}>
-            <Text style={[styles.onTimeLabel, { color: theme.textSecondary }]}>
-              Completadas a tiempo
-            </Text>
-            <Text style={[styles.onTimeValue, { color: '#10B981' }]}>
-              {weeklyStats.onTime}/{weeklyStats.completed}
-            </Text>
+          {/* Días de la semana - indicador visual */}
+          <View style={styles.weekDays}>
+            {dayNames.map((day, index) => {
+              const isToday = index === today;
+              const isPast = index < today;
+              
+              return (
+                <View 
+                  key={day} 
+                  style={[
+                    styles.dayCircle,
+                    isToday && styles.dayCircleToday,
+                    { 
+                      backgroundColor: isToday ? theme.primary : 
+                                       isPast ? (isDark ? '#374151' : '#E5E7EB') : 
+                                       (isDark ? '#1F2937' : '#F3F4F6'),
+                    }
+                  ]}
+                >
+                  <Text style={[
+                    styles.dayText,
+                  ]}>
+                    {day}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
-          <View style={[styles.progressBar, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]}>
-            <View 
-              style={[
-                styles.progressFill, 
-                { 
-                  width: `${(weeklyStats.onTime / weeklyStats.completed) * 100}%`,
-                  backgroundColor: '#10B981'
-                }
-              ]} 
-            />
-          </View>
-        </View>
+
+          {/* Barra de progreso de a tiempo */}
+          {weeklyStats.completed > 0 && (
+            <View style={styles.onTimeProgress}>
+              <View style={styles.onTimeHeader}>
+                <Text style={[styles.onTimeLabel, { color: theme.textSecondary }]}>
+                  Completadas a tiempo
+                </Text>
+                <Text style={[styles.onTimeValue, { color: '#10B981' }]}>
+                  {weeklyStats.onTime}/{weeklyStats.completed}
+                </Text>
+              </View>
+              <View style={[styles.progressBar, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]}>
+                <View 
+                  style={[
+                    styles.progressFill, 
+                    { 
+                      width: `${(weeklyStats.onTime / weeklyStats.completed) * 100}%`,
+                      backgroundColor: '#10B981'
+                    }
+                  ]} 
+                />
+              </View>
+            </View>
+          )}
+        </>
       )}
     </View>
   );
