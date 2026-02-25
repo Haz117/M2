@@ -259,12 +259,13 @@ export async function subscribeToTasks(callback) {
       log('📴 Sin conexión - usando solo cache local');
     }
 
-    // 🔄 Suscribirse a cambios de conexión
+    // 🔄 Suscribirse a cambios de conexión para logging (sin reiniciar suscripción)
+    // Firestore maneja la reconexión automáticamente
     const unsubscribeConnection = subscribeToConnectionState((online) => {
-      if (online && !unsubscribeListener) {
-        log('🔄 Reconectado - reiniciando suscripción a Firebase');
-        // Reiniciar suscripción cuando vuelva la conexión
-        subscribeToTasks(callback);
+      if (online) {
+        log('🔄 Conexión restaurada - Firestore se reconectará automáticamente');
+      } else {
+        log('📴 Conexión perdida - usando cache local');
       }
     });
 

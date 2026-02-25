@@ -6,7 +6,8 @@ import { getCurrentSession } from './authFirestore';
 export const ROLES = {
   ADMIN: 'admin',           // Alcalde (máximo nivel)
   SECRETARIO: 'secretario', // Secretario (puede delegar a operativos)
-  JEFE: 'jefe',             // Director de área
+  DIRECTOR: 'director',     // Director de área (nivel medio)
+  JEFE: 'jefe',             // Jefe de departamento
   OPERATIVO: 'operativo'    // Personal operativo
 };
 
@@ -14,6 +15,7 @@ export const ROLES = {
 export const ROLE_HIERARCHY = {
   [ROLES.ADMIN]: 4,
   [ROLES.SECRETARIO]: 3,
+  [ROLES.DIRECTOR]: 2,      // Director tiene mismo nivel que jefe
   [ROLES.JEFE]: 2,
   [ROLES.OPERATIVO]: 1
 };

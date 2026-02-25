@@ -9,33 +9,48 @@ import { useTheme } from '../contexts/ThemeContext';
 
 export default function NotificationsBell({ onPress, theme }) {
   const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+    
+    const loadUnreadCount = async () => {
+      try {
+        const notifications = await getMyNotifications(100);
+        if (isMounted) {
+          const unread = notifications.filter((n) => !n.read).length;
+          setUnreadCount(unread);
+        }
+      } catch (error) {
+        console.error('Error cargando notificaciones:', error);
+      }
+    };
+    
     loadUnreadCount();
     // Recargar cada 30 segundos
     const interval = setInterval(loadUnreadCount, 30000);
-    return () => clearInterval(interval);
+    
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
-  const loadUnreadCount = async () => {
+  const handlePress = async () => {
+    onPress();
+    // Recargar cuando se toca
     try {
       const notifications = await getMyNotifications(100);
       const unread = notifications.filter((n) => !n.read).length;
       setUnreadCount(unread);
     } catch (error) {
-      console.error('Error cargando notificaciones:', error);
+      // Silent fail on press reload
     }
   };
 
   return (
     <TouchableOpacity
       style={styles.container}
-      onPress={() => {
-        onPress();
-        // Recargar cuando se toca
-        loadUnreadCount();
-      }}
+      onPress={handlePress}
       activeOpacity={0.7}
     >
       <Ionicons name="notifications" size={24} color="#FFFFFF" />

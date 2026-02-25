@@ -32,7 +32,6 @@ export function TasksProvider({ children }) {
   const [tasks, setTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasSession, setHasSession] = useState(false); // Track sesión disponibility
-  const unsubscribeRef = useRef(null);
   const unsubscribeTasksRef = useRef(null);
   
   // 🛡️ Set global para rastrear tareas siendo eliminadas

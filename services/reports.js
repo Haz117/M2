@@ -1,7 +1,7 @@
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { getCurrentSession } from './authFirestore';
 
@@ -189,8 +189,8 @@ export const generateMonthlyReport = async (year, month) => {
     // Obtener tareas del mes
     let q = collection(db, 'tasks');
     const constraints = [
-      where('createdAt', '>=', startDate.toISOString()),
-      where('createdAt', '<=', endDate.toISOString())
+      where('createdAt', '>=', Timestamp.fromDate(startDate)),
+      where('createdAt', '<=', Timestamp.fromDate(endDate))
     ];
 
     if (session.session.role !== 'admin') {

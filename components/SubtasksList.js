@@ -738,7 +738,7 @@ const styles = StyleSheet.create({
   metadataSection: {
     borderTopWidth: 1,
     borderTopColor: '#EEE',
-    paddingTopY: 8,
+    paddingTop: 8,
   },
   metadataItem: {
     marginBottom: 8,

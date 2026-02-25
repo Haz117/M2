@@ -248,36 +248,41 @@ export const getTopPerformers = async () => {
     const users = {};
 
     tasks.forEach(task => {
-      const user = task.assignedTo || 'Sin asignar';
+      // Manejar assignedTo como array o string
+      const assignees = Array.isArray(task.assignedTo) 
+        ? task.assignedTo 
+        : (task.assignedTo ? [task.assignedTo] : ['Sin asignar']);
       
-      if (!users[user]) {
-        users[user] = {
-          name: task.assignedToName || user,
-          total: 0,
-          completed: 0,
-          completedThisWeek: 0,
-          avgCompletionTime: 0,
-          onTime: 0, // completadas antes del deadline
-        };
-      }
-
-      users[user].total++;
-
-      if (task.status === 'cerrada') {
-        users[user].completed++;
-        
-        if (task.completedAt >= weekAgo) {
-          users[user].completedThisWeek++;
+      assignees.forEach(user => {
+        if (!users[user]) {
+          users[user] = {
+            name: task.assignedToName || user,
+            total: 0,
+            completed: 0,
+            completedThisWeek: 0,
+            avgCompletionTime: 0,
+            onTime: 0, // completadas antes del deadline
+          };
         }
 
-        if (task.completedAt && task.createdAt) {
-          users[user].avgCompletionTime += (task.completedAt - task.createdAt);
-        }
+        users[user].total++;
 
-        if (task.dueAt && task.completedAt <= task.dueAt) {
-          users[user].onTime++;
+        if (task.status === 'cerrada') {
+          users[user].completed++;
+          
+          if (task.completedAt >= weekAgo) {
+            users[user].completedThisWeek++;
+          }
+
+          if (task.completedAt && task.createdAt) {
+            users[user].avgCompletionTime += (task.completedAt - task.createdAt);
+          }
+
+          if (task.dueAt && task.completedAt <= task.dueAt) {
+            users[user].onTime++;
+          }
         }
-      }
+      });
     });
 
     // Calcular tasas y ordenar

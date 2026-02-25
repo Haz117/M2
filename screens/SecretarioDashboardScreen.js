@@ -1,7 +1,7 @@
 // screens/SecretarioDashboardScreen.js
 // Dashboard exclusivo para Secretarios con métricas de sus direcciones y directores
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -32,6 +32,7 @@ export default function SecretarioDashboardScreen({ navigation }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [directors, setDirectors] = useState([]);
+  const unsubscribeRef = useRef(null);
   const [metrics, setMetrics] = useState({
     totalTasks: 0,
     pendingTasks: 0,
@@ -47,6 +48,13 @@ export default function SecretarioDashboardScreen({ navigation }) {
 
   useEffect(() => {
     loadInitialData();
+    
+    // Cleanup de suscripción al desmontar
+    return () => {
+      if (unsubscribeRef.current && typeof unsubscribeRef.current === 'function') {
+        unsubscribeRef.current();
+      }
+    };
   }, []);
 
   const loadInitialData = async () => {
@@ -95,6 +103,11 @@ export default function SecretarioDashboardScreen({ navigation }) {
   };
 
   const subscribeToAreaTasks = (user, direcciones, myDirectors) => {
+    // Limpiar suscripción anterior si existe
+    if (unsubscribeRef.current && typeof unsubscribeRef.current === 'function') {
+      unsubscribeRef.current();
+    }
+    
     const unsubscribe = subscribeToTasks((allTasks) => {
       // Filtrar solo tareas de las direcciones del secretario
       const areaTasks = allTasks.filter(task => {
@@ -122,6 +135,8 @@ export default function SecretarioDashboardScreen({ navigation }) {
       calculateMetrics(areaTasks, myDirectors);
     });
     
+    // Guardar referencia para cleanup
+    unsubscribeRef.current = unsubscribe;
     return unsubscribe;
   };
 
