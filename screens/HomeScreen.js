@@ -1082,9 +1082,9 @@ export default function HomeScreen({ navigation }) {
             },
             {
               icon: 'stats-chart',
-              label: 'Dashboard',
+              label: 'Estadísticas',
               color: '#4CAF50',
-              onPress: () => navigation.navigate('Dashboard'),
+              onPress: () => navigation.navigate('ExecutiveDashboard'),
             },
           ]}
           position="bottom-right"
