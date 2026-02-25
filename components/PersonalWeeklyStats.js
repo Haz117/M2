@@ -29,10 +29,11 @@ const { width: screenWidth } = Dimensions.get('window');
 /**
  * PersonalWeeklyStats - Muestra estadísticas de productividad personal de la semana
  * @param {Array} tasks - Lista de tareas del usuario
- * @param {string} userId - ID del usuario actual
+ * @param {string} userId - ID del usuario actual (email)
  * @param {string} userName - Nombre para mostrar
+ * @param {string} userRole - Rol del usuario ('admin', 'secretario', 'director', etc.)
  */
-export default function PersonalWeeklyStats({ tasks = [], userId, userName = 'tu' }) {
+export default function PersonalWeeklyStats({ tasks = [], userId, userName = 'tu', userRole = '' }) {
   const { theme, isDark } = useTheme();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -81,17 +82,33 @@ export default function PersonalWeeklyStats({ tasks = [], userId, userName = 'tu
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 7);
     
-    // Filtrar tareas del usuario (creadas o completadas esta semana)
+    // Filtrar tareas del usuario
+    // Si es admin, mostrar todas las tareas
+    // Si no, filtrar por tareas asignadas al usuario
+    const isAdmin = userRole === 'admin';
+    const userEmailLower = userId?.toLowerCase() || '';
+    
     const myTasks = tasks.filter(t => {
-      const isAssigned = t.assignedTo === userId || 
-                        (t.assignedEmails && t.assignedEmails.includes(userId)) ||
-                        (Array.isArray(t.assignedTo) && t.assignedTo.includes(userId));
-      return isAssigned;
+      if (isAdmin) return true; // Admin ve todas las tareas
+      
+      // Verificar si está asignada al usuario
+      if (Array.isArray(t.assignedTo)) {
+        return t.assignedTo.some(email => email?.toLowerCase() === userEmailLower);
+      }
+      if (typeof t.assignedTo === 'string') {
+        return t.assignedTo.toLowerCase() === userEmailLower;
+      }
+      if (t.assignedEmails && Array.isArray(t.assignedEmails)) {
+        return t.assignedEmails.some(email => email?.toLowerCase() === userEmailLower);
+      }
+      return false;
     });
     
-    // Tareas completadas esta semana
-    const completedThisWeek = myTasks.filter(t => {
-      if (t.status !== 'cerrada' && t.status !== 'completada') return false;
+    // Tareas completadas (todas las cerradas, no solo esta semana)
+    const completed = myTasks.filter(t => t.status === 'cerrada' || t.status === 'completada');
+    
+    // Tareas completadas específicamente esta semana (para el cálculo de productividad)
+    const completedThisWeek = completed.filter(t => {
       const completedAt = t.completedAt ? new Date(t.completedAt) : 
                          t.updatedAt ? new Date(t.updatedAt) : null;
       return completedAt && completedAt >= startOfWeek && completedAt < endOfWeek;
@@ -104,8 +121,12 @@ export default function PersonalWeeklyStats({ tasks = [], userId, userName = 'tu
       return completedAt <= new Date(t.dueAt);
     });
     
-    // Tareas pendientes
-    const pending = myTasks.filter(t => t.status === 'pendiente' || t.status === 'en_proceso');
+    // Tareas pendientes (activas)
+    const pending = myTasks.filter(t => 
+      t.status === 'pendiente' || 
+      t.status === 'en_proceso' || 
+      t.status === 'en_revision'
+    );
     
     // Tareas vencidas
     const overdue = pending.filter(t => {
@@ -169,7 +190,7 @@ export default function PersonalWeeklyStats({ tasks = [], userId, userName = 'tu
     }
     
     return {
-      completed: completedThisWeek.length,
+      completed: completed.length,
       onTime: onTime.length,
       pending: pending.length,
       overdue: overdue.length,
@@ -181,7 +202,7 @@ export default function PersonalWeeklyStats({ tasks = [], userId, userName = 'tu
       moodColor,
       moodMessage,
     };
-  }, [tasks, userId]);
+  }, [tasks, userId, userRole]);
 
   const styles = createStyles(theme, isDark);
 

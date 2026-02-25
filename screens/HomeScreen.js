@@ -850,6 +850,7 @@ export default function HomeScreen({ navigation }) {
                 tasks={tasks}
                 userId={currentUser.email}
                 userName={currentUser.displayName || currentUser.email}
+                userRole={currentUser.role}
               />
             )}
 
