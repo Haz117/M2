@@ -14,6 +14,7 @@ export default function MetricCard({
   value = '0',
   subtitle = '',
   borderColor = '#10B981',
+  trend = null,  // { direction: 'up' | 'down', value: '5%', label: 'vs semana pasada' }
   animated = true,
 }) {
   const { theme, isDark } = useTheme();
@@ -61,12 +62,43 @@ export default function MetricCard({
           <Text style={[styles.label, { color: theme.textSecondary }]}>
             {label}
           </Text>
-          <Text style={[styles.value, { color: borderColor }]}>
-            {value}
-          </Text>
+          <View style={styles.valueRow}>
+            <Text style={[styles.value, { color: borderColor }]}>
+              {value}
+            </Text>
+            {trend && (
+              <View
+                style={[
+                  styles.trendBadge,
+                  {
+                    backgroundColor: trend.direction === 'up' ? '#10B98115' : '#EF444415',
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={trend.direction === 'up' ? 'trending-up' : 'trending-down'}
+                  size={12}
+                  color={trend.direction === 'up' ? '#10B981' : '#EF4444'}
+                />
+                <Text
+                  style={[
+                    styles.trendText,
+                    { color: trend.direction === 'up' ? '#10B981' : '#EF4444' },
+                  ]}
+                >
+                  {trend.value}
+                </Text>
+              </View>
+            )}
+          </View>
           {subtitle && (
             <Text style={[styles.subtitle, { color: theme.textTertiary }]}>
               {subtitle}
+            </Text>
+          )}
+          {trend?.label && (
+            <Text style={[styles.trendLabel, { color: theme.textTertiary }]}>
+              {trend.label}
             </Text>
           )}
         </View>
@@ -115,10 +147,32 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: 4,
   },
+  valueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 3,
+  },
   value: {
     fontSize: 20,
     fontWeight: '800',
-    marginBottom: 3,
+  },
+  trendBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  trendText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  trendLabel: {
+    fontSize: 9,
+    fontWeight: '500',
+    marginTop: 2,
   },
   subtitle: {
     fontSize: 10,
