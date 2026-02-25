@@ -31,6 +31,8 @@ export default function TrafficLightDashboard({ tasks = [], onAreaPress, compact
   
   // Calcular métricas por área
   const areaMetrics = useMemo(() => {
+    if (!tasks || !Array.isArray(tasks)) return [];
+    
     const now = new Date();
     const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     const in48Hours = new Date(now.getTime() + 48 * 60 * 60 * 1000);
@@ -39,12 +41,14 @@ export default function TrafficLightDashboard({ tasks = [], onAreaPress, compact
     
     // Agrupar por área
     tasks.forEach(task => {
+      if (!task) return;
       const area = task.area || 'sin_area';
       if (!metrics[area]) {
+        const areaConfig = AREAS_CONFIG ? AREAS_CONFIG[area] : null;
         metrics[area] = {
           area,
-          areaName: AREAS_CONFIG[area]?.name || area,
-          areaIcon: AREAS_CONFIG[area]?.icon || 'folder',
+          areaName: areaConfig?.name || area,
+          areaIcon: areaConfig?.icon || 'folder',
           total: 0,
           green: 0,    // Al día (vence en +48h o sin fecha)
           yellow: 0,   // Próximas (vence en 24-48h)
@@ -84,6 +88,7 @@ export default function TrafficLightDashboard({ tasks = [], onAreaPress, compact
 
   // Determinar el color dominante del área
   const getAreaStatus = (metric) => {
+    if (!metric) return 'healthy';
     if (metric.red > 0) return 'critical';
     if (metric.orange > 0) return 'urgent';
     if (metric.yellow > 0) return 'warning';
@@ -100,11 +105,13 @@ export default function TrafficLightDashboard({ tasks = [], onAreaPress, compact
   // Resumen general
   const summary = useMemo(() => {
     const totals = { green: 0, yellow: 0, orange: 0, red: 0 };
+    if (!areaMetrics || !Array.isArray(areaMetrics)) return totals;
     areaMetrics.forEach(m => {
-      totals.green += m.green;
-      totals.yellow += m.yellow;
-      totals.orange += m.orange;
-      totals.red += m.red;
+      if (!m) return;
+      totals.green += m.green || 0;
+      totals.yellow += m.yellow || 0;
+      totals.orange += m.orange || 0;
+      totals.red += m.red || 0;
     });
     return totals;
   }, [areaMetrics]);
@@ -199,9 +206,10 @@ export default function TrafficLightDashboard({ tasks = [], onAreaPress, compact
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.areasGrid}>
-          {areaMetrics.map((metric) => {
+          {areaMetrics && areaMetrics.map((metric) => {
+            if (!metric) return null;
             const status = getAreaStatus(metric);
-            const config = statusConfig[status];
+            const config = statusConfig[status] || statusConfig.healthy;
             
             return (
               <TouchableOpacity
