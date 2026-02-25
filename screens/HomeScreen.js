@@ -21,6 +21,7 @@ import Button from '../components/Button';
 import Card from '../components/Card';
 import SyncIndicator from '../components/SyncIndicator';
 import ProgressBar from '../components/ProgressBar';
+import PersonalWeeklyStats from '../components/PersonalWeeklyStats';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTasks } from '../contexts/TasksContext';
 import { subscribeToTasks, deleteTask as deleteTaskFirebase, updateTask, createTask } from '../services/tasks';
@@ -906,6 +907,15 @@ export default function HomeScreen({ navigation }) {
                   </View>
                 </View>
               </View>
+            )}
+
+            {/* 📊 Estadísticas Personales de la Semana */}
+            {currentUser && (
+              <PersonalWeeklyStats 
+                tasks={tasks}
+                userId={currentUser.email}
+                userName={currentUser.displayName || currentUser.email}
+              />
             )}
 
             {/* Alerta de información important con mejor diseño */}

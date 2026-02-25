@@ -149,16 +149,16 @@ export default function SecretarioDashboardScreen({ navigation }) {
       ? Math.round((completedTasks.length / areaTasks.length) * 100) 
       : 0;
     
-    // Métricas por director
+    // Métricas por director - Rendimiento del ÁREA que supervisan (no tareas asignadas a ellos)
     const dirMetrics = myDirectors.map(director => {
-      const directorTasks = areaTasks.filter(t => 
-        t.assignedTo?.includes(director.email) || t.area === director.area
-      );
-      const dirCompleted = directorTasks.filter(t => 
+      // Tareas del ÁREA que supervisa el director (no las asignadas a él)
+      const areaTasks_dir = areaTasks.filter(t => t.area === director.area);
+      const areaCompleted = areaTasks_dir.filter(t => 
         t.status === 'completada' || t.status === 'cerrada'
       );
-      const dirPending = directorTasks.filter(t => t.status === 'pendiente');
-      const dirOverdue = directorTasks.filter(t => {
+      const areaPending = areaTasks_dir.filter(t => t.status === 'pendiente');
+      const areaInProgress = areaTasks_dir.filter(t => t.status === 'en_proceso' || t.status === 'en_progreso');
+      const areaOverdue = areaTasks_dir.filter(t => {
         if (t.status === 'completada' || t.status === 'cerrada') return false;
         const dueDate = t.dueAt ? new Date(t.dueAt) : null;
         return dueDate && dueDate < now;
@@ -166,15 +166,17 @@ export default function SecretarioDashboardScreen({ navigation }) {
       
       return {
         ...director,
-        totalTasks: directorTasks.length,
-        completedTasks: dirCompleted.length,
-        pendingTasks: dirPending.length,
-        overdueTasks: dirOverdue.length,
-        completionRate: directorTasks.length > 0 
-          ? Math.round((dirCompleted.length / directorTasks.length) * 100) 
+        // Estadísticas del ÁREA que supervisa
+        areaTotalTasks: areaTasks_dir.length,
+        areaCompletedTasks: areaCompleted.length,
+        areaPendingTasks: areaPending.length,
+        areaInProgressTasks: areaInProgress.length,
+        areaOverdueTasks: areaOverdue.length,
+        areaCompletionRate: areaTasks_dir.length > 0 
+          ? Math.round((areaCompleted.length / areaTasks_dir.length) * 100) 
           : 0,
       };
-    }).sort((a, b) => b.completionRate - a.completionRate);
+    }).sort((a, b) => b.areaCompletionRate - a.areaCompletionRate);
     
     setMetrics({
       totalTasks: areaTasks.length,
@@ -351,81 +353,52 @@ export default function SecretarioDashboardScreen({ navigation }) {
           </View>
         )}
 
-        {/* Rendimiento de Directores */}
+        {/* Resumen del Área - Solo métricas generales, sin exponer compañeros */}
         <View style={[styles.section, { backgroundColor: theme.card }]}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="people" size={20} color={theme.primary} />
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Rendimiento de Directores</Text>
-            <View style={[styles.badge, { backgroundColor: theme.primary }]}>
-              <Text style={styles.badgeText}>{directors.length}</Text>
-            </View>
+            <Ionicons name="analytics" size={20} color={theme.primary} />
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Resumen General del Área</Text>
           </View>
           
-          {directorMetrics.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="people-outline" size={48} color={theme.textSecondary} />
-              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-                No hay directores asignados a tus direcciones
-              </Text>
+          <View style={styles.areaSummaryCard}>
+            <View style={styles.areaSummaryRow}>
+              <View style={styles.areaSummaryStat}>
+                <Ionicons name="layers" size={24} color={theme.primary} />
+                <Text style={[styles.areaSummaryValue, { color: theme.text }]}>{metrics.totalTasks}</Text>
+                <Text style={[styles.areaSummaryLabel, { color: theme.textSecondary }]}>Total Tareas</Text>
+              </View>
+              <View style={styles.areaSummaryStat}>
+                <Ionicons name="checkmark-circle" size={24} color="#34C759" />
+                <Text style={[styles.areaSummaryValue, { color: '#34C759' }]}>{metrics.completedTasks}</Text>
+                <Text style={[styles.areaSummaryLabel, { color: theme.textSecondary }]}>Completadas</Text>
+              </View>
+              <View style={styles.areaSummaryStat}>
+                <Ionicons name="time" size={24} color="#FF9500" />
+                <Text style={[styles.areaSummaryValue, { color: '#FF9500' }]}>{metrics.pendingTasks}</Text>
+                <Text style={[styles.areaSummaryLabel, { color: theme.textSecondary }]}>Pendientes</Text>
+              </View>
+              <View style={styles.areaSummaryStat}>
+                <Ionicons name="alert-circle" size={24} color="#EF4444" />
+                <Text style={[styles.areaSummaryValue, { color: '#EF4444' }]}>{metrics.overdueTasks}</Text>
+                <Text style={[styles.areaSummaryLabel, { color: theme.textSecondary }]}>Vencidas</Text>
+              </View>
             </View>
-          ) : (
-            <>
-              {directorMetrics.map((director, index) => (
-                <View 
-                  key={director.id || index}
-                  style={[
-                    styles.directorCard, 
-                    { 
-                      backgroundColor: isDark ? '#2A2A30' : '#F8F9FA',
-                      borderLeftColor: getCompletionColor(director.completionRate)
-                    }
-                  ]}
-                >
-                  <View style={styles.directorHeader}>
-                    <Avatar name={director.displayName || director.email} size={40} />
-                    <View style={styles.directorInfo}>
-                      <Text style={[styles.directorName, { color: theme.text }]} numberOfLines={1}>
-                        {director.displayName || director.email?.split('@')[0]}
-                      </Text>
-                      <Text style={[styles.directorArea, { color: theme.textSecondary }]} numberOfLines={1}>
-                        {director.area || 'Sin área'}
-                      </Text>
-                    </View>
-                    <View style={styles.directorScore}>
-                      <Text style={[styles.directorScoreValue, { color: getCompletionColor(director.completionRate) }]}>
-                        {director.completionRate}%
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  <View style={styles.directorStats}>
-                    <View style={styles.directorStat}>
-                      <Text style={[styles.directorStatValue, { color: theme.text }]}>{director.totalTasks}</Text>
-                      <Text style={[styles.directorStatLabel, { color: theme.textSecondary }]}>Total</Text>
-                    </View>
-                    <View style={styles.directorStat}>
-                      <Text style={[styles.directorStatValue, { color: '#34C759' }]}>{director.completedTasks}</Text>
-                      <Text style={[styles.directorStatLabel, { color: theme.textSecondary }]}>Completadas</Text>
-                    </View>
-                    <View style={styles.directorStat}>
-                      <Text style={[styles.directorStatValue, { color: '#FF9500' }]}>{director.pendingTasks}</Text>
-                      <Text style={[styles.directorStatLabel, { color: theme.textSecondary }]}>Pendientes</Text>
-                    </View>
-                    <View style={styles.directorStat}>
-                      <Text style={[styles.directorStatValue, { color: '#EF4444' }]}>{director.overdueTasks}</Text>
-                      <Text style={[styles.directorStatLabel, { color: theme.textSecondary }]}>Vencidas</Text>
-                    </View>
-                  </View>
-                  
-                  <ProgressBar 
-                    progress={director.completionRate} 
-                    color={getCompletionColor(director.completionRate)}
-                    size="small"
-                  />
-                </View>
-              ))}
-            </>
-          )}
+            <View style={styles.areaSummaryProgress}>
+              <View style={styles.areaSummaryProgressHeader}>
+                <Text style={[styles.areaSummaryProgressLabel, { color: theme.textSecondary }]}>
+                  Cumplimiento del área
+                </Text>
+                <Text style={[styles.areaSummaryProgressValue, { color: getCompletionColor(metrics.completionRate) }]}>
+                  {metrics.completionRate}%
+                </Text>
+              </View>
+              <ProgressBar 
+                progress={metrics.completionRate} 
+                color={getCompletionColor(metrics.completionRate)}
+                size="medium"
+              />
+            </View>
+          </View>
         </View>
 
         {/* Tareas Pendientes por Dirección */}
@@ -749,6 +722,47 @@ const styles = StyleSheet.create({
   directorStatLabel: {
     fontSize: 10,
     marginTop: 2,
+  },
+  // Estilos para Resumen del Área
+  areaSummaryCard: {
+    padding: 4,
+  },
+  areaSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 16,
+  },
+  areaSummaryStat: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  areaSummaryValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+  areaSummaryLabel: {
+    fontSize: 11,
+    marginTop: 4,
+  },
+  areaSummaryProgress: {
+    marginTop: 8,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.08)',
+  },
+  areaSummaryProgressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  areaSummaryProgressLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  areaSummaryProgressValue: {
+    fontSize: 15,
+    fontWeight: '700',
   },
   directionCard: {
     flexDirection: 'row',

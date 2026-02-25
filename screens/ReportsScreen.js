@@ -1027,6 +1027,7 @@ export default function ReportsScreen({ navigation }) {
                 userArea={currentUser?.area || currentUser?.department}
                 tasks={tasks}
                 showHeader={true}
+                currentUserRole={currentUser?.role}
               />
             </Animated.View>
           )}

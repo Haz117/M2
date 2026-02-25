@@ -13,7 +13,8 @@ import { SPACING, RADIUS, TYPOGRAPHY, SHADOWS } from '../theme/tokens';
 const AreaMetricsPanel = ({ 
   userArea,
   tasks = [],
-  showHeader = true
+  showHeader = true,
+  currentUserRole = 'secretario' // 'admin', 'secretario', 'director'
 }) => {
   const { theme, isDark } = useTheme();
   const [loading, setLoading] = useState(true);
@@ -256,7 +257,8 @@ const AreaMetricsPanel = ({
         </View>
       </View>
 
-      {/* Filtros de ordenamiento */}
+      {/* Filtros de ordenamiento - SOLO VISIBLE PARA SECRETARIOS Y ADMIN */}
+      {(currentUserRole === 'secretario' || currentUserRole === 'admin') && (
       <View style={styles.filtersRow}>
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Rendimiento por Director</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll}>
@@ -295,8 +297,10 @@ const AreaMetricsPanel = ({
           ))}
         </ScrollView>
       </View>
+      )}
 
-      {/* Lista de directores */}
+      {/* Lista de directores - SOLO VISIBLE PARA SECRETARIOS Y ADMIN */}
+      {(currentUserRole === 'secretario' || currentUserRole === 'admin') && (
       <ScrollView style={styles.directorsList} showsVerticalScrollIndicator={false}>
         {sortedDirectors.length === 0 ? (
           <View style={[styles.emptyState, { backgroundColor: theme.card }]}>
@@ -390,6 +394,7 @@ const AreaMetricsPanel = ({
           ))
         )}
       </ScrollView>
+      )}
     </View>
   );
 };

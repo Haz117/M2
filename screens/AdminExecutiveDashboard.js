@@ -24,6 +24,7 @@ import { collection, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import ProgressBar from '../components/ProgressBar';
 import Avatar from '../components/Avatar';
+import TrafficLightDashboard from '../components/TrafficLightDashboard';
 
 const { width } = Dimensions.get('window');
 const chartWidth = Math.min(width - 48, 500);
@@ -765,6 +766,7 @@ export default function AdminExecutiveDashboard({ navigation }) {
       <View style={[styles.tabsContainer, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScroll}>
           <TabButton id="overview" label="Resumen" icon="grid" />
+          <TabButton id="trafficlight" label="Semáforo" icon="traffic-light-outline" />
           <TabButton id="evolution" label="Evolución" icon="trending-up" />
           <TabButton id="compliance" label="Cumplimiento" icon="people" />
           <TabButton id="performance" label="Secretarías" icon="business" />
@@ -779,6 +781,12 @@ export default function AdminExecutiveDashboard({ navigation }) {
       >
         <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
           {activeTab === 'overview' && renderOverview()}
+          {activeTab === 'trafficlight' && (
+            <TrafficLightDashboard 
+              tasks={tasks} 
+              onAreaPress={(area) => navigation.navigate('Tasks', { filterArea: area })}
+            />
+          )}
           {activeTab === 'evolution' && renderEvolution()}
           {activeTab === 'compliance' && renderCompliance()}
           {activeTab === 'performance' && renderPerformance()}

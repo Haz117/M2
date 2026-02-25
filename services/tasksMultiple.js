@@ -97,13 +97,21 @@ export async function createTaskMultiple(task) {
     
     // 🔔 Enviar notificaciones a múltiples asignados
     try {
-      const { notifyAssignment } = await import('./notifications');
+      const { notifyAssignment, scheduleEscalatedReminders } = await import('./notifications');
       await notifyAssignment({
         id: docRef.id,
         title: task.title,
         dueAt: task.dueAt,
         assignedTo: assignedEmails,
         priority: task.priority
+      });
+      
+      // 🔔 Programar recordatorios escalonados (24h, 12h, 2h antes)
+      await scheduleEscalatedReminders({
+        id: docRef.id,
+        title: task.title,
+        dueAt: task.dueAt,
+        status: 'pendiente'
       });
     } catch (notifError) {
       // Notificaciones no son críticas, continuar

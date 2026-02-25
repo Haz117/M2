@@ -373,19 +373,19 @@ export default function KanbanScreen({ navigation }) {
             ]}>
               <Ionicons 
                 name={item.priority === 'alta' ? 'flash' : item.priority === 'media' ? 'warning' : 'checkmark-circle'} 
-                size={12} 
+                size={10} 
                 color="#FFFFFF" 
               />
               <Text style={styles.priorityChipText}>
                 {item.priority === 'alta' ? 'URGENTE' : item.priority === 'media' ? 'MEDIA' : 'BAJA'}
               </Text>
               {/* Pulsación para prioridad alta */}
-              {item.priority === 'alta' && <PulsingDot size={6} color="#FFFFFF" />}
+              {item.priority === 'alta' && <PulsingDot size={4} color="#FFFFFF" />}
             </View>
             
             {isOverdue && (
               <View style={styles.overdueChip}>
-                <Ionicons name="time" size={12} color="#FFFFFF" />
+                <Ionicons name="time" size={10} color="#FFFFFF" />
                 <Text style={styles.overdueChipText}>VENCIDA</Text>
               </View>
             )}
@@ -393,21 +393,21 @@ export default function KanbanScreen({ navigation }) {
         )}
 
         {/* Título con indicador de prioridad en vista compacta */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           {compactView && (
             <>
               <View style={[styles.compactPriorityDot, { backgroundColor: priorityColor }]} />
-              {item.priority === 'alta' && <PulsingDot size={4} color={priorityColor} />}
+              {item.priority === 'alta' && <PulsingDot size={3} color={priorityColor} />}
             </>
           )}
           <Text 
-            style={[styles.cardTitle, { color: theme.text }]} 
-            numberOfLines={compactView ? 1 : 3}
+            style={[styles.cardTitle, { color: theme.text, flex: 1 }]} 
+            numberOfLines={compactView ? 1 : 2}
           >
             {item.title}
           </Text>
           {compactView && isOverdue && (
-            <Ionicons name="alert-circle" size={16} color="#EF4444" />
+            <Ionicons name="alert-circle" size={12} color="#EF4444" />
           )}
         </View>
         
@@ -416,14 +416,14 @@ export default function KanbanScreen({ navigation }) {
           <>
             <View style={styles.cardInfoGrid}>
               <View style={[styles.cardInfoItem, { backgroundColor: theme.surface }]}>
-                <Ionicons name="person" size={14} color={status.color} />
+                <Ionicons name="person" size={11} color={status.color} />
                 <Text style={[styles.cardInfoText, { color: theme.textSecondary }]} numberOfLines={1}>
                   {item.assignedTo || 'Sin asignar'}
                 </Text>
               </View>
               
               <View style={[styles.cardInfoItem, { backgroundColor: theme.surface }]}>
-                <Ionicons name="calendar-outline" size={14} color={status.color} />
+                <Ionicons name="calendar-outline" size={11} color={status.color} />
                 <Text style={[styles.cardInfoText, { color: theme.textSecondary }]}>
                   {new Date(item.dueAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
                 </Text>
@@ -447,7 +447,7 @@ export default function KanbanScreen({ navigation }) {
             {/* Indicador de días en estado actual */}
             {daysInStatus > 0 && (
               <View style={[styles.statusAgeIndicator, { backgroundColor: theme.surface }]}>
-                <Ionicons name="time-outline" size={12} color={statusAgeColor} />
+                <Ionicons name="time-outline" size={10} color={statusAgeColor} />
                 <Text style={[styles.statusAgeText, { color: statusAgeColor }]}>
                   {daysInStatus === 1 ? 'Hace 1 día' : `Hace ${daysInStatus} días`}
                 </Text>
@@ -583,7 +583,7 @@ export default function KanbanScreen({ navigation }) {
         <View style={[styles.columnHeader, { backgroundColor: status.color + '20' }]}>
           <View style={styles.columnTitleContainer}>
             <View style={[styles.columnIconCircle, { backgroundColor: status.color }]}>
-              <Ionicons name={status.icon} size={18} color="#FFFFFF" />
+              <Ionicons name={status.icon} size={14} color="#FFFFFF" />
             </View>
             <Text style={[styles.columnTitle, { color: theme.text }]}>{status.label}</Text>
           </View>
@@ -595,17 +595,17 @@ export default function KanbanScreen({ navigation }) {
               <View style={[styles.columnCount, { backgroundColor: status.color }]}>
                 <Text style={styles.columnCountText}>{sorted.length}</Text>
               </View>
-              {highPriorityTasks > 0 && <PulsingDot size={8} color={status.color} />}
+              {highPriorityTasks > 0 && <PulsingDot size={5} color={status.color} />}
             </View>
             
             {/* Badge de vencidas si hay - CON PULSO */}
             {overdueTasks > 0 && (
               <View style={styles.badgeContainer}>
                 <View style={[styles.overdueColumnBadge, { backgroundColor: '#DC2626' }]}>
-                  <Ionicons name="alert-circle" size={12} color="#FFFFFF" />
+                  <Ionicons name="alert-circle" size={10} color="#FFFFFF" />
                   <Text style={styles.columnCountText}>{overdueTasks}</Text>
                 </View>
-                <PulsingDot size={6} color="#DC2626" />
+                <PulsingDot size={4} color="#DC2626" />
               </View>
             )}
             
@@ -613,10 +613,10 @@ export default function KanbanScreen({ navigation }) {
             {highPriorityTasks > 0 && (
               <View style={styles.badgeContainer}>
                 <View style={[styles.priorityColumnBadge, { backgroundColor: '#F59E0B' }]}>
-                  <Ionicons name="flag" size={12} color="#FFFFFF" />
+                  <Ionicons name="flag" size={10} color="#FFFFFF" />
                   <Text style={styles.columnCountText}>{highPriorityTasks}</Text>
                 </View>
-                <PulsingDot size={6} color="#F59E0B" />
+                <PulsingDot size={4} color="#F59E0B" />
               </View>
             )}
           </View>
@@ -646,14 +646,14 @@ export default function KanbanScreen({ navigation }) {
           data={sorted}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <DraggableCard item={item} status={status} />}
-          contentContainerStyle={{ paddingBottom: 12 }}
+          contentContainerStyle={{ paddingBottom: 8 }}
           ListEmptyComponent={() => (
             <FadeInView duration={400} delay={200} style={styles.emptyColumnState}>
               <View style={styles.emptyStateContent}>
                 <View style={[styles.emptyStateIconContainer, { backgroundColor: status.color + '15' }]}>
                   <Ionicons 
                     name={status.key === 'cerrada' ? 'checkmark-circle-outline' : 'document-text-outline'} 
-                    size={52} 
+                    size={28} 
                     color={status.color} 
                   />
                 </View>
@@ -688,7 +688,7 @@ export default function KanbanScreen({ navigation }) {
           <View style={styles.header}>
             <View style={{ flex: 1 }}>
               <View style={styles.greetingContainer}>
-                <Ionicons name="hand-right" size={20} color="#FFFFFF" style={{ marginRight: 8, opacity: 0.9 }} />
+                <Ionicons name="hand-right" size={14} color="#FFFFFF" style={{ marginRight: 6, opacity: 0.85 }} />
                 <Text style={styles.greeting}>Hola!</Text>
               </View>
               <Text style={styles.heading}>Kanban</Text>
@@ -735,7 +735,7 @@ export default function KanbanScreen({ navigation }) {
               >
                 <Ionicons 
                   name={compactView ? 'list' : 'grid-outline'} 
-                  size={20} 
+                  size={18} 
                   color="#FFFFFF" 
                 />
               </TouchableOpacity>
@@ -1325,16 +1325,16 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
     } : {})
   },
   headerGradient: {
-    paddingHorizontal: 24,
-    paddingTop: 52,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    paddingHorizontal: screenWidth > 768 ? 20 : 14,
+    paddingTop: Platform.OS === 'web' ? 16 : 42,
+    paddingBottom: 14,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
     shadowColor: theme.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 18,
-    elevation: 10
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6
   },
   header: {
     flexDirection: 'row',
@@ -1347,39 +1347,39 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
     marginBottom: 4
   },
   greeting: {
-    fontSize: 17,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '600',
     color: '#FFFFFF',
-    opacity: 0.95,
-    letterSpacing: 0.3
+    opacity: 0.9,
+    letterSpacing: 0.2
   },
   heading: { 
-    fontSize: 40, 
-    fontWeight: '900',
+    fontSize: screenWidth > 768 ? 28 : 24, 
+    fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: -1.8,
-    textShadowColor: 'rgba(0,0,0,0.2)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4
+    letterSpacing: -1,
+    textShadowColor: 'rgba(0,0,0,0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2
   },
   headerActions: {
     flexDirection: 'row',
     gap: 8
   },
   iconButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.18)',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 3,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.25)'
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)'
   },
   iconButtonActive: {
     backgroundColor: 'rgba(255,255,255,0.3)'
@@ -1389,73 +1389,73 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#DC2626',
-    paddingLeft: 8,
-    paddingRight: 12,
-    paddingVertical: 8,
-    borderRadius: 24,
-    marginRight: 12,
+    paddingLeft: 5,
+    paddingRight: 8,
+    paddingVertical: 4,
+    borderRadius: 14,
+    marginRight: 8,
     shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   overdueHeaderBadgeActive: {
     backgroundColor: '#B91C1C',
     borderColor: '#FFFFFF',
   },
   overdueHeaderPulse: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8,
+    marginRight: 5,
   },
   overdueHeaderContent: {
     alignItems: 'center',
   },
   overdueHeaderCount: {
-    fontSize: 18,
-    fontWeight: '900',
+    fontSize: 12,
+    fontWeight: '800',
     color: '#FFFFFF',
-    lineHeight: 20,
+    lineHeight: 14,
   },
   overdueHeaderLabel: {
-    fontSize: 10,
+    fontSize: 7,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.9)',
+    color: 'rgba(255,255,255,0.85)',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   overdueHeaderCheck: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     backgroundColor: 'rgba(255,255,255,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
+    marginLeft: 5,
   },
   fab: {
     position: 'absolute',
-    right: 24,
-    bottom: 24,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    right: 20,
+    bottom: 20,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 10,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.2)'
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)'
   },
   priorityBar: {
     position: 'absolute',
@@ -1540,35 +1540,35 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
     paddingVertical: 16
   },
   board: { 
-    paddingHorizontal: Platform.OS === 'web' ? 12 : (dimensions.width > 480 ? 12 : 8), 
-    paddingVertical: Platform.OS === 'web' ? 8 : (dimensions.width > 768 ? 12 : 8),
+    paddingHorizontal: Platform.OS === 'web' ? 10 : (dimensions.width > 480 ? 10 : 6), 
+    paddingVertical: Platform.OS === 'web' ? 6 : (dimensions.width > 768 ? 8 : 6),
     ...(Platform.OS === 'web' ? (
       // En web: si pantalla > 600px, usar flexbox; sino scroll horizontal
       dimensions.width > 600 ? {
         display: 'flex',
         flexDirection: 'row',
-        gap: dimensions.width > 1200 ? 12 : 10,
+        gap: dimensions.width > 1200 ? 10 : 8,
         alignItems: 'stretch',
         width: '100%',
         flex: 1
       } : {
         display: 'flex',
         flexDirection: 'row',
-        gap: 12,
+        gap: 10,
         alignItems: 'stretch',
         overflowX: 'auto',
-        paddingBottom: 8
+        paddingBottom: 6
       }
     ) : {
       flexDirection: 'row',
-      gap: dimensions.width > 768 ? 12 : 10
+      gap: dimensions.width > 768 ? 10 : 8
     })
   },
   column: { 
     ...(Platform.OS === 'web' ? (
       dimensions.width > 600 ? {
         flex: 1,
-        minWidth: 200,
+        minWidth: 180,
         minHeight: 'auto',
         maxHeight: '100%'
       } : {
@@ -1581,70 +1581,67 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
       minWidth: columnWidth,
       marginRight: 0
     }),
-    borderRadius: dimensions.width > 768 ? 20 : 16,
+    borderRadius: dimensions.width > 768 ? 14 : 12,
     backgroundColor: theme.card,
     shadowColor: isDark ? theme.primary : '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: isDark ? 0.3 : 0.1,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: isDark ? 0.2 : 0.08,
+    shadowRadius: 8,
+    elevation: 3,
     overflow: 'hidden'
   },
   columnHeader: { 
-    paddingHorizontal: dimensions.width > 1000 ? 14 : 10,
-    paddingVertical: dimensions.width > 768 ? 12 : 10,
+    paddingHorizontal: dimensions.width > 1000 ? 12 : 8,
+    paddingVertical: dimensions.width > 768 ? 10 : 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderBottomWidth: 2,
-    borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'
+    borderBottomWidth: 1,
+    borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'
   },
   columnTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10
+    gap: 8
   },
   columnIconCircle: {
-    width: dimensions.width > 768 ? 44 : 36,
-    height: dimensions.width > 768 ? 44 : 36,
-    borderRadius: dimensions.width > 768 ? 22 : 18,
+    width: dimensions.width > 768 ? 34 : 28,
+    height: dimensions.width > 768 ? 34 : 28,
+    borderRadius: dimensions.width > 768 ? 17 : 14,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.2)'
-  },
-  columnTitle: { 
-    fontSize: dimensions.width > 1000 ? 18 : (dimensions.width > 768 ? 16 : 14),
-    fontWeight: '900',
-    letterSpacing: -0.4,
-    textShadowColor: 'rgba(0,0,0,0.1)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2
-  },
-  columnCount: { 
-    minWidth: dimensions.width > 768 ? 36 : 32,
-    height: dimensions.width > 768 ? 36 : 32,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 3,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.2)'
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)'
+  },
+  columnTitle: { 
+    fontSize: dimensions.width > 1000 ? 14 : (dimensions.width > 768 ? 13 : 12),
+    fontWeight: '700',
+    letterSpacing: -0.2
+  },
+  columnCount: { 
+    minWidth: dimensions.width > 768 ? 28 : 24,
+    height: dimensions.width > 768 ? 28 : 24,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)'
   },
   columnBadges: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8
+    gap: 6
   },
   columnCountContainer: {
     flexDirection: 'row',
@@ -1660,37 +1657,37 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
   overdueColumnBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 10,
     shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2
   },
   priorityColumnBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 10,
     shadowColor: '#F59E0B',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2
   },
   progressBarContainer: {
-    paddingHorizontal: dimensions.width > 1000 ? 14 : 10,
-    paddingBottom: dimensions.width > 768 ? 8 : 6,
-    gap: 4
+    paddingHorizontal: dimensions.width > 1000 ? 12 : 8,
+    paddingBottom: dimensions.width > 768 ? 6 : 4,
+    gap: 3
   },
   progressBarBg: {
-    height: dimensions.width > 768 ? 8 : 6,
-    borderRadius: 4,
+    height: dimensions.width > 768 ? 5 : 4,
+    borderRadius: 3,
     overflow: 'hidden'
   },
   progressBarFill: {
@@ -1703,39 +1700,39 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
     elevation: 2
   },
   progressText: {
-    fontSize: dimensions.width > 768 ? 11 : 10,
+    fontSize: dimensions.width > 768 ? 9 : 8,
     fontWeight: '600',
     textAlign: 'center'
   },
   emptyColumnState: {
-    paddingVertical: dimensions.width > 768 ? 32 : 20,
+    paddingVertical: dimensions.width > 768 ? 20 : 14,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16
+    gap: 10
   },
   emptyStateContent: {
     alignItems: 'center',
-    gap: 12
+    gap: 8
   },
   emptyStateIconContainer: {
-    width: dimensions.width > 768 ? 80 : 60,
-    height: dimensions.width > 768 ? 80 : 60,
-    borderRadius: dimensions.width > 768 ? 40 : 30,
+    width: dimensions.width > 768 ? 52 : 40,
+    height: dimensions.width > 768 ? 52 : 40,
+    borderRadius: dimensions.width > 768 ? 26 : 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4
+    marginBottom: 2
   },
   emptyStateTitle: {
-    fontSize: dimensions.width > 768 ? 16 : 14,
-    fontWeight: '700',
-    letterSpacing: -0.3
+    fontSize: dimensions.width > 768 ? 13 : 11,
+    fontWeight: '600',
+    letterSpacing: -0.2
   },
   emptyStateDescription: {
-    fontSize: dimensions.width > 768 ? 13 : 12,
+    fontSize: dimensions.width > 768 ? 11 : 10,
     fontWeight: '500',
     textAlign: 'center',
-    lineHeight: 18,
-    opacity: 0.7
+    lineHeight: 14,
+    opacity: 0.65
   },
   emptyColumnText: {
     fontSize: dimensions.width > 768 ? 14 : 12,
@@ -1745,14 +1742,14 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
   statusAgeIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8
+    gap: 4,
+    marginTop: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6
   },
   statusAgeText: {
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: '600'
   },
   filterToggleBar: {
@@ -1822,22 +1819,22 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
     fontWeight: '600',
   },
   columnCountText: {
-    fontSize: dimensions.width > 768 ? 14 : 12,
-    fontWeight: '900',
+    fontSize: dimensions.width > 768 ? 12 : 11,
+    fontWeight: '800',
     color: '#FFFFFF'
   },
   card: { 
-    margin: dimensions.width > 600 ? 10 : 8,
-    padding: dimensions.width > 600 ? 14 : 12,
-    borderRadius: dimensions.width > 600 ? 18 : 14,
+    margin: dimensions.width > 600 ? 6 : 5,
+    padding: dimensions.width > 600 ? 10 : 8,
+    borderRadius: dimensions.width > 600 ? 12 : 10,
     backgroundColor: theme.surface,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: theme.border,
     shadowColor: isDark ? theme.primary : '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: isDark ? 0.18 : 0.12,
-    shadowRadius: 10,
-    elevation: 4
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: isDark ? 0.12 : 0.08,
+    shadowRadius: 6,
+    elevation: 2
   },
   cardDragging: {
     opacity: 0.95,
@@ -1852,109 +1849,106 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
   cardTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
+    marginBottom: 8,
+    gap: 6,
     flexWrap: 'wrap'
   },
   priorityChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 14,
-    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    gap: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.2)'
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)'
   },
   priorityChipText: {
-    fontSize: 11,
-    fontWeight: '900',
+    fontSize: 9,
+    fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 0.6,
+    letterSpacing: 0.4,
     textTransform: 'uppercase'
   },
   compactPriorityDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4
+    width: 6,
+    height: 6,
+    borderRadius: 3
   },
   overdueChip: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#EF4444',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 14,
-    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    gap: 4,
     shadowColor: '#EF4444',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 4,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.3)'
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)'
   },
   overdueChipText: {
-    fontSize: 11,
-    fontWeight: '900',
+    fontSize: 9,
+    fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 0.6,
+    letterSpacing: 0.4,
     textTransform: 'uppercase'
   },
   cardTitle: { 
-    fontSize: dimensions.width > 600 ? 16 : 14,
-    fontWeight: '700',
+    fontSize: dimensions.width > 600 ? 13 : 12,
+    fontWeight: '600',
     color: theme.text,
-    marginBottom: dimensions.width > 600 ? 12 : 10,
-    lineHeight: dimensions.width > 600 ? 22 : 20,
-    letterSpacing: -0.2,
-    textShadowColor: 'rgba(0,0,0,0.08)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 1
+    marginBottom: dimensions.width > 600 ? 8 : 6,
+    lineHeight: dimensions.width > 600 ? 18 : 16,
+    letterSpacing: -0.1
   },
   cardInfoGrid: {
-    gap: 8,
-    marginBottom: 14
+    gap: 5,
+    marginBottom: 8
   },
   cardInfoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    padding: 12,
-    borderRadius: 14,
+    gap: 6,
+    padding: 8,
+    borderRadius: 8,
     backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'
   },
   cardInfoText: {
     color: theme.textSecondary,
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '600',
     flex: 1,
-    letterSpacing: -0.2
+    letterSpacing: -0.1
   },
   cardTagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 10
+    gap: 4,
+    marginBottom: 6
   },
   cardTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6
   },
   cardTagText: {
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: '600'
   },
   cardTagMore: {
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: '600',
-    paddingVertical: 4
+    paddingVertical: 2
   },
   dragIndicator: {
     position: 'absolute',
@@ -2030,10 +2024,11 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
   filterCompactBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: screenWidth > 768 ? 16 : 10,
+    paddingVertical: 6,
     borderBottomWidth: 1,
-    gap: 8,
+    gap: 6,
+    minHeight: 44,
   },
   activeFiltersRow: {
     flexDirection: 'row',

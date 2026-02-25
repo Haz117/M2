@@ -156,6 +156,109 @@ export async function scheduleDailyReminders(task, maxReminders = 3) {
   }
 }
 
+// 🔔 RECORDATORIOS ESCALONADOS: 24h, 12h, 2h antes del vencimiento
+// Programa múltiples notificaciones en intervalos específicos antes del deadline
+export async function scheduleEscalatedReminders(task) {
+  if (Platform.OS === 'web') {
+    return { scheduled: [], escalationLevel: 0 };
+  }
+  
+  try {
+    const granted = await ensurePermissions();
+    if (!granted) {
+      return { scheduled: [], escalationLevel: 0 };
+    }
+
+    if (task.status === 'cerrada') {
+      return { scheduled: [], escalationLevel: 0 };
+    }
+
+    const now = new Date();
+    const due = typeof task.dueAt === 'number' ? new Date(task.dueAt) : new Date(task.dueAt);
+    const scheduled = [];
+    
+    // Intervalos de recordatorio: 24h, 12h, 2h antes
+    const intervals = [
+      { hours: 24, emoji: '📅', urgency: 'normal', message: 'vence mañana' },
+      { hours: 12, emoji: '⏰', urgency: 'medium', message: 'vence en 12 horas' },
+      { hours: 2, emoji: '🚨', urgency: 'urgent', message: 'vence en 2 horas' },
+    ];
+
+    for (const interval of intervals) {
+      const triggerTime = new Date(due.getTime() - (interval.hours * 60 * 60 * 1000));
+      
+      // Solo programar si el trigger está en el futuro
+      if (triggerTime > now) {
+        const id = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: `${interval.emoji} Recordatorio: ${interval.message}`,
+            body: `"${task.title}" - ${interval.urgency === 'urgent' ? '¡Actúa ahora!' : 'No olvides completarla'}`,
+            data: { 
+              taskId: task.id,
+              type: 'escalated_reminder',
+              urgency: interval.urgency,
+              hoursUntilDue: interval.hours,
+              taskTitle: task.title
+            },
+            sound: true,
+            priority: interval.urgency === 'urgent' 
+              ? Notifications.AndroidNotificationPriority.MAX 
+              : Notifications.AndroidNotificationPriority.HIGH,
+            color: interval.urgency === 'urgent' ? '#DC2626' : 
+                   interval.urgency === 'medium' ? '#F59E0B' : '#667eea',
+          },
+          trigger: triggerTime
+        });
+        
+        scheduled.push({
+          id,
+          hours: interval.hours,
+          triggerTime: triggerTime.toISOString(),
+          urgency: interval.urgency
+        });
+      }
+    }
+
+    // Guardar tracking de recordatorios programados
+    try {
+      const trackingKey = `${NOTIFICATION_TRACKING_KEY}_${task.id}`;
+      await AsyncStorage.setItem(trackingKey, JSON.stringify({
+        taskId: task.id,
+        scheduled,
+        createdAt: new Date().toISOString()
+      }));
+    } catch (e) {
+      // Ignore storage errors
+    }
+
+    return { scheduled, escalationLevel: scheduled.length };
+  } catch (e) {
+    return { scheduled: [], escalationLevel: 0 };
+  }
+}
+
+// Cancelar todos los recordatorios escalonados de una tarea
+export async function cancelEscalatedReminders(taskId) {
+  try {
+    const trackingKey = `${NOTIFICATION_TRACKING_KEY}_${taskId}`;
+    const stored = await AsyncStorage.getItem(trackingKey);
+    
+    if (stored) {
+      const data = JSON.parse(stored);
+      for (const reminder of data.scheduled || []) {
+        if (reminder.id) {
+          await Notifications.cancelScheduledNotificationAsync(reminder.id);
+        }
+      }
+      await AsyncStorage.removeItem(trackingKey);
+    }
+    
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 // Notificación al asignar tarea (Local optimizada + FCM para múltiples asignados)
 export async function notifyAssignment(task) {
   // En web no enviar notificaciones locales
