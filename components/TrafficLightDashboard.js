@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { AREAS_CONFIG } from '../config/areas';
 import AnimatedNumber from './AnimatedNumber';
+import Tooltip from './Tooltip';
 
 const { width: screenWidth } = Dimensions.get('window');
 const isDesktop = screenWidth >= 768;
@@ -149,18 +150,26 @@ export default function TrafficLightDashboard({ tasks = [], onAreaPress, compact
           <Text style={[styles.title, { color: theme.text }]}>Semáforo de Áreas</Text>
         </View>
         <View style={styles.headerSummary}>
-          <View style={[styles.miniIndicator, { backgroundColor: '#10B981' }]}>
-            <AnimatedNumber value={summary.green} duration={500} delay={0} style={styles.miniText} />
-          </View>
-          <View style={[styles.miniIndicator, { backgroundColor: '#EAB308' }]}>
-            <AnimatedNumber value={summary.yellow} duration={500} delay={100} style={styles.miniText} />
-          </View>
-          <View style={[styles.miniIndicator, { backgroundColor: '#F59E0B' }]}>
-            <AnimatedNumber value={summary.orange} duration={500} delay={200} style={styles.miniText} />
-          </View>
-          <View style={[styles.miniIndicator, { backgroundColor: '#DC2626' }]}>
-            <AnimatedNumber value={summary.red} duration={500} delay={300} style={styles.miniText} />
-          </View>
+          <Tooltip content="Al día: Tareas con +48h para vencer o sin fecha" position="bottom">
+            <View style={[styles.miniIndicator, { backgroundColor: '#10B981' }]}>
+              <AnimatedNumber value={summary.green} duration={500} delay={0} style={styles.miniText} />
+            </View>
+          </Tooltip>
+          <Tooltip content="Atención: Tareas que vencen en 24-48 horas" position="bottom">
+            <View style={[styles.miniIndicator, { backgroundColor: '#EAB308' }]}>
+              <AnimatedNumber value={summary.yellow} duration={500} delay={100} style={styles.miniText} />
+            </View>
+          </Tooltip>
+          <Tooltip content="Urgente: Tareas que vencen en menos de 24h" position="bottom">
+            <View style={[styles.miniIndicator, { backgroundColor: '#F59E0B' }]}>
+              <AnimatedNumber value={summary.orange} duration={500} delay={200} style={styles.miniText} />
+            </View>
+          </Tooltip>
+          <Tooltip content="Crítico: Tareas vencidas que requieren atención inmediata" position="bottom">
+            <View style={[styles.miniIndicator, { backgroundColor: '#DC2626' }]}>
+              <AnimatedNumber value={summary.red} duration={500} delay={300} style={styles.miniText} />
+            </View>
+          </Tooltip>
         </View>
       </View>
 

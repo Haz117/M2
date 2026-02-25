@@ -13,6 +13,7 @@ import ConnectionIndicator from '../components/ConnectionIndicator';
 import ConfettiCelebration from '../components/ConfettiCelebration';
 import Toast from '../components/Toast';
 import AnimatedBadge from '../components/AnimatedBadge';
+import QuickActionButton from '../components/QuickActionButton';
 import ShimmerEffect from '../components/ShimmerEffect';
 import SkeletonLoader from '../components/SkeletonLoader';
 import OverdueAlert from '../components/OverdueAlert';
@@ -1063,17 +1064,46 @@ export default function HomeScreen({ navigation }) {
         swipeToDismiss
       />
       
-      {/* Botón para crear tarea - Solo admin y jefe */}
+      {/* FAB con acciones rápidas - Admin y Jefe */}
       {currentUser && (currentUser.role === 'admin' || currentUser.role === 'jefe') && (
-        <TouchableOpacity 
-          style={styles.fab}
-          onPress={() => navigation.navigate('TaskDetail')}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.fabGradient, { backgroundColor: '#9F2241' }]}>
-            <Ionicons name="add" size={28} color="#FFFFFF" />
-          </View>
-        </TouchableOpacity>
+        <QuickActionButton
+          actions={[
+            {
+              icon: 'add-circle',
+              label: 'Nueva tarea',
+              color: '#9F2241',
+              onPress: () => navigation.navigate('TaskDetail'),
+            },
+            {
+              icon: 'notifications',
+              label: 'Notificaciones',
+              color: '#2196F3',
+              onPress: () => navigation.navigate('Notifications'),
+            },
+            {
+              icon: 'stats-chart',
+              label: 'Dashboard',
+              color: '#4CAF50',
+              onPress: () => navigation.navigate('Dashboard'),
+            },
+          ]}
+          position="bottom-right"
+        />
+      )}
+      
+      {/* FAB simple para operativos - Solo ver notificaciones */}
+      {currentUser && currentUser.role === 'operativo' && (
+        <QuickActionButton
+          actions={[
+            {
+              icon: 'notifications',
+              label: 'Notificaciones',
+              color: '#2196F3',
+              onPress: () => navigation.navigate('Notifications'),
+            },
+          ]}
+          position="bottom-right"
+        />
       )}
       
       {/* Loading Indicator */}
