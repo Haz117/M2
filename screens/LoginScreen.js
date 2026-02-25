@@ -1,9 +1,9 @@
 // screens/LoginScreen.js  
-// Login moderno con animaciones
+// Login moderno con animaciones avanzadas
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, 
-  Platform, ScrollView, Animated, Dimensions, Linking
+  Platform, ScrollView, Animated, Dimensions, Linking, ActivityIndicator, Easing
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { loginUser } from '../services/authFirestore';
@@ -21,15 +21,58 @@ export default function LoginScreen({ onLogin }) {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('success');
 
+  // Animaciones avanzadas
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
+  const logoScale = useRef(new Animated.Value(0.8)).current;
+  const logoRotate = useRef(new Animated.Value(0)).current;
+  const titleAnim = useRef(new Animated.Value(0)).current;
+  const formAnim = useRef(new Animated.Value(0)).current;
+  const buttonAnim = useRef(new Animated.Value(0)).current;
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
-      Animated.spring(slideAnim, { toValue: 0, tension: 40, friction: 8, useNativeDriver: true }),
+    // Animación de entrada escalonada
+    Animated.sequence([
+      // Logo entra con escala y rotación
+      Animated.parallel([
+        Animated.spring(logoScale, { toValue: 1, tension: 50, friction: 7, useNativeDriver: true }),
+        Animated.timing(logoRotate, { toValue: 1, duration: 600, easing: Easing.out(Easing.back(1.5)), useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+      ]),
+      // Título
+      Animated.timing(titleAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+      // Formulario
+      Animated.timing(formAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+      // Botón
+      Animated.spring(buttonAnim, { toValue: 1, tension: 60, friction: 8, useNativeDriver: true }),
     ]).start();
+
+    // Pulso continuo en el logo
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.05, duration: 1500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
+    ).start();
   }, []);
+
+  // Shake animation para errores
+  const triggerShake = () => {
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const logoRotation = logoRotate.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['-180deg', '0deg']
+  });
 
   const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -37,6 +80,9 @@ export default function LoginScreen({ onLogin }) {
     setToastMessage(message);
     setToastType(type);
     setToastVisible(true);
+    if (type === 'error') {
+      triggerShake();
+    }
   };
 
   const handleSubmit = async () => {
@@ -81,17 +127,19 @@ export default function LoginScreen({ onLogin }) {
           bounces={false}
           overScrollMode="never"
         >
-          <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-            <View style={styles.logoWrap}>
+          <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }, { translateX: shakeAnim }] }]}>
+            <Animated.View style={[styles.logoWrap, { transform: [{ scale: Animated.multiply(logoScale, pulseAnim) }, { rotate: logoRotation }] }]}>
               <View style={styles.logo}>
                 <Ionicons name="checkmark-done" size={60} color="#FFF" />
               </View>
-            </View>
+            </Animated.View>
 
-            <Text style={styles.title}>TodoApp</Text>
-            <Text style={styles.subtitle}>Gestiona tus tareas con estilo</Text>
+            <Animated.View style={{ opacity: titleAnim, transform: [{ translateY: titleAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }}>
+              <Text style={styles.title}>TodoApp</Text>
+              <Text style={styles.subtitle}>Gestiona tus tareas con estilo</Text>
+            </Animated.View>
 
-            <View style={styles.form}>
+            <Animated.View style={[styles.form, { opacity: formAnim, transform: [{ translateY: formAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
               <View style={[styles.input, focusedInput === 'email' && styles.inputFocused]}>
                 <Ionicons name="mail" size={20} color={focusedInput === 'email' ? '#FFD93D' : 'rgba(255,255,255,0.6)'} style={{ marginRight: 12 }} />
                 <TextInput
@@ -124,14 +172,23 @@ export default function LoginScreen({ onLogin }) {
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity style={[styles.btn, loading && styles.btnDisabled]} onPress={handleSubmit} disabled={loading}>
-                <View style={[styles.btnGrad, loading && { backgroundColor: '#666' }]}>
-                  <Text style={[styles.btnText, loading && { color: '#999' }]}>
-                    {loading ? 'Ingresando...' : 'Iniciar Sesión'}
-                  </Text>
-                  {!loading && <Ionicons name="arrow-forward" size={20} color="#9F2241" />}
-                </View>
-              </TouchableOpacity>
+              <Animated.View style={{ transform: [{ scale: buttonAnim }], opacity: buttonAnim }}>
+                <TouchableOpacity style={[styles.btn, loading && styles.btnDisabled]} onPress={handleSubmit} disabled={loading} activeOpacity={0.85}>
+                  <View style={[styles.btnGrad, loading && { backgroundColor: 'rgba(255,255,255,0.9)' }]}>
+                    {loading ? (
+                      <>
+                        <ActivityIndicator size="small" color="#9F2241" />
+                        <Text style={[styles.btnText, { marginLeft: 8 }]}>Ingresando...</Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.btnText}>Iniciar Sesión</Text>
+                        <Ionicons name="arrow-forward" size={20} color="#9F2241" />
+                      </>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              </Animated.View>
 
               {/* Separador */}
               <View style={styles.separator}>
@@ -164,7 +221,7 @@ export default function LoginScreen({ onLogin }) {
               <Text style={styles.downloadHint}>
                 Disponible para Android e iOS (PWA)
               </Text>
-            </View>
+            </Animated.View>
 
             <View style={styles.features}>
               <View style={styles.feat}><View style={styles.dot} /><Text style={styles.featText}>Sincronización en tiempo real</Text></View>
