@@ -95,36 +95,6 @@ export default function HomeScreen({ navigation }) {
   const [toastType, setToastType] = useState('success');
   const [toastAction, setToastAction] = useState(null);
 
-  // 📊 Calcular progreso del área del usuario
-  const areaProgress = useMemo(() => {
-    if (!currentUser || !tasks.length) return null;
-    
-    const userArea = currentUser.area || '';
-    const userAreas = currentUser.areasPermitidas || [userArea];
-    
-    // Filtrar tareas del área del usuario
-    const areaTasks = tasks.filter(t => {
-      if (currentUser.role === 'admin') return true;
-      return userAreas.includes(t.area);
-    });
-    
-    if (areaTasks.length === 0) return null;
-    
-    const completed = areaTasks.filter(t => t.status === 'cerrada').length;
-    const pending = areaTasks.filter(t => t.status === 'pendiente').length;
-    const inProgress = areaTasks.filter(t => t.status === 'en_proceso' || t.status === 'en_revision').length;
-    const percentage = Math.round((completed / areaTasks.length) * 100);
-    
-    return {
-      total: areaTasks.length,
-      completed,
-      pending,
-      inProgress,
-      percentage,
-      areaName: currentUser.role === 'admin' ? 'Todas las áreas' : userArea
-    };
-  }, [tasks, currentUser]);
-
   // Animation refs for stagger effect
   const headerOpacity = useRef(new Animated.Value(0)).current;
   const headerSlide = useRef(new Animated.Value(-20)).current;
@@ -873,29 +843,6 @@ export default function HomeScreen({ navigation }) {
             <SkeletonLoader type="bento" />
           ) : (
           <View style={styles.bentoGrid}>
-            
-            {/* 📊 Stats Inline Compacto */}
-            {areaProgress && (
-              <View style={[styles.statsInlineBar, { backgroundColor: theme.card, borderColor: theme.borderLight }]}>
-                <View style={styles.statsInlineItem}>
-                  <View style={[styles.statsInlineDot, { backgroundColor: '#4CAF50' }]} />
-                  <Text style={[styles.statsInlineValue, { color: '#4CAF50' }]}>{areaProgress.completed}</Text>
-                  <Text style={[styles.statsInlineLabel, { color: theme.textSecondary }]}>cerradas</Text>
-                </View>
-                <View style={styles.statsInlineDivider} />
-                <View style={styles.statsInlineItem}>
-                  <View style={[styles.statsInlineDot, { backgroundColor: '#2196F3' }]} />
-                  <Text style={[styles.statsInlineValue, { color: '#2196F3' }]}>{areaProgress.inProgress}</Text>
-                  <Text style={[styles.statsInlineLabel, { color: theme.textSecondary }]}>en proceso</Text>
-                </View>
-                <View style={styles.statsInlineDivider} />
-                <View style={styles.statsInlineItem}>
-                  <View style={[styles.statsInlineDot, { backgroundColor: '#FF9500' }]} />
-                  <Text style={[styles.statsInlineValue, { color: '#FF9500' }]}>{areaProgress.pending}</Text>
-                  <Text style={[styles.statsInlineLabel, { color: theme.textSecondary }]}>pendientes</Text>
-                </View>
-              </View>
-            )}
 
             {/* 📊 Estadísticas Personales de la Semana */}
             {currentUser && (
@@ -1264,41 +1211,6 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding, 
     gap: SPACING.xs,
     marginBottom: SPACING.sm,
     paddingHorizontal: padding
-  },
-  // Stats Inline Bar - Compacto
-  statsInlineBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: RADIUS.lg,
-    marginBottom: SPACING.sm,
-    borderWidth: 1,
-    ...SHADOWS.xs,
-  },
-  statsInlineItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  statsInlineDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  statsInlineValue: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  statsInlineLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  statsInlineDivider: {
-    width: 1,
-    height: 20,
-    backgroundColor: 'rgba(0,0,0,0.08)',
   },
   bentoRow: {
     flexDirection: 'row',
