@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { AREAS_CONFIG } from '../config/areas';
+import AnimatedNumber from './AnimatedNumber';
 
 const { width: screenWidth } = Dimensions.get('window');
 const isDesktop = screenWidth >= 768;
@@ -149,16 +150,16 @@ export default function TrafficLightDashboard({ tasks = [], onAreaPress, compact
         </View>
         <View style={styles.headerSummary}>
           <View style={[styles.miniIndicator, { backgroundColor: '#10B981' }]}>
-            <Text style={styles.miniText}>{summary.green}</Text>
+            <AnimatedNumber value={summary.green} duration={500} delay={0} style={styles.miniText} />
           </View>
           <View style={[styles.miniIndicator, { backgroundColor: '#EAB308' }]}>
-            <Text style={styles.miniText}>{summary.yellow}</Text>
+            <AnimatedNumber value={summary.yellow} duration={500} delay={100} style={styles.miniText} />
           </View>
           <View style={[styles.miniIndicator, { backgroundColor: '#F59E0B' }]}>
-            <Text style={styles.miniText}>{summary.orange}</Text>
+            <AnimatedNumber value={summary.orange} duration={500} delay={200} style={styles.miniText} />
           </View>
           <View style={[styles.miniIndicator, { backgroundColor: '#DC2626' }]}>
-            <Text style={styles.miniText}>{summary.red}</Text>
+            <AnimatedNumber value={summary.red} duration={500} delay={300} style={styles.miniText} />
           </View>
         </View>
       </View>

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
+import AnimatedNumber from './AnimatedNumber';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -150,9 +151,12 @@ export default function PersonalWeeklyStats({ tasks = [], userId, userName = 'tu
         </View>
         <View style={[styles.scoreBadge, { backgroundColor: weeklyStats.moodColor + '20' }]}>
           <Ionicons name={weeklyStats.moodIcon} size={16} color={weeklyStats.moodColor} />
-          <Text style={[styles.scoreText, { color: weeklyStats.moodColor }]}>
-            {weeklyStats.score}
-          </Text>
+          <AnimatedNumber
+            value={weeklyStats.score}
+            duration={800}
+            style={[styles.scoreText, { color: weeklyStats.moodColor }]}
+            delay={200}
+          />
         </View>
       </View>
 
@@ -170,7 +174,12 @@ export default function PersonalWeeklyStats({ tasks = [], userId, userName = 'tu
           <View style={[styles.metricIcon, { backgroundColor: '#10B98120' }]}>
             <Ionicons name="checkmark-done" size={18} color="#10B981" />
           </View>
-          <Text style={[styles.metricValue, { color: theme.text }]}>{weeklyStats.completed}</Text>
+          <AnimatedNumber
+            value={weeklyStats.completed}
+            duration={600}
+            delay={100}
+            style={[styles.metricValue, { color: theme.text }]}
+          />
           <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Completadas</Text>
         </View>
         
@@ -178,7 +187,12 @@ export default function PersonalWeeklyStats({ tasks = [], userId, userName = 'tu
           <View style={[styles.metricIcon, { backgroundColor: '#3B82F620' }]}>
             <Ionicons name="hourglass" size={18} color="#3B82F6" />
           </View>
-          <Text style={[styles.metricValue, { color: theme.text }]}>{weeklyStats.pending}</Text>
+          <AnimatedNumber
+            value={weeklyStats.pending}
+            duration={600}
+            delay={200}
+            style={[styles.metricValue, { color: theme.text }]}
+          />
           <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Pendientes</Text>
         </View>
         
@@ -186,7 +200,12 @@ export default function PersonalWeeklyStats({ tasks = [], userId, userName = 'tu
           <View style={[styles.metricIcon, { backgroundColor: '#EF444420' }]}>
             <Ionicons name="alert-circle" size={18} color="#EF4444" />
           </View>
-          <Text style={[styles.metricValue, { color: theme.text }]}>{weeklyStats.overdue}</Text>
+          <AnimatedNumber
+            value={weeklyStats.overdue}
+            duration={600}
+            delay={300}
+            style={[styles.metricValue, { color: theme.text }]}
+          />
           <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Vencidas</Text>
         </View>
         
@@ -194,7 +213,12 @@ export default function PersonalWeeklyStats({ tasks = [], userId, userName = 'tu
           <View style={[styles.metricIcon, { backgroundColor: '#F59E0B20' }]}>
             <Ionicons name="calendar" size={18} color="#F59E0B" />
           </View>
-          <Text style={[styles.metricValue, { color: theme.text }]}>{weeklyStats.upcoming}</Text>
+          <AnimatedNumber
+            value={weeklyStats.upcoming}
+            duration={600}
+            delay={400}
+            style={[styles.metricValue, { color: theme.text }]}
+          />
           <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Próximas</Text>
         </View>
       </View>
