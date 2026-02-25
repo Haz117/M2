@@ -198,6 +198,48 @@ export const getUsersByRole = async (role) => {
   }
 };
 
+// Obtener titulares (directores/secretarios) de áreas específicas
+export const getTitularesByAreas = async (areas) => {
+  try {
+    if (!areas || areas.length === 0) return [];
+    
+    // Obtener todos los usuarios activos que son directores o secretarios
+    const q = query(
+      collection(db, 'users'),
+      where('active', '==', true)
+    );
+    
+    const snapshot = await getDocs(q);
+    const allUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // Filtrar usuarios que son titulares de las áreas seleccionadas
+    const titulares = allUsers.filter(user => {
+      // Solo considerar directores, secretarios y jefes
+      const isTitular = ['director', 'secretario', 'jefe'].includes(user.role);
+      if (!isTitular) return false;
+      
+      // Verificar si el área del usuario coincide con alguna de las áreas seleccionadas
+      const userArea = user.area || user.department || '';
+      const userDirecciones = user.direcciones || [];
+      
+      return areas.some(area => {
+        // Coincidencia directa con el área del usuario
+        if (userArea === area) return true;
+        
+        // Si el usuario tiene direcciones a cargo (secretarios)
+        if (userDirecciones.includes(area)) return true;
+        
+        return false;
+      });
+    });
+    
+    return titulares;
+  } catch (error) {
+    console.error('Error obteniendo titulares por áreas:', error);
+    return [];
+  }
+};
+
 // Obtener todos los usuarios activos (solo admin)
 export const getAllUsers = async () => {
   try {

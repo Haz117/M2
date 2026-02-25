@@ -5,7 +5,7 @@ import { View, Text, StyleSheet, Button, TextInput, Platform, Alert, TouchableOp
 import { Ionicons } from '@expo/vector-icons';
 import { createTask, updateTask, deleteTask } from '../services/tasks';
 import { createTaskMultiple, updateTaskMultiple } from '../services/tasksMultiple';
-import { getAllUsersNames } from '../services/roles';
+import { getAllUsersNames, getTitularesByAreas } from '../services/roles';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { scheduleNotificationForTask, cancelNotification, notifyAssignment } from '../services/notifications';
@@ -350,6 +350,60 @@ export default function TaskDetailScreen({ route, navigation }) {
 
     validateSecretarioAreas();
   }, [selectedAssignees, editingTask]);
+
+  // Referencia para trackear áreas previas y evitar ciclos
+  const prevAreasRef = useRef([]);
+
+  // Auto-asignar titulares cuando se agregan nuevas áreas
+  useEffect(() => {
+    const autoAssignTitulares = async () => {
+      // Si no hay áreas seleccionadas, no hacer nada
+      if (!selectedAreas || selectedAreas.length === 0) {
+        prevAreasRef.current = [];
+        return;
+      }
+      
+      // Detectar solo las áreas NUEVAS (no las que ya estaban)
+      const prevAreas = new Set(prevAreasRef.current);
+      const newAreas = selectedAreas.filter(area => !prevAreas.has(area));
+      
+      // Actualizar referencia
+      prevAreasRef.current = [...selectedAreas];
+      
+      // Si no hay áreas nuevas, no buscar titulares
+      if (newAreas.length === 0) return;
+      
+      try {
+        // Buscar titulares de las áreas NUEVAS
+        const titulares = await getTitularesByAreas(newAreas);
+        
+        if (titulares.length > 0) {
+          // Convertir a formato de asignados
+          const newAssignees = titulares.map(user => ({
+            email: user.email,
+            displayName: user.displayName || user.email,
+            role: user.role,
+            area: user.area || user.department || ''
+          }));
+          
+          // Agregar solo los que no estén ya seleccionados
+          setSelectedAssignees(prev => {
+            const existingEmails = new Set(prev.map(a => a.email?.toLowerCase()));
+            const newUnique = newAssignees.filter(a => !existingEmails.has(a.email?.toLowerCase()));
+            
+            if (newUnique.length > 0) {
+              return [...prev, ...newUnique];
+            }
+            return prev;
+          });
+        }
+      } catch (error) {
+        console.error('Error auto-asignando titulares:', error);
+      }
+    };
+    
+    autoAssignTitulares();
+  }, [selectedAreas]);
 
   const filteredAreas = useMemo(() => {
     // Usar areasFromSelectedUsers en lugar de availableAreas para admin
