@@ -1421,7 +1421,9 @@ export default function TaskDetailScreen({ route, navigation }) {
                 {selectedAreas.map((a) => (
                   <View key={a} style={[styles.areaPill, { backgroundColor: theme.primary }]}>
                     <Ionicons name="folder" size={16} color="#FFFFFF" />
-                    <Text style={styles.areaPillText} numberOfLines={1}>{a.replace('Secretaría ', '').replace('Dirección ', '')}</Text>
+                    <Text style={styles.areaPillText} numberOfLines={1}>
+                      {a.replace(/^Secretaría (de |del |General )?/i, '').replace(/^Dirección (de |del )?/i, '')}
+                    </Text>
                     {canEdit && (
                       <TouchableOpacity 
                         onPress={() => toggleAreaSelection(a)}
@@ -1441,12 +1443,11 @@ export default function TaskDetailScreen({ route, navigation }) {
               style={[
                 styles.areaButton,
                 {
-                  borderColor: selectedAreas.length === 0 ? '#E53935' : theme.primary,
+                  borderColor: selectedAreas.length === 0 ? theme.primary : theme.primary,
                   backgroundColor: selectedAreas.length === 0 
-                    ? (isDark ? 'rgba(229, 57, 53, 0.08)' : 'rgba(229, 57, 53, 0.04)')
+                    ? (isDark ? theme.primary + '10' : theme.primary + '08')
                     : (isDark ? theme.primary + '15' : theme.primary + '08'),
                   opacity: canEdit ? 1 : 0.5,
-                  borderStyle: 'dashed',
                 },
               ]}
               onPress={() => setShowAreaModal(true)}
@@ -1455,7 +1456,7 @@ export default function TaskDetailScreen({ route, navigation }) {
             >
               <View style={[
                 styles.areaButtonIcon, 
-                { backgroundColor: selectedAreas.length === 0 ? '#E53935' : theme.primary }
+                { backgroundColor: selectedAreas.length === 0 ? theme.primary : theme.primary }
               ]}>
                 <Ionicons 
                   name={selectedAreas.length > 0 ? "add" : "folder-open"} 
@@ -1466,31 +1467,31 @@ export default function TaskDetailScreen({ route, navigation }) {
               <View style={styles.areaButtonInfo}>
                 <Text style={[
                   styles.areaButtonLabel, 
-                  { color: selectedAreas.length === 0 ? '#E53935' : theme.textSecondary }
+                  { color: selectedAreas.length === 0 ? theme.primary : theme.textSecondary }
                 ]}>
                   {selectedAreas.length > 0 ? 'AGREGAR MÁS ÁREAS' : 'SELECCIONAR ÁREA'}
                 </Text>
                 <Text style={[
                   styles.areaButtonValue, 
                   { 
-                    color: selectedAreas.length === 0 ? '#E53935' : theme.text,
+                    color: selectedAreas.length === 0 ? theme.text : theme.text,
                     fontWeight: selectedAreas.length === 0 ? '600' : '700'
                   }
                 ]}>
                   {selectedAreas.length === 0 
-                    ? 'Sin área asignada' 
+                    ? 'Toca para asignar área' 
                     : `${selectedAreas.length} ${selectedAreas.length === 1 ? 'área' : 'áreas'} seleccionada${selectedAreas.length > 1 ? 's' : ''}`
                   }
                 </Text>
               </View>
               <View style={[
                 styles.areaButtonChevron, 
-                { backgroundColor: selectedAreas.length === 0 ? 'rgba(229, 57, 53, 0.12)' : theme.primary + '15' }
+                { backgroundColor: theme.primary + '15' }
               ]}>
                 <Ionicons 
                   name="chevron-forward" 
                   size={20} 
-                  color={selectedAreas.length === 0 ? '#E53935' : theme.primary} 
+                  color={theme.primary} 
                 />
               </View>
             </TouchableOpacity>

@@ -207,8 +207,8 @@ export default function MultiUserSelector({
       <View style={styles.userInfo}>
         <Text style={styles.userName}>{user.displayName}</Text>
         <Text style={styles.userEmail}>{user.email}</Text>
-        <View style={[styles.userRoleBadge, { backgroundColor: getRoleColor(user.role) }]}>
-          <Text style={styles.userRoleText}>
+        <View style={[styles.userRoleBadge, { backgroundColor: getRoleColor(user.role) + '20' }]}>
+          <Text style={[styles.userRoleText, { color: getRoleColor(user.role) }]}>
             {getRoleLabel(user.role)}
           </Text>
         </View>
@@ -402,19 +402,18 @@ const styles = StyleSheet.create({
   selectorButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: '#9F2241',
-    borderStyle: 'dashed',
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 20,
     justifyContent: 'center',
     gap: 10,
-    backgroundColor: 'rgba(159, 34, 65, 0.04)',
+    backgroundColor: 'rgba(159, 34, 65, 0.06)',
   },
   selectorButtonActive: {
-    backgroundColor: 'rgba(159, 34, 65, 0.08)',
-    borderStyle: 'solid',
+    backgroundColor: 'rgba(159, 34, 65, 0.10)',
+    borderColor: '#9F2241',
   },
   selectorButtonText: {
     color: '#9F2241',

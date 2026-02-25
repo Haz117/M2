@@ -166,7 +166,7 @@ export default function AreaSelectorModal({
                     <Ionicons name={getAreaIcon(type)} size={18} color={color} />
                   </View>
                   <Text style={[styles.areaItemText, isSelected ? { color: color, fontWeight: '700' } : { color: theme.text }]}>
-                    {area.replace('Secretaría ', '').replace('Dirección ', '')}
+                    {area.replace(/^Secretaría (de |del |General )?/i, '').replace(/^Dirección (de |del )?/i, '')}
                   </Text>
                 </View>
                 
@@ -267,7 +267,7 @@ export default function AreaSelectorModal({
                     style={[styles.selectedPill, { backgroundColor: theme.primary }]}
                   >
                     <Text style={styles.selectedPillText} numberOfLines={1}>
-                      {area.replace('Secretaría ', '').replace('Dirección ', '')}
+                      {area.replace(/^Secretaría (de |del |General )?/i, '').replace(/^Dirección (de |del )?/i, '')}
                     </Text>
                     <Ionicons name="close-small" size={18} color="#FFFFFF" style={{ marginLeft: 4 }} />
                   </TouchableOpacity>
