@@ -132,21 +132,26 @@ export default function AreaSelectorModal({
 
     return (
       <View key={type} style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <View style={[styles.sectionBadge, { backgroundColor: `${badgeColor}20` }]}>
-            <Ionicons 
-              name={type === 'secretaria' ? 'briefcase' : 'folder'} 
-              size={16} 
-              color={badgeColor} 
-            />
-            <Text style={[styles.sectionTitle, { color: badgeColor }]}>
+        <TouchableOpacity 
+          style={styles.sectionHeader}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.sectionBadge, { backgroundColor: `${badgeColor}15` }]}>
+            <View style={[styles.sectionIconWrap, { backgroundColor: badgeColor }]}>
+              <Ionicons 
+                name={type === 'secretaria' ? 'briefcase' : 'folder'} 
+                size={14} 
+                color="#FFFFFF" 
+              />
+            </View>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>
               {title}
             </Text>
-            <View style={[styles.sectionCount, { backgroundColor: badgeColor }]}>
-              <Text style={styles.sectionCountText}>{areaList.length}</Text>
+            <View style={[styles.sectionCount, { backgroundColor: `${badgeColor}20` }]}>
+              <Text style={[styles.sectionCountText, { color: badgeColor }]}>{areaList.length}</Text>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
 
         <View style={styles.areaItemsContainer}>
           {areaList.map((area) => {
@@ -157,24 +162,30 @@ export default function AreaSelectorModal({
                 onPress={() => toggleArea(area)}
                 style={[
                   styles.areaItemBox,
-                  isSelected && [styles.areaItemBoxActive, { backgroundColor: `${color}15`, borderColor: color }]
+                  { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#FAFAFA' },
+                  isSelected && [styles.areaItemBoxActive, { backgroundColor: `${color}08`, borderColor: color }]
                 ]}
                 activeOpacity={0.6}
               >
                 <View style={styles.areaItemContent}>
-                  <View style={[styles.areaItemIcon, { backgroundColor: `${color}20` }]}>
-                    <Ionicons name={getAreaIcon(type)} size={18} color={color} />
+                  <View style={[
+                    styles.areaItemRadio, 
+                    { borderColor: isSelected ? color : theme.border },
+                    isSelected && { backgroundColor: color, borderColor: color }
+                  ]}>
+                    {isSelected && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
                   </View>
-                  <Text style={[styles.areaItemText, isSelected ? { color: color, fontWeight: '700' } : { color: theme.text }]}>
+                  <Text 
+                    style={[
+                      styles.areaItemText, 
+                      { color: isSelected ? color : theme.text },
+                      isSelected && { fontWeight: '700' }
+                    ]}
+                    numberOfLines={2}
+                  >
                     {area.replace(/^Secretaría (de |del |General )?/i, '').replace(/^Dirección (de |del )?/i, '')}
                   </Text>
                 </View>
-                
-                {isSelected && (
-                  <View style={[styles.areaItemCheckmark, { backgroundColor: color }]}>
-                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                  </View>
-                )}
               </TouchableOpacity>
             );
           })}
@@ -202,24 +213,28 @@ export default function AreaSelectorModal({
             <View style={styles.headerLeft}>
               <TouchableOpacity 
                 onPress={onClose}
-                style={styles.closeButton}
+                style={[styles.closeButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#F5F5F5' }]}
               >
                 <Ionicons name="close" size={24} color={theme.text} />
               </TouchableOpacity>
               <View style={styles.headerTitles}>
-                <Text style={[styles.headerTitle, { color: theme.text }]}>Seleccionar Áreas</Text>
+                <Text style={[styles.headerTitle, { color: theme.text }]}>
+                  ¿A quién asignar?
+                </Text>
                 <Text style={[styles.headerSubtitle, { color: theme.textSecondary }]}>
-                  {selectedAreas.length} seleccionada{selectedAreas.length !== 1 ? 's' : ''}
+                  Selecciona las áreas responsables
                 </Text>
               </View>
             </View>
-            <View style={styles.headerStats}>
-              <View style={[styles.statBadge, { backgroundColor: theme.primary + '20' }]}>
-                <Text style={[styles.statBadgeText, { color: theme.primary }]}>
-                  {selectedAreas.length}
-                </Text>
+            {selectedAreas.length > 0 && (
+              <View style={styles.headerStats}>
+                <View style={[styles.statBadge, { backgroundColor: theme.primary }]}>
+                  <Text style={[styles.statBadgeText, { color: '#FFFFFF' }]}>
+                    {selectedAreas.length}
+                  </Text>
+                </View>
               </View>
-            </View>
+            )}
           </View>
 
           {/* Search Box Mejorado */}
@@ -301,26 +316,32 @@ export default function AreaSelectorModal({
           </ScrollView>
 
           {/* Footer con botones */}
-          <View style={[styles.footer, { borderTopColor: theme.border }]}>
+          <View style={[styles.footer, { 
+            borderTopColor: theme.border,
+            backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : '#FAFAFA'
+          }]}>
             <TouchableOpacity 
-              style={[styles.buttonSecondary, { borderColor: theme.border }]}
+              style={[
+                styles.buttonSecondary, 
+                { borderColor: theme.border, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#FFFFFF' }
+              ]}
               onPress={() => {
                 setSearchQuery('');
                 onAreasChange([]);
               }}
               disabled={selectedAreas.length === 0}
             >
-              <Ionicons name="trash-outline" size={18} color={theme.textSecondary} />
-              <Text style={[styles.buttonText, { color: theme.text }]}>Limpiar</Text>
+              <Ionicons name="refresh-outline" size={18} color={selectedAreas.length === 0 ? theme.textSecondary + '50' : theme.textSecondary} />
+              <Text style={[styles.buttonText, { color: selectedAreas.length === 0 ? theme.textSecondary + '50' : theme.text }]}>Limpiar</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
               style={[styles.buttonPrimary, { backgroundColor: theme.primary }]}
               onPress={onClose}
             >
-              <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+              <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
               <Text style={styles.buttonTextPrimary}>
-                Listo ({selectedAreas.length})
+                {selectedAreas.length > 0 ? `Confirmar (${selectedAreas.length})` : 'Cerrar'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -364,52 +385,52 @@ const createStyles = (theme, isDark) => StyleSheet.create({
   header: {
     paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: 16,
+    paddingBottom: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     borderBottomWidth: 1,
   },
   headerLeft: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flex: 1,
     gap: 14,
   },
   closeButton: {
     width: 44,
     height: 44,
-    borderRadius: 14,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#F5F5F5',
   },
   headerTitles: {
     flex: 1,
+    paddingTop: 4,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
-    marginBottom: 3,
+    marginBottom: 4,
     letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    opacity: 0.7,
+    fontSize: 14,
+    fontWeight: '500',
   },
   headerStats: {
     marginLeft: 12,
+    marginTop: 4,
   },
   statBadge: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 14,
-    minWidth: 48,
+    borderRadius: 12,
+    minWidth: 40,
     alignItems: 'center',
   },
   statBadgeText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
   },
 
@@ -492,25 +513,31 @@ const createStyles = (theme, isDark) => StyleSheet.create({
 
   // Sections
   section: {
-    marginBottom: 28,
+    marginBottom: 24,
   },
   sectionHeader: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   sectionBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
     gap: 10,
     alignSelf: 'flex-start',
   },
+  sectionIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   sectionTitle: {
     fontSize: 15,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   sectionCount: {
     paddingHorizontal: 10,
@@ -521,34 +548,26 @@ const createStyles = (theme, isDark) => StyleSheet.create({
     alignItems: 'center',
   },
   sectionCountText: {
-    color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
   },
 
   // Area Items
   areaItemsContainer: {
-    gap: 10,
+    gap: 8,
   },
   areaItemBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    borderRadius: 16,
-    backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#FAFAFA',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderRadius: 14,
     borderWidth: 2,
     borderColor: 'transparent',
     justifyContent: 'space-between',
   },
   areaItemBoxActive: {
     borderWidth: 2,
-    backgroundColor: 'transparent',
-    shadowColor: '#9F2241',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
   },
   areaItemContent: {
     flexDirection: 'row',
@@ -556,26 +575,19 @@ const createStyles = (theme, isDark) => StyleSheet.create({
     gap: 14,
     flex: 1,
   },
-  areaItemIcon: {
-    width: 42,
-    height: 42,
+  areaItemRadio: {
+    width: 24,
+    height: 24,
     borderRadius: 12,
+    borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
   },
   areaItemText: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '500',
     flex: 1,
     lineHeight: 20,
-  },
-  areaItemCheckmark: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 10,
   },
 
   // Empty State
@@ -600,47 +612,45 @@ const createStyles = (theme, isDark) => StyleSheet.create({
   // Footer
   footer: {
     flexDirection: 'row',
-    gap: 14,
+    gap: 12,
     paddingHorizontal: 20,
     paddingBottom: Platform.OS === 'ios' ? 32 : 20,
     paddingTop: 16,
     borderTopWidth: 1,
-    backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.02)',
   },
   buttonSecondary: {
-    flex: 1,
+    flex: 0.8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingVertical: 14,
     borderRadius: 14,
-    borderWidth: 2,
-    gap: 10,
+    borderWidth: 1.5,
+    gap: 8,
   },
   buttonPrimary: {
-    flex: 1.3,
+    flex: 1.2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 18,
     paddingVertical: 14,
     borderRadius: 14,
-    gap: 10,
+    gap: 8,
     shadowColor: '#9F2241',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 6,
   },
   buttonText: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   buttonTextPrimary: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: 0.3,
   },
 });

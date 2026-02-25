@@ -1810,59 +1810,97 @@ export default function TaskDetailScreen({ route, navigation }) {
                 <View style={[styles.dateModalContent, { backgroundColor: theme.card }]}>
                   {/* Header */}
                   <View style={[styles.dateModalHeader, { borderBottomColor: theme.border }]}>
-                    <Text style={[styles.dateModalTitle, { color: theme.text }]}>
-                      Seleccionar fecha y hora
-                    </Text>
-                    <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                      <Ionicons name="close" size={28} color={theme.text} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.dateModalTitle, { color: theme.text }]}>
+                        ¿Cuándo vence?
+                      </Text>
+                      <Text style={[styles.dateModalSubtitle, { color: theme.textSecondary }]}>
+                        Selecciona fecha y hora límite
+                      </Text>
+                    </View>
+                    <TouchableOpacity 
+                      onPress={() => setShowDatePicker(false)}
+                      style={[styles.dateCloseButton, { backgroundColor: `${theme.text}10` }]}
+                    >
+                      <Ionicons name="close" size={22} color={theme.text} />
                     </TouchableOpacity>
+                  </View>
+
+                  {/* Quick Select Options */}
+                  <View style={styles.quickSelectContainer}>
+                    {[
+                      { label: 'Hoy', icon: 'today-outline', days: 0 },
+                      { label: 'Mañana', icon: 'sunny-outline', days: 1 },
+                      { label: 'En 3 días', icon: 'calendar-outline', days: 3 },
+                      { label: 'Próx. semana', icon: 'calendar', days: 7 },
+                    ].map((opt) => {
+                      const targetDate = new Date();
+                      targetDate.setDate(targetDate.getDate() + opt.days);
+                      targetDate.setHours(18, 0, 0, 0);
+                      const isSelected = tempDate.toDateString() === targetDate.toDateString();
+                      return (
+                        <TouchableOpacity
+                          key={opt.label}
+                          onPress={() => {
+                            const newDate = new Date();
+                            newDate.setDate(newDate.getDate() + opt.days);
+                            newDate.setHours(tempDate.getHours(), tempDate.getMinutes(), 0, 0);
+                            setTempDate(newDate);
+                          }}
+                          style={[
+                            styles.quickSelectBtn,
+                            { backgroundColor: isSelected ? theme.primary : `${theme.text}08`, borderColor: isSelected ? theme.primary : 'transparent' }
+                          ]}
+                        >
+                          <Ionicons name={opt.icon} size={18} color={isSelected ? '#FFFFFF' : theme.text} />
+                          <Text style={[styles.quickSelectText, { color: isSelected ? '#FFFFFF' : theme.text }]}>
+                            {opt.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
 
                   {/* Body */}
                   <View style={styles.dateModalBody}>
-                    {/* Selector de Fecha */}
-                    <View style={styles.datePickerSection}>
-                      <Text style={[styles.datePickerSectionTitle, { color: theme.text }]}>
-                        📅 Fecha
-                      </Text>
-                      <input
-                        type="date"
-                        value={tempDate.toISOString().split('T')[0]}
-                        onChange={(e) => {
-                          const [year, month, day] = e.target.value.split('-');
-                          const newDate = new Date(tempDate);
-                          newDate.setFullYear(parseInt(year), parseInt(month) - 1, parseInt(day));
-                          setTempDate(newDate);
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '14px 12px',
-                          fontSize: '15px',
-                          borderRadius: '10px',
-                          border: `2px solid ${theme.primary}`,
-                          backgroundColor: theme.background,
-                          color: theme.text,
-                          fontFamily: 'system-ui',
-                          fontWeight: '600',
-                          cursor: 'pointer',
-                        }}
-                      />
-                      <Text style={[styles.datePreviewText, { color: theme.textSecondary, marginTop: 8 }]}>
-                        {tempDate.toLocaleDateString('es-ES', { 
-                          weekday: 'long', 
-                          year: 'numeric', 
-                          month: 'long', 
-                          day: 'numeric' 
-                        })}
-                      </Text>
-                    </View>
+                    <View style={styles.dateTimeRow}>
+                      {/* Selector de Fecha */}
+                      <View style={[styles.datePickerSection, { flex: 1.2 }]}>
+                        <View style={styles.sectionLabelRow}>
+                          <Ionicons name="calendar" size={16} color={theme.primary} />
+                          <Text style={[styles.datePickerSectionTitle, { color: theme.text }]}>Fecha</Text>
+                        </View>
+                        <input
+                          type="date"
+                          value={tempDate.toISOString().split('T')[0]}
+                          onChange={(e) => {
+                            const [year, month, day] = e.target.value.split('-');
+                            const newDate = new Date(tempDate);
+                            newDate.setFullYear(parseInt(year), parseInt(month) - 1, parseInt(day));
+                            setTempDate(newDate);
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '12px 14px',
+                            fontSize: '15px',
+                            borderRadius: '12px',
+                            border: `1.5px solid ${theme.border}`,
+                            backgroundColor: `${theme.text}05`,
+                            color: theme.text,
+                            fontFamily: 'system-ui',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            outline: 'none',
+                          }}
+                        />
+                      </View>
 
-                    {/* Selector de Hora */}
-                    <View style={styles.datePickerSection}>
-                      <Text style={[styles.datePickerSectionTitle, { color: theme.text }]}>
-                        ⏰ Hora
-                      </Text>
-                      <View style={styles.timeInputContainer}>
+                      {/* Selector de Hora */}
+                      <View style={[styles.datePickerSection, { flex: 1 }]}>
+                        <View style={styles.sectionLabelRow}>
+                          <Ionicons name="time" size={16} color={theme.primary} />
+                          <Text style={[styles.datePickerSectionTitle, { color: theme.text }]}>Hora</Text>
+                        </View>
                         <input
                           type="time"
                           value={`${String(tempDate.getHours()).padStart(2, '0')}:${String(tempDate.getMinutes()).padStart(2, '0')}`}
@@ -1873,44 +1911,40 @@ export default function TaskDetailScreen({ route, navigation }) {
                             setTempDate(newDate);
                           }}
                           style={{
-                            flex: 1,
-                            padding: '14px 12px',
+                            width: '100%',
+                            padding: '12px 14px',
                             fontSize: '15px',
-                            borderRadius: '10px',
-                            border: `2px solid ${theme.primary}`,
-                            backgroundColor: theme.background,
+                            borderRadius: '12px',
+                            border: `1.5px solid ${theme.border}`,
+                            backgroundColor: `${theme.text}05`,
                             color: theme.text,
                             fontFamily: 'system-ui',
                             fontWeight: '600',
                             cursor: 'pointer',
+                            outline: 'none',
                           }}
                         />
                       </View>
-                      <Text style={[styles.datePreviewText, { color: theme.textSecondary, marginTop: 8 }]}>
-                        {tempDate.toLocaleTimeString('es-ES', { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
-                      </Text>
                     </View>
 
-                    {/* Vista previa */}
-                    <View style={[styles.datePreviewCard, { backgroundColor: `${theme.primary}15`, borderColor: theme.primary }]}>
-                      <Ionicons name="calendar" size={20} color={theme.primary} />
-                      <View style={{ flex: 1, marginLeft: 12 }}>
+                    {/* Vista previa mejorada */}
+                    <View style={[styles.datePreviewCard, { backgroundColor: `${theme.primary}12`, borderColor: `${theme.primary}30` }]}>
+                      <View style={[styles.datePreviewIconWrap, { backgroundColor: theme.primary }]}>
+                        <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />
+                      </View>
+                      <View style={{ flex: 1 }}>
                         <Text style={[styles.datePreviewCardDate, { color: theme.textSecondary }]}>
-                          Fecha y hora seleccionada
+                          Fecha límite
                         </Text>
                         <Text style={[styles.datePreviewCardValue, { color: theme.text }]}>
                           {tempDate.toLocaleDateString('es-ES', { 
-                            weekday: 'short', 
+                            weekday: 'long', 
                             day: 'numeric', 
-                            month: 'short', 
-                            year: 'numeric' 
-                          })} a las {tempDate.toLocaleTimeString('es-ES', { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
+                            month: 'long'
                           })}
+                        </Text>
+                        <Text style={[styles.datePreviewCardTime, { color: theme.primary }]}>
+                          {tempDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} hrs
                         </Text>
                       </View>
                     </View>
@@ -2808,47 +2842,89 @@ const createStyles = (theme, isDark) => StyleSheet.create({
   // Estilos del modal de fecha
   dateModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
   },
   dateModalContent: {
-    borderRadius: 20,
+    borderRadius: 24,
     width: '100%',
-    maxWidth: 600,
+    maxWidth: 480,
     maxHeight: '90%',
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.25,
+    shadowRadius: 32,
+    elevation: 16,
   },
   dateModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
+    alignItems: 'flex-start',
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 0,
   },
   dateModalTitle: {
-    fontSize: 18,
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  dateModalSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  dateCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quickSelectContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+    flexWrap: 'wrap',
+  },
+  quickSelectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1.5,
+  },
+  quickSelectText: {
+    fontSize: 13,
     fontWeight: '700',
-    textAlign: 'center',
-    flex: 1,
   },
   dateModalBody: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 4,
+    paddingBottom: 20,
     gap: 20,
+  },
+  dateTimeRow: {
+    flexDirection: 'row',
+    gap: 16,
   },
   datePickerSection: {
     gap: 10,
   },
+  sectionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   datePickerSectionTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -2865,11 +2941,18 @@ const createStyles = (theme, isDark) => StyleSheet.create({
   datePreviewCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    gap: 14,
+  },
+  datePreviewIconWrap: {
+    width: 44,
+    height: 44,
     borderRadius: 12,
-    borderWidth: 2,
-    marginTop: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   datePreviewCardDate: {
     fontSize: 11,
@@ -2878,7 +2961,13 @@ const createStyles = (theme, isDark) => StyleSheet.create({
     letterSpacing: 0.5,
   },
   datePreviewCardValue: {
-    fontSize: 15,
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 2,
+    textTransform: 'capitalize',
+  },
+  datePreviewCardTime: {
+    fontSize: 14,
     fontWeight: '700',
     marginTop: 2,
   },
@@ -2886,16 +2975,16 @@ const createStyles = (theme, isDark) => StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
     borderTopWidth: 1,
   },
   dateModalButton: {
     flex: 1,
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
