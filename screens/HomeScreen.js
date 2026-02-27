@@ -9,7 +9,6 @@ import SearchBar from '../components/SearchBar';
 import AdvancedFilters from '../components/AdvancedFilters';
 import ThemeToggle from '../components/ThemeToggle';
 import EmptyState from '../components/EmptyState';
-import ConnectionIndicator from '../components/ConnectionIndicator';
 import ConfettiCelebration from '../components/ConfettiCelebration';
 import Toast from '../components/Toast';
 import AnimatedBadge from '../components/AnimatedBadge';
@@ -24,6 +23,7 @@ import SyncIndicator from '../components/SyncIndicator';
 import ProgressBar from '../components/ProgressBar';
 import PersonalWeeklyStats from '../components/PersonalWeeklyStats';
 import HelpButton from '../components/HelpButton';
+import QuickTip, { TIPS } from '../components/QuickTip';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTasks } from '../contexts/TasksContext';
 import { subscribeToTasks, deleteTask as deleteTaskFirebase, updateTask, createTask } from '../services/tasks';
@@ -47,6 +47,8 @@ export default function HomeScreen({ navigation }) {
   const [isLoading, setIsLoading] = useState(tasksLoading);
   const [title, setTitle] = useState('');
   const [searchText, setSearchText] = useState('');
+  const [quickStatusFilter, setQuickStatusFilter] = useState('todas'); // 'todas', 'pendiente', 'en-progreso', 'revision', 'cerrada'
+  const [compactView, setCompactView] = useState(false);
   const [advancedFilters, setAdvancedFilters] = useState({
     areas: [],
     responsible: [],
@@ -516,9 +518,26 @@ export default function HomeScreen({ navigation }) {
     });
   }, [tasks]);
 
+  // Conteo por estado para chips de filtro rápido
+  const statusCounts = useMemo(() => ({
+    todas: tasks.length,
+    pendiente: tasks.filter(t => t.status === 'pendiente').length,
+    'en-progreso': tasks.filter(t => t.status === 'en-progreso').length,
+    revision: tasks.filter(t => t.status === 'revision').length,
+    cerrada: tasks.filter(t => t.status === 'cerrada').length,
+  }), [tasks]);
+
   // Aplicar filtros con memoización
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
+      // Quick status filter (chips rápidos)
+      if (quickStatusFilter !== 'todas') {
+        if (quickStatusFilter === 'en-progreso' && task.status !== 'en-progreso') return false;
+        if (quickStatusFilter === 'revision' && task.status !== 'revision') return false;
+        if (quickStatusFilter === 'pendiente' && task.status !== 'pendiente') return false;
+        if (quickStatusFilter === 'cerrada' && task.status !== 'cerrada') return false;
+      }
+
       // Search text filter (title, description, assignedTo, tags)
       if (searchText) {
         const search = searchText.toLowerCase();
@@ -553,7 +572,7 @@ export default function HomeScreen({ navigation }) {
       
       return true;
     });
-  }, [tasks, searchText, advancedFilters]);
+  }, [tasks, searchText, advancedFilters, quickStatusFilter]);
 
   // Estadísticas Bento con memoización
   const statistics = useMemo(() => {
@@ -648,8 +667,6 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <ConnectionIndicator />
-      
       <View style={[styles.contentWrapper, { maxWidth: isDesktop ? MAX_WIDTHS.content : '100%' }]}>
         <Animated.View style={{ opacity: headerOpacity, transform: [{ translateY: headerSlide }] }}>
           <LinearGradient
@@ -844,16 +861,6 @@ export default function HomeScreen({ navigation }) {
           ) : (
           <View style={styles.bentoGrid}>
 
-            {/* 📊 Estadísticas Personales de la Semana */}
-            {currentUser && (
-              <PersonalWeeklyStats 
-                tasks={tasks}
-                userId={currentUser.email}
-                userName={currentUser.displayName || currentUser.email}
-                userRole={currentUser.role}
-              />
-            )}
-
             {/* Fila 1: Estadísticas principales - REMOVIDA para reducir alertas
             <View style={styles.bentoRow}>
               <View style={[styles.bentoCard, styles.bentoLarge]}>
@@ -894,7 +901,75 @@ export default function HomeScreen({ navigation }) {
               <View style={[styles.taskCountBadge, { backgroundColor: theme.primary }]}>
                 <Text style={styles.taskCountText}>{filteredTasks.length}</Text>
               </View>
+              <TouchableOpacity 
+                style={[styles.compactToggle, { backgroundColor: compactView ? theme.primary : (isDark ? '#333' : '#e0e0e0') }]}
+                onPress={() => setCompactView(!compactView)}
+              >
+                <Ionicons 
+                  name={compactView ? 'list' : 'grid-outline'} 
+                  size={16} 
+                  color={compactView ? '#fff' : theme.text} 
+                />
+              </TouchableOpacity>
             </View>
+
+            {/* Chips de filtro rápido por estado */}
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              style={styles.quickFiltersScroll}
+              contentContainerStyle={styles.quickFiltersContent}
+            >
+              {[
+                { key: 'todas', label: 'Todas', icon: 'apps' },
+                { key: 'pendiente', label: 'Pendiente', icon: 'time-outline' },
+                { key: 'en-progreso', label: 'En progreso', icon: 'play-circle' },
+                { key: 'revision', label: 'Revisión', icon: 'eye' },
+                { key: 'cerrada', label: 'Cerradas', icon: 'checkmark-circle' },
+              ].map(filter => (
+                <TouchableOpacity
+                  key={filter.key}
+                  style={[
+                    styles.quickFilterChip,
+                    { 
+                      backgroundColor: quickStatusFilter === filter.key 
+                        ? theme.primary 
+                        : (isDark ? '#2a2a2a' : '#f0f0f0'),
+                      borderColor: quickStatusFilter === filter.key 
+                        ? theme.primary 
+                        : (isDark ? '#444' : '#ddd'),
+                    }
+                  ]}
+                  onPress={() => {
+                    hapticLight();
+                    setQuickStatusFilter(filter.key);
+                  }}
+                >
+                  <Ionicons 
+                    name={filter.icon} 
+                    size={14} 
+                    color={quickStatusFilter === filter.key ? '#fff' : theme.textSecondary} 
+                  />
+                  <Text style={[
+                    styles.quickFilterLabel,
+                    { color: quickStatusFilter === filter.key ? '#fff' : theme.text }
+                  ]}>
+                    {filter.label}
+                  </Text>
+                  <View style={[
+                    styles.quickFilterBadge,
+                    { backgroundColor: quickStatusFilter === filter.key ? 'rgba(255,255,255,0.3)' : (isDark ? '#444' : '#ddd') }
+                  ]}>
+                    <Text style={[
+                      styles.quickFilterBadgeText,
+                      { color: quickStatusFilter === filter.key ? '#fff' : theme.textSecondary }
+                    ]}>
+                      {statusCounts[filter.key]}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
           )
         }
@@ -908,6 +983,7 @@ export default function HomeScreen({ navigation }) {
             <TaskItem 
               task={item}
               index={index}
+              compact={compactView}
               onPress={() => openDetail(item)} // 👈 Abre detalle de tarea consistente con otras pantallas
               // Solo admin puede eliminar tareas
               onDelete={isAdmin ? () => deleteTask(item.id) : undefined}
@@ -1040,6 +1116,13 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
       )}
+      
+      {/* 💡 Tip de ayuda para usuarios nuevos */}
+      <QuickTip
+        {...TIPS.HOME_SWIPE}
+        position="bottom"
+        delay={2000}
+      />
     </View>
   );
 }
@@ -1644,5 +1727,47 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding, 
     fontWeight: '900',
     letterSpacing: 0.4,
     textTransform: 'uppercase'
-  }
+  },
+  // Estilos para filtros rápidos
+  compactToggle: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 'auto',
+  },
+  quickFiltersScroll: {
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  quickFiltersContent: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  quickFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
+  },
+  quickFilterLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  quickFilterBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  quickFilterBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
 });

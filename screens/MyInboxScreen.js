@@ -14,7 +14,7 @@ import ShimmerEffect from '../components/ShimmerEffect';
 import { subscribeToTasks, updateTask, deleteTask as deleteTaskFirebase } from '../services/tasks';
 import { scheduleNotificationForTask, cancelNotification } from '../services/notifications';
 import { getCurrentSession } from '../services/authFirestore';
-import { hapticMedium } from '../utils/haptics';
+import { hapticMedium, hapticLight } from '../utils/haptics';
 import Toast from 'react-native-toast-message';
 import { confirmTaskCompletion, hasUserConfirmed } from '../services/taskConfirmations';
 import { useTheme } from '../contexts/ThemeContext';
@@ -60,6 +60,8 @@ export default function MyInboxScreen({ navigation }) {
     overdue: false,
   });
   const [deletingTaskIds, setDeletingTaskIds] = useState(new Set());
+  const [quickStatusFilter, setQuickStatusFilter] = useState('todas'); // Filtro rápido por estado
+  const [compactView, setCompactView] = useState(false); // Vista compacta
 
   // Animation refs for stagger effect
   const headerOpacity = useRef(new Animated.Value(0)).current;
@@ -273,6 +275,14 @@ export default function MyInboxScreen({ navigation }) {
       // Si no hay usuario, no mostrar nada
       if (!currentUser) return false;
       
+      // Quick status filter (chips rápidos)
+      if (quickStatusFilter !== 'todas') {
+        if (quickStatusFilter === 'en-progreso' && task.status !== 'en-progreso' && task.status !== 'en_progreso') return false;
+        if (quickStatusFilter === 'revision' && task.status !== 'revision' && task.status !== 'en_revision') return false;
+        if (quickStatusFilter === 'pendiente' && task.status !== 'pendiente') return false;
+        if (quickStatusFilter === 'cerrada' && task.status !== 'cerrada') return false;
+      }
+      
       // Filtraje basado en rol
       const userRole = currentUser.role;
       const userEmail = currentUser.email?.toLowerCase();
@@ -334,6 +344,33 @@ export default function MyInboxScreen({ navigation }) {
   // Contar tareas vencidas
   const overdueTasks = filtered.filter(task => task.dueAt < Date.now() && task.status !== 'cerrada');
   const overdueCount = overdueTasks.length;
+
+  // Conteo por estado para chips de filtro rápido (basado en tareas del usuario)
+  const baseFilteredTasks = tasks.filter(task => {
+    if (!currentUser) return false;
+    const userRole = currentUser.role;
+    const userEmail = currentUser.email?.toLowerCase();
+    const userArea = currentUser.area || currentUser.department || '';
+    if (userRole === 'admin') return true;
+    if (userRole === 'secretario') {
+      return task.area === userArea || isTaskAssignedToUser(task, userEmail) || task.createdBy?.toLowerCase() === userEmail;
+    }
+    if (userRole === 'director') {
+      return task.area === userArea || isTaskAssignedToUser(task, userEmail) || task.createdBy?.toLowerCase() === userEmail;
+    }
+    if (userRole === 'jefe') {
+      return task.area === (currentUser.department || userArea) || isTaskAssignedToUser(task, userEmail);
+    }
+    return isTaskAssignedToUser(task, userEmail);
+  });
+  
+  const statusCounts = {
+    todas: baseFilteredTasks.length,
+    pendiente: baseFilteredTasks.filter(t => t.status === 'pendiente').length,
+    'en-progreso': baseFilteredTasks.filter(t => t.status === 'en-progreso' || t.status === 'en_progreso').length,
+    revision: baseFilteredTasks.filter(t => t.status === 'revision' || t.status === 'en_revision').length,
+    cerrada: baseFilteredTasks.filter(t => t.status === 'cerrada').length,
+  };
 
   // Ref para evitar programar notificaciones múltiples veces
   const lastScheduledRef = useRef(null);
@@ -842,6 +879,7 @@ export default function MyInboxScreen({ navigation }) {
           <View style={{ flex: 1 }}>
             <TaskItem 
               task={item} 
+              compact={compactView}
               onPress={() => !isDeleting && openDetail(item)}
               onDelete={isAdmin ? () => deleteTask(item.id) : undefined}
               onToggleComplete={() => !isDeleting && toggleComplete(item)}
@@ -851,8 +889,8 @@ export default function MyInboxScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Acciones compactas con iconos - Simplificadas */}
-        {item.status !== 'cerrada' && (
+        {/* Acciones compactas con iconos - Simplificadas - Ocultas en vista compacta */}
+        {!compactView && item.status !== 'cerrada' && (
           <View style={styles.quickActionsRow}>
             {/* Botón confirmar mi parte - Solo si tiene múltiples asignados y no ha confirmado */}
             {Array.isArray(item.assignedTo) && item.assignedTo.length > 1 && !hasUserConfirmed(item, currentUser?.email) && (
@@ -969,106 +1007,33 @@ export default function MyInboxScreen({ navigation }) {
         </LinearGradient>
       </Animated.View>
 
-      {/* Tarjeta de Usuario y Búsqueda Unificada */}
-      <Animated.View style={{ opacity: userCardOpacity, transform: [{ translateY: userCardSlide }] }}>
-        <View style={[styles.userSearchCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          {/* Info usuario */}
-          <View style={styles.userRow}>
-            <LinearGradient
-              colors={[theme.primary, isDark ? '#7F1D35' : '#C53860']}
-              style={styles.userAvatar}
-            >
-              <Ionicons name="person" size={18} color="#FFFFFF" />
-            </LinearGradient>
-            <View style={styles.userInfo}>
-              <Text style={[styles.userName, { color: theme.text }]} numberOfLines={1}>
-                {currentUser?.displayName || 'Cargando...'}
-              </Text>
-              <Text style={[styles.userRole, { color: theme.textSecondary }]}>
-                {currentUser?.role === 'admin' ? 'Administrador • Todas las tareas' : 
-                 currentUser?.role === 'secretario' ? 'Secretario • Tareas de mi secretaría' :
-                 currentUser?.role === 'director' ? 'Director • Tareas de mi dirección' :
-                 currentUser?.role === 'jefe' ? 'Jefe • Tareas de mi área' : 
-                 'Operativo • Mis tareas asignadas'}
-              </Text>
-            </View>
-          </View>
-          
-          {/* Búsqueda */}
-          <View style={[styles.searchRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
-            <Ionicons name="search" size={18} color={theme.textSecondary} />
-            <TextInput
-              style={[styles.searchInput, { color: theme.text }]}
-              placeholder="Buscar tareas..."
-              placeholderTextColor={theme.textSecondary}
-              value={searchText}
-              onChangeText={setSearchText}
-            />
-            {searchText !== '' && (
-              <TouchableOpacity onPress={() => setSearchText('')}>
-                <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
-              </TouchableOpacity>
-            )}
-            <View style={[styles.searchDivider, { backgroundColor: theme.border }]} />
-            <TouchableOpacity 
-              style={[styles.filterIconBtn, showFilters && { backgroundColor: theme.primary }]}
-              onPress={() => setShowFilters(!showFilters)}
-            >
-              <Ionicons name="options" size={18} color={showFilters ? '#FFFFFF' : theme.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Animated.View>
-
-      {/* 📊 Quick Stats - Estadísticas rápidas */}
-      <View style={styles.quickStatsContainer}>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.quickStatsScroll}
-        >
-          {quickStats.overdue > 0 && (
-            <TouchableOpacity 
-              style={[styles.quickStatItem, styles.quickStatOverdue]}
-              onPress={() => setFilters(prev => ({ ...prev, overdue: true }))}
-            >
-              <Ionicons name="alert-circle" size={18} color="#FFFFFF" />
-              <Text style={styles.quickStatValue}>{quickStats.overdue}</Text>
-              <Text style={styles.quickStatLabel}>Vencidas</Text>
+      {/* Búsqueda compacta */}
+      <View style={[styles.searchCompact, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
+        <View style={[styles.searchRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
+          <Ionicons name="search" size={18} color={theme.textSecondary} />
+          <TextInput
+            style={[styles.searchInput, { color: theme.text }]}
+            placeholder="Buscar tareas..."
+            placeholderTextColor={theme.textSecondary}
+            value={searchText}
+            onChangeText={setSearchText}
+          />
+          {searchText !== '' && (
+            <TouchableOpacity onPress={() => setSearchText('')}>
+              <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
             </TouchableOpacity>
           )}
-          
+          <View style={[styles.searchDivider, { backgroundColor: theme.border }]} />
           <TouchableOpacity 
-            style={[styles.quickStatItem, { backgroundColor: isDark ? '#2A2A2A' : '#FEF3C7', borderColor: '#F59E0B' }]}
-            onPress={() => {/* Filter by today */}}
+            style={[styles.filterIconBtn, showFilters && { backgroundColor: theme.primary }]}
+            onPress={() => setShowFilters(!showFilters)}
           >
-            <Ionicons name="today" size={18} color="#F59E0B" />
-            <Text style={[styles.quickStatValue, { color: '#F59E0B' }]}>{quickStats.dueToday}</Text>
-            <Text style={[styles.quickStatLabel, { color: '#B45309' }]}>Hoy</Text>
+            <Ionicons name="options" size={18} color={showFilters ? '#FFFFFF' : theme.textSecondary} />
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.quickStatItem, { backgroundColor: isDark ? '#2A2A2A' : '#EDE9FE', borderColor: '#8B5CF6' }]}
-            onPress={() => {/* Filter by upcoming */}}
-          >
-            <Ionicons name="calendar" size={18} color="#8B5CF6" />
-            <Text style={[styles.quickStatValue, { color: '#8B5CF6' }]}>{quickStats.upcoming}</Text>
-            <Text style={[styles.quickStatLabel, { color: '#6D28D9' }]}>Próximas</Text>
-          </TouchableOpacity>
-          
-          <View style={[styles.quickStatItem, { backgroundColor: isDark ? '#2A2A2A' : '#D1FAE5', borderColor: '#10B981' }]}>
-            <Ionicons name="checkmark-circle" size={18} color="#10B981" />
-            <Text style={[styles.quickStatValue, { color: '#10B981' }]}>{quickStats.completed}</Text>
-            <Text style={[styles.quickStatLabel, { color: '#047857' }]}>Cerradas</Text>
-          </View>
-          
-          <View style={[styles.quickStatItem, { backgroundColor: isDark ? '#2A2A2A' : '#F3F4F6', borderColor: theme.border }]}>
-            <Ionicons name="list" size={18} color={theme.textSecondary} />
-            <Text style={[styles.quickStatValue, { color: theme.text }]}>{quickStats.total}</Text>
-            <Text style={[styles.quickStatLabel, { color: theme.textSecondary }]}>Total</Text>
-          </View>
-        </ScrollView>
+        </View>
       </View>
+
+
 
       {/* Chips de filtros activos */}
       {(filters.status.length > 0 || filters.priority.length > 0 || filters.area.length > 0 || filters.overdue || searchText) && (
@@ -1468,10 +1433,10 @@ export default function MyInboxScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* Barra de acciones y contador elegante */}
-      <View style={[styles.actionsBar, { backgroundColor: theme.card, borderColor: theme.border }]}>
-        <View style={styles.actionsBarLeft}>
-          {selectedTaskIds.size > 0 ? (
+      {/* Barra de acciones - Solo cuando hay selección */}
+      {selectedTaskIds.size > 0 && (
+        <View style={[styles.actionsBar, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <View style={styles.actionsBarLeft}>
             <View style={styles.selectionInfo}>
               <View style={[styles.selectionBadge, { backgroundColor: theme.primary }]}>
                 <Text style={styles.selectionBadgeText}>{selectedTaskIds.size}</Text>
@@ -1480,19 +1445,8 @@ export default function MyInboxScreen({ navigation }) {
                 {selectedTaskIds.size === 1 ? 'tarea seleccionada' : 'tareas seleccionadas'}
               </Text>
             </View>
-          ) : (
-            <View style={styles.counterInfo}>
-              <Text style={[styles.counterNumber, { color: theme.text }]}>{filtered.length}</Text>
-              <Text style={[styles.counterLabel, { color: theme.textSecondary }]}>
-                {filtered.length === 1 ? 'tarea' : 'tareas'}
-                {searchText ? ' encontradas' : ''}
-              </Text>
-            </View>
-          )}
-        </View>
-        
-        {/* Acciones cuando hay selección */}
-        {selectedTaskIds.size > 0 && (
+          </View>
+          
           <View style={styles.bulkActions}>
             <TouchableOpacity
               style={[styles.bulkActionBtn, { backgroundColor: '#EF4444' }]}
@@ -1507,8 +1461,84 @@ export default function MyInboxScreen({ navigation }) {
               <Ionicons name="close" size={16} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
-        )}
-      </View>
+        </View>
+      )}
+
+      {/* Chips de filtro rápido por estado */}
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false} 
+        style={[styles.quickFiltersScroll, { backgroundColor: theme.background }]}
+        contentContainerStyle={styles.quickFiltersContent}
+      >
+        {[
+          { key: 'todas', label: 'Todas', icon: 'apps' },
+          { key: 'pendiente', label: 'Pendiente', icon: 'time-outline' },
+          { key: 'en-progreso', label: 'En progreso', icon: 'play-circle' },
+          { key: 'revision', label: 'Revisión', icon: 'eye' },
+          { key: 'cerrada', label: 'Cerradas', icon: 'checkmark-circle' },
+        ].map(filter => (
+          <TouchableOpacity
+            key={filter.key}
+            style={[
+              styles.quickFilterChip,
+              { 
+                backgroundColor: quickStatusFilter === filter.key 
+                  ? theme.primary 
+                  : (isDark ? '#2a2a2a' : '#f0f0f0'),
+                borderColor: quickStatusFilter === filter.key 
+                  ? theme.primary 
+                  : (isDark ? '#444' : '#ddd'),
+              }
+            ]}
+            onPress={() => {
+              hapticLight();
+              setQuickStatusFilter(filter.key);
+            }}
+          >
+            <Ionicons 
+              name={filter.icon} 
+              size={14} 
+              color={quickStatusFilter === filter.key ? '#fff' : theme.textSecondary} 
+            />
+            <Text style={[
+              styles.quickFilterLabel,
+              { color: quickStatusFilter === filter.key ? '#fff' : theme.text }
+            ]}>
+              {filter.label}
+            </Text>
+            <View style={[
+              styles.quickFilterBadge,
+              { backgroundColor: quickStatusFilter === filter.key ? 'rgba(255,255,255,0.3)' : (isDark ? '#444' : '#ddd') }
+            ]}>
+              <Text style={[
+                styles.quickFilterBadgeText,
+                { color: quickStatusFilter === filter.key ? '#fff' : theme.textSecondary }
+              ]}>
+                {statusCounts[filter.key]}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+        
+        {/* Toggle vista compacta */}
+        <TouchableOpacity 
+          style={[
+            styles.compactToggleBtn, 
+            { backgroundColor: compactView ? theme.primary : (isDark ? '#2a2a2a' : '#f0f0f0') }
+          ]}
+          onPress={() => {
+            hapticLight();
+            setCompactView(!compactView);
+          }}
+        >
+          <Ionicons 
+            name={compactView ? 'list' : 'grid-outline'} 
+            size={16} 
+            color={compactView ? '#fff' : theme.text} 
+          />
+        </TouchableOpacity>
+      </ScrollView>
 
       {/* Modal de mensajes */}
       <Modal
@@ -1732,6 +1762,12 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 4,
+  },
+  // Búsqueda compacta
+  searchCompact: {
+    paddingHorizontal: padding,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
   },
   // Tarjeta usuario y búsqueda unificada
   userSearchCard: {
@@ -2579,5 +2615,47 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+  // Estilos para filtros rápidos
+  quickFiltersScroll: {
+    paddingVertical: 8,
+  },
+  quickFiltersContent: {
+    paddingHorizontal: 16,
+    gap: 8,
+    alignItems: 'center',
+  },
+  quickFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
+  },
+  quickFilterLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  quickFilterBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  quickFilterBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  compactToggleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
 });

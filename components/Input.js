@@ -18,6 +18,9 @@ export default function Input({
   secureTextEntry = false,
   keyboardType = 'default',
   autoCapitalize = 'sentences',
+  accessibilityLabel,
+  accessibilityHint,
+  testID,
   style,
 }) {
   const { theme } = useTheme();
@@ -109,6 +112,11 @@ export default function Input({
           secureTextEntry={secureTextEntry}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
+          accessible={true}
+          accessibilityLabel={accessibilityLabel || label || placeholder}
+          accessibilityHint={accessibilityHint || (error ? `Error: ${error}` : undefined)}
+          accessibilityState={{ disabled }}
+          testID={testID}
         />
 
         {(error || success) && (

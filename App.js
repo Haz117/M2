@@ -45,6 +45,7 @@ import { setupNotificationResponseListener } from './services/notifications';
 import { registerPushToken, setupPushNotificationListener } from './services/pushNotifications';
 import { initConnectionListener, syncPendingOperations, clearOfflineData } from './services/offlineSync';
 import OfflineIndicator from './components/OfflineIndicator';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Vercel Analytics y Speed Insights (solo en web)
 let Analytics, SpeedInsights;
@@ -474,6 +475,7 @@ export default function App() {
   }
   
   return (
+    <ErrorBoundary>
     <ThemeProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
         {/* Indicador de estado offline */}
@@ -609,6 +611,7 @@ export default function App() {
         {Platform.OS === 'web' && SpeedInsights && <SpeedInsights />}
       </GestureHandlerRootView>
     </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 

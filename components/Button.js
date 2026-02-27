@@ -16,6 +16,9 @@ export default function Button({
   loading = false,
   disabled = false,
   fullWidth = false,
+  accessibilityLabel,
+  accessibilityHint,
+  testID,
   style 
 }) {
   const { theme } = useTheme();
@@ -109,6 +112,12 @@ export default function Button({
         onPressOut={handlePressOut}
         disabled={isDisabled}
         activeOpacity={0.9}
+        accessible={true}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel || title}
+        accessibilityHint={accessibilityHint}
+        accessibilityState={{ disabled: isDisabled, busy: loading }}
+        testID={testID}
         style={[
           styles.button,
           variantStyles.border && styles.buttonGhost,

@@ -49,6 +49,9 @@ GoogleService-Info.plist
 *EJEMPLO_USO*
 *RESUMEN_MEJORAS*
 
+# Datos sensibles
+data/
+
 # Misc
 *.jks
 *.p8

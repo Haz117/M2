@@ -1,6 +1,6 @@
 // screens/DashboardScreen.js
 // Dashboard con métricas estilo Kanban mejorado - Glassmorphism + Animaciones
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions, TouchableOpacity, Platform, FlatList, Modal, ActivityIndicator, Alert, Animated, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -187,8 +187,8 @@ export default function DashboardScreen({ navigation }) {
     loadAllData();
   }, []);
 
-  // Agrupar por área
-  const groupByArea = () => {
+  // Agrupar por área (memoizado para evitar recálculos)
+  const areaGroups = useMemo(() => {
     const groups = {};
     AREAS.forEach(area => {
       groups[area] = {
@@ -215,29 +215,28 @@ export default function DashboardScreen({ navigation }) {
     });
 
     return groups;
-  };
+  }, [tasks]);
 
-  // Tareas críticas
-  const getCriticalTasks = () => {
+  // Tareas críticas (memoizado)
+  const criticalTasks = useMemo(() => {
     return tasks.filter(t => 
       t.priority === 'alta' && 
       (t.status !== 'cerrada')
     ).sort((a, b) => (a.dueAt || 0) - (b.dueAt || 0));
-  };
+  }, [tasks]);
 
-  // Tareas por prioridad
-  const getPriorityStats = () => {
+  // Tareas por prioridad (memoizado)
+  const priorityStats = useMemo(() => {
     const stats = { alta: 0, media: 0, baja: 0 };
     tasks.forEach(task => {
       const priority = task.priority || 'media';
       stats[priority]++;
     });
     return stats;
-  };
+  }, [tasks]);
 
-  // Estadísticas de cumplimiento
-  const getComplianceStats = () => {
-    const now = Date.now();
+  // Estadísticas de cumplimiento (memoizado)
+  const complianceStats = useMemo(() => {
     let onTime = 0;
     let Late = 0;
     let completedTasks = tasks.filter(t => t.status === 'cerrada');
@@ -259,10 +258,10 @@ export default function DashboardScreen({ navigation }) {
       onTimeRate: total > 0 ? Math.round((onTime / total) * 100) : 0,
       total
     };
-  };
+  }, [tasks]);
 
-  // Próximos vencimientos
-  const getUpcomingDeadlines = () => {
+  // Próximos vencimientos (memoizado)
+  const upcomingDeadlines = useMemo(() => {
     const now = Date.now();
     const week = 7 * 24 * 60 * 60 * 1000;
     
@@ -275,21 +274,19 @@ export default function DashboardScreen({ navigation }) {
       )
       .sort((a, b) => (a.dueAt || 0) - (b.dueAt || 0))
       .slice(0, 5);
-  };
+  }, [tasks]);
 
-  // Tareas vencidas
-  const getOverdueTasks = () => {
-    const result = tasks.filter(t => 
+  // Tareas vencidas (memoizado)
+  const overdueTasks = useMemo(() => {
+    return tasks.filter(t => 
       t.dueAt && 
       t.dueAt < Date.now() && 
       (t.status !== 'cerrada')
     ).sort((a, b) => (a.dueAt || 0) - (b.dueAt || 0));
-    
-    return result;
-  };
+  }, [tasks]);
 
   // Exportar datos
-  const handleExport = async () => {
+  const handleExport = useCallback(async () => {
     setIsExporting(true);
     try {
       const result = await exportStatsToCSV(metrics, trendData);
@@ -308,7 +305,7 @@ export default function DashboardScreen({ navigation }) {
       setToastVisible(true);
       setTimeout(() => setToastVisible(false), 3000);
     }
-  };
+  }, [metrics, trendData]);
 
   const isDesktopLarge = screenWidth >= 1440;
   const styles = React.useMemo(() => createStyles(theme, isDark, isDesktop, isTablet, isDesktopLarge, screenWidth, padding, columns), [theme, isDark, isDesktop, isTablet, isDesktopLarge, screenWidth, padding, columns]);
@@ -334,16 +331,16 @@ export default function DashboardScreen({ navigation }) {
     );
   }
 
-  // Datos para gráfica de dona (distribución de estados)
-  const statusPieData = [
-    { name: 'Completadas', population: metrics.completed, color: '#10B981', legendFontColor: theme.text },
-    { name: 'En Proceso', population: metrics.inProgress, color: '#3B82F6', legendFontColor: theme.text },
-    { name: 'Pendientes', population: metrics.pending, color: '#F59E0B', legendFontColor: theme.text },
-    { name: 'En Revisión', population: metrics.inReview, color: '#8B5CF6', legendFontColor: theme.text },
-  ].filter(item => item.population > 0);
+  // Datos para gráficas (memoizados para evitar recreación en cada render)
+  const statusPieData = useMemo(() => [
+    { name: 'Completadas', population: metrics?.completed || 0, color: '#10B981', legendFontColor: theme.text },
+    { name: 'En Proceso', population: metrics?.inProgress || 0, color: '#3B82F6', legendFontColor: theme.text },
+    { name: 'Pendientes', population: metrics?.pending || 0, color: '#F59E0B', legendFontColor: theme.text },
+    { name: 'En Revisión', population: metrics?.inReview || 0, color: '#8B5CF6', legendFontColor: theme.text },
+  ].filter(item => item.population > 0), [metrics, theme.text]);
 
   // Datos para gráfica de línea (tendencia)
-  const lineData = {
+  const lineData = useMemo(() => ({
     labels: trendData.slice(-7).map(d => d.label),
     datasets: [
       {
@@ -358,19 +355,19 @@ export default function DashboardScreen({ navigation }) {
       },
     ],
     legend: ['Creadas', 'Completadas'],
-  };
+  }), [trendData]);
 
   // Datos para gráfica de barras (por prioridad)
-  const priorityBarData = {
+  const priorityBarData = useMemo(() => ({
     labels: ['Alta', 'Media', 'Baja'],
     datasets: [{
       data: [
-        metrics.byPriority.alta,
-        metrics.byPriority.media,
-        metrics.byPriority.baja,
+        metrics?.byPriority?.alta || 0,
+        metrics?.byPriority?.media || 0,
+        metrics?.byPriority?.baja || 0,
       ],
     }],
-  };
+  }), [metrics]);
 
   const periodData = metrics.periods[selectedPeriod];
 
@@ -387,13 +384,7 @@ export default function DashboardScreen({ navigation }) {
           >
             <View style={styles.header}>
               <View style={{ flex: 1 }}>
-                <View style={styles.greetingContainer}>
-                  <View style={styles.iconBadge}>
-                    <Ionicons name="bar-chart" size={18} color="#FFFFFF" />
-                  </View>
-                  <Text style={styles.greeting}>Análisis y Métricas</Text>
-                </View>
-                <Text style={styles.heading}>Dashboard + Reportes</Text>
+                <Text style={styles.heading}>Dashboard</Text>
               </View>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <RippleButton 
@@ -641,7 +632,7 @@ export default function DashboardScreen({ navigation }) {
         </Animated.View>
 
         {/* Sección de Tareas Críticas y Vencidas */}
-        {(getCriticalTasks().length > 0 || getOverdueTasks().length > 0) && (
+        {(criticalTasks.length > 0 || overdueTasks.length > 0) && (
           <View style={[styles.alertSection, { backgroundColor: 'rgba(239, 68, 68, 0.08)', borderColor: theme.border }]}>
             <View style={styles.sectionHeaderContainer}>
               <View style={[styles.sectionIconBadge, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
@@ -652,9 +643,9 @@ export default function DashboardScreen({ navigation }) {
               </Text>
             </View>
             
-            {getOverdueTasks().length > 0 && (
+            {overdueTasks.length > 0 && (
               <OverdueAlert 
-                tasks={getOverdueTasks().slice(0, 10)} 
+                tasks={overdueTasks.slice(0, 10)} 
                 currentUserEmail={currentUser?.email || ''}
                 role={currentUser?.role || 'operativo'}
               />
@@ -1064,8 +1055,7 @@ const createStyles = (theme, isDark, isDesktop, isTablet, isDesktopLarge, screen
     },
     contentWrapper: {
       flex: 1,
-      width: contentMaxWidth,
-      maxWidth: contentMaxWidth,
+      width: '100%',
       alignSelf: 'center',
       backgroundColor: theme.background,
     },

@@ -14,9 +14,12 @@ import Toast from '../components/Toast';
 import OverdueAlert from '../components/OverdueAlert';
 import { hapticMedium, hapticLight } from '../utils/haptics';
 import { subscribeToTasks } from '../services/tasks';
+import { useResponsive } from '../utils/responsive';
+import { MAX_WIDTHS } from '../theme/tokens';
 
 export default function AdminScreen({ navigation, onLogout }) {
   const { isDark, toggleTheme, theme } = useTheme();
+  const { isDesktop } = useResponsive();
   const [notificationCount, setNotificationCount] = useState(0);
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -374,6 +377,7 @@ export default function AdminScreen({ navigation, onLogout }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.contentWrapper, { maxWidth: isDesktop ? MAX_WIDTHS.content : '100%' }]}>
       {/* Modal de Tareas Urgentes */}
       <Modal
         visible={showUrgentModal}
@@ -1458,13 +1462,20 @@ export default function AdminScreen({ navigation, onLogout }) {
         type={toastType}
         onHide={() => setToastVisible(false)}
       />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1
+    flex: 1,
+    alignItems: 'center',
+  },
+  contentWrapper: {
+    flex: 1,
+    width: '100%',
+    alignSelf: 'center',
   },
   loadingContainer: {
     justifyContent: 'center',

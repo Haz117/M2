@@ -40,6 +40,8 @@ export default function CalendarScreen({ navigation }) {
   const [toastType, setToastType] = useState('success');
   const [currentUser, setCurrentUser] = useState(null);
   const [monthDirection, setMonthDirection] = useState(0); // -1 prev, 1 next
+  const [compactTaskView, setCompactTaskView] = useState(false); // Vista compacta de tareas
+  const [taskStatusFilter, setTaskStatusFilter] = useState('todas'); // Filtro por estado en modal
   
   // Animaciones de entrada mejoradas
   const headerSlide = useRef(new Animated.Value(-50)).current;
@@ -351,11 +353,11 @@ export default function CalendarScreen({ navigation }) {
   };
 
   const renderTaskItem = (task, index) => (
-    <FadeInView duration={350} delay={index * 80} style={{ marginBottom: 12 }}>
+    <FadeInView duration={350} delay={index * 80} style={{ marginBottom: compactTaskView ? 6 : 12 }}>
       <RippleButton
         key={task.id}
         style={[
-          styles.modalTaskCard, 
+          compactTaskView ? styles.modalTaskCardCompact : styles.modalTaskCard, 
           { 
             backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : theme.glass,
             borderColor: isDark ? 'rgba(255,255,255,0.1)' : theme.borderLight,
@@ -368,60 +370,114 @@ export default function CalendarScreen({ navigation }) {
         }}
         rippleColor={isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}
       >
-        <View style={styles.modalTaskHeader}>
-          <View style={[
-            styles.modalTaskPriority,
-            task.priority === 'alta' && styles.modalTaskPriorityHigh,
-            task.priority === 'media' && styles.modalTaskPriorityMedium,
-            task.priority === 'baja' && styles.modalTaskPriorityLow
-          ]} />
-          <View style={styles.modalTaskContent}>
-            <Text style={[styles.modalTaskTitle, { color: theme.text }]} numberOfLines={2}>{task.title}</Text>
-            
-            <View style={styles.modalTaskMeta}>
-              <View style={styles.modalTaskMetaItem}>
-                <Ionicons name="business-outline" size={13} color={theme.textSecondary} />
-                <Text style={[styles.modalTaskMetaText, { color: theme.textSecondary }]}>{task.area}</Text>
-              </View>
-              <View style={styles.modalTaskMetaItem}>
-                <Ionicons name="person-outline" size={13} color={theme.textSecondary} />
-                <Text style={[styles.modalTaskMetaText, { color: theme.textSecondary }]}>{task.assignedTo || 'Sin asignar'}</Text>
-              </View>
-              <View style={styles.modalTaskMetaItem}>
-                <Ionicons name="time-outline" size={13} color={theme.textSecondary} />
-                <Text style={[styles.modalTaskMetaText, { color: theme.textSecondary }]}>
-                  {new Date(task.dueAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                </Text>
+        {compactTaskView ? (
+          // Vista compacta
+          <View style={styles.compactTaskRow}>
+            <View style={[
+              styles.compactPriorityDot,
+              task.priority === 'alta' && { backgroundColor: '#EF4444' },
+              task.priority === 'media' && { backgroundColor: '#F59E0B' },
+              task.priority === 'baja' && { backgroundColor: '#10B981' }
+            ]} />
+            <Text style={[styles.compactTaskTitle, { color: theme.text }]} numberOfLines={1}>
+              {task.title}
+            </Text>
+            <View style={[
+              styles.compactStatusBadge,
+              task.status === 'cerrada' && { backgroundColor: '#10B98120' },
+              task.status === 'en_proceso' && { backgroundColor: '#3B82F620' },
+              task.status === 'en_revision' && { backgroundColor: '#8B5CF620' },
+              task.status === 'pendiente' && { backgroundColor: '#F59E0B20' },
+            ]}>
+              <Text style={[
+                styles.compactStatusText,
+                task.status === 'cerrada' && { color: '#10B981' },
+                task.status === 'en_proceso' && { color: '#3B82F6' },
+                task.status === 'en_revision' && { color: '#8B5CF6' },
+                task.status === 'pendiente' && { color: '#F59E0B' },
+              ]}>
+                {task.status === 'cerrada' ? '✓' : task.status === 'en_proceso' ? '▶' : task.status === 'en_revision' ? '👁' : '⏳'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={14} color={theme.textSecondary} />
+          </View>
+        ) : (
+          // Vista normal
+          <>
+            <View style={styles.modalTaskHeader}>
+              <View style={[
+                styles.modalTaskPriority,
+                task.priority === 'alta' && styles.modalTaskPriorityHigh,
+                task.priority === 'media' && styles.modalTaskPriorityMedium,
+                task.priority === 'baja' && styles.modalTaskPriorityLow
+              ]} />
+              <View style={styles.modalTaskContent}>
+                <Text style={[styles.modalTaskTitle, { color: theme.text }]} numberOfLines={2}>{task.title}</Text>
+                
+                <View style={styles.modalTaskMeta}>
+                  <View style={styles.modalTaskMetaItem}>
+                    <Ionicons name="business-outline" size={13} color={theme.textSecondary} />
+                    <Text style={[styles.modalTaskMetaText, { color: theme.textSecondary }]}>{task.area}</Text>
+                  </View>
+                  <View style={styles.modalTaskMetaItem}>
+                    <Ionicons name="person-outline" size={13} color={theme.textSecondary} />
+                    <Text style={[styles.modalTaskMetaText, { color: theme.textSecondary }]}>{task.assignedTo || 'Sin asignar'}</Text>
+                  </View>
+                  <View style={styles.modalTaskMetaItem}>
+                    <Ionicons name="time-outline" size={13} color={theme.textSecondary} />
+                    <Text style={[styles.modalTaskMetaText, { color: theme.textSecondary }]}>
+                      {new Date(task.dueAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </View>
+                </View>
               </View>
             </View>
-          </View>
-        </View>
-        
-        <View style={styles.modalTaskFooter}>
-          <View style={[
-            styles.modalTaskStatus,
-            task.status === 'cerrada' && styles.modalTaskStatusClosed,
-            task.status === 'en_proceso' && styles.modalTaskStatusInProgress,
-            task.status === 'en_revision' && styles.modalTaskStatusReview,
-          ]}>
-            <Text style={[
-              styles.modalTaskStatusText,
-              task.status === 'cerrada' && { color: '#10B981' },
-              task.status === 'en_proceso' && { color: '#3B82F6' },
-              task.status === 'en_revision' && { color: '#8B5CF6' },
-            ]}>
-              {task.status === 'en_proceso' ? 'En proceso' : 
-               task.status === 'en_revision' ? 'En revisión' : 
-               task.status === 'cerrada' ? 'Completada' : 'Pendiente'}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
-        </View>
+            
+            <View style={styles.modalTaskFooter}>
+              <View style={[
+                styles.modalTaskStatus,
+                task.status === 'cerrada' && styles.modalTaskStatusClosed,
+                task.status === 'en_proceso' && styles.modalTaskStatusInProgress,
+                task.status === 'en_revision' && styles.modalTaskStatusReview,
+              ]}>
+                <Text style={[
+                  styles.modalTaskStatusText,
+                  task.status === 'cerrada' && { color: '#10B981' },
+                  task.status === 'en_proceso' && { color: '#3B82F6' },
+                  task.status === 'en_revision' && { color: '#8B5CF6' },
+                ]}>
+                  {task.status === 'en_proceso' ? 'En proceso' : 
+                   task.status === 'en_revision' ? 'En revisión' : 
+                   task.status === 'cerrada' ? 'Completada' : 'Pendiente'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
+            </View>
+          </>
+        )}
       </RippleButton>
     </FadeInView>
   );
 
   const selectedDateTasks = selectedDate ? getTasksForDate(selectedDate) : [];
+  
+  // Filtrar tareas según filtro de estado
+  const filteredSelectedTasks = selectedDateTasks.filter(task => {
+    if (taskStatusFilter === 'todas') return true;
+    if (taskStatusFilter === 'pendiente') return task.status === 'pendiente';
+    if (taskStatusFilter === 'en-progreso') return task.status === 'en_proceso' || task.status === 'en-progreso';
+    if (taskStatusFilter === 'cerrada') return task.status === 'cerrada';
+    return true;
+  });
+
+  // Conteos para chips de filtro
+  const taskStatusCounts = {
+    todas: selectedDateTasks.length,
+    pendiente: selectedDateTasks.filter(t => t.status === 'pendiente').length,
+    'en-progreso': selectedDateTasks.filter(t => t.status === 'en_proceso' || t.status === 'en-progreso').length,
+    cerrada: selectedDateTasks.filter(t => t.status === 'cerrada').length,
+  };
+
   const styles = React.useMemo(() => createStyles(theme, isDark, isDesktop, isTablet, width, padding), [theme, isDark, isDesktop, isTablet, width, padding]);
   
   // Estilos animados mejorados con glassmorphism
@@ -461,12 +517,6 @@ export default function CalendarScreen({ navigation }) {
         >
           <View style={styles.header}>
             <View>
-              <View style={styles.greetingContainer}>
-                <View style={styles.iconBadge}>
-                  <Ionicons name="calendar" size={18} color="#FFFFFF" />
-                </View>
-                <Text style={styles.greeting}>Vista mensual</Text>
-              </View>
               <Text style={styles.heading}>Calendario</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -503,52 +553,10 @@ export default function CalendarScreen({ navigation }) {
         </LinearGradient>
       </Animated.View>
 
-      {/* Alerta de tareas vencidas */}
-      <OverdueAlert 
-        tasks={tasks} 
-        currentUserEmail={currentUser?.email}
-        role={currentUser?.role}
-      />
-
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* 📊 Quick Stats Inline - Compacto */}
-        <FadeInView duration={300} delay={50}>
-          <View style={[styles.quickStatsInline, { backgroundColor: theme.glass }]}>
-            <View style={styles.quickStatInlineItem}>
-              <Text style={[styles.quickStatInlineValue, { color: '#3B82F6' }]}>{monthStats.totalTasks}</Text>
-              <Text style={[styles.quickStatInlineLabel, { color: theme.textSecondary }]}>Total</Text>
-            </View>
-            <View style={styles.quickStatInlineDivider} />
-            <View style={styles.quickStatInlineItem}>
-              <Text style={[styles.quickStatInlineValue, { color: '#10B981' }]}>{monthStats.completedTasks}</Text>
-              <Text style={[styles.quickStatInlineLabel, { color: theme.textSecondary }]}>✓</Text>
-            </View>
-            <View style={styles.quickStatInlineDivider} />
-            <View style={styles.quickStatInlineItem}>
-              <Text style={[styles.quickStatInlineValue, { color: '#8B5CF6' }]}>{monthStats.inProgressTasks}</Text>
-              <Text style={[styles.quickStatInlineLabel, { color: theme.textSecondary }]}>En proc.</Text>
-            </View>
-            {monthStats.highPriorityTasks > 0 && (
-              <>
-                <View style={styles.quickStatInlineDivider} />
-                <View style={styles.quickStatInlineItem}>
-                  <Text style={[styles.quickStatInlineValue, { color: '#EF4444' }]}>{monthStats.highPriorityTasks}</Text>
-                  <Text style={[styles.quickStatInlineLabel, { color: theme.textSecondary }]}>⚠️</Text>
-                </View>
-              </>
-            )}
-            <View style={styles.quickStatInlineDivider} />
-            <View style={[styles.completionPill, { backgroundColor: monthStats.completionRate > 50 ? (isDark ? 'rgba(16,185,129,0.2)' : '#ECFDF5') : (isDark ? 'rgba(245,158,11,0.2)' : '#FFFBEB') }]}>
-              <Text style={[styles.completionPillText, { color: monthStats.completionRate > 50 ? '#10B981' : '#F59E0B' }]}>
-                {monthStats.completionRate}%
-              </Text>
-            </View>
-          </View>
-        </FadeInView>
-
         {/* Controles de mes con glassmorphism */}
         <Animated.View style={[styles.monthControlsWrapper, calendarAnimatedStyle]}>
           <View style={[styles.monthControls, { backgroundColor: theme.glass }]}>
@@ -714,16 +722,84 @@ export default function CalendarScreen({ navigation }) {
               </View>
             )}
 
+            {/* Filtros y toggle compacto */}
+            {selectedDateTasks.length > 0 && (
+              <View style={styles.modalFiltersRow}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modalFiltersContent}>
+                  {[
+                    { key: 'todas', label: 'Todas', icon: 'apps' },
+                    { key: 'pendiente', label: 'Pendientes', icon: 'time-outline' },
+                    { key: 'en-progreso', label: 'En progreso', icon: 'play-circle' },
+                    { key: 'cerrada', label: 'Cerradas', icon: 'checkmark-circle' },
+                  ].map(filter => (
+                    <TouchableOpacity
+                      key={filter.key}
+                      style={[
+                        styles.modalFilterChip,
+                        { 
+                          backgroundColor: taskStatusFilter === filter.key 
+                            ? theme.primary 
+                            : (isDark ? '#2a2a2a' : '#f0f0f0'),
+                          borderColor: taskStatusFilter === filter.key 
+                            ? theme.primary 
+                            : (isDark ? '#444' : '#ddd'),
+                        }
+                      ]}
+                      onPress={() => {
+                        hapticLight();
+                        setTaskStatusFilter(filter.key);
+                      }}
+                    >
+                      <Ionicons 
+                        name={filter.icon} 
+                        size={12} 
+                        color={taskStatusFilter === filter.key ? '#fff' : theme.textSecondary} 
+                      />
+                      <Text style={[
+                        styles.modalFilterLabel,
+                        { color: taskStatusFilter === filter.key ? '#fff' : theme.text }
+                      ]}>
+                        {filter.label}
+                      </Text>
+                      <Text style={[
+                        styles.modalFilterCount,
+                        { color: taskStatusFilter === filter.key ? 'rgba(255,255,255,0.7)' : theme.textSecondary }
+                      ]}>
+                        {taskStatusCounts[filter.key]}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                
+                <TouchableOpacity 
+                  style={[
+                    styles.modalCompactToggle, 
+                    { backgroundColor: compactTaskView ? theme.primary : (isDark ? '#2a2a2a' : '#f0f0f0') }
+                  ]}
+                  onPress={() => {
+                    hapticLight();
+                    setCompactTaskView(!compactTaskView);
+                  }}
+                >
+                  <Ionicons 
+                    name={compactTaskView ? 'list' : 'grid-outline'} 
+                    size={16} 
+                    color={compactTaskView ? '#fff' : theme.text} 
+                  />
+                </TouchableOpacity>
+              </View>
+            )}
+
             <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
-              {selectedDateTasks.length === 0 ? (
+              {filteredSelectedTasks.length === 0 ? (
                 <View style={styles.modalEmptyState}>
                   <Ionicons name="calendar-outline" size={48} color={theme.textSecondary} />
                   <Text style={[styles.modalEmptyText, { color: theme.textSecondary }]}>
-                    No hay tareas para este día
+                    {selectedDateTasks.length === 0 ? 'No hay tareas para este día' : 'No hay tareas con este filtro'}
                   </Text>
                 </View>
               ) : (
-                selectedDateTasks.map((task, index) => renderTaskItem(task, index))
+                filteredSelectedTasks.map((task, index) => renderTaskItem(task, index))
               )}
             </ScrollView>
           </Animated.View>
@@ -1437,5 +1513,71 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
   },
   modalTaskStatusReview: {
     backgroundColor: isDark ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.1)',
+  },
+  // Compact view styles
+  modalTaskCardCompact: {
+    padding: 10,
+    marginBottom: 6,
+    borderRadius: 10,
+  },
+  compactTaskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  compactPriorityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  compactTaskTitle: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  compactStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  compactStatusText: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  // Modal filter styles
+  modalFiltersRow: {
+    marginBottom: 12,
+  },
+  modalFiltersContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 4,
+  },
+  modalFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  modalFilterLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  modalFilterCount: {
+    fontSize: 10,
+    fontWeight: '700',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  modalCompactToggle: {
+    padding: 8,
+    borderRadius: 8,
+    marginLeft: 8,
   },
 });

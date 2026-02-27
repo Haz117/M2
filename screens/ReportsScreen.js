@@ -163,8 +163,12 @@ export default function ReportsScreen({ navigation }) {
       return;
     }
 
+    // OPTIMIZACIÓN: Solo suscribirse a las primeras 20 tareas para evitar sobrecarga
+    // Las subtareas se usan principalmente para mostrar progreso visual
+    const tasksToSubscribe = tasks.slice(0, 20);
+
     // Suscribirse a subtareas de cada tarea con manejo de errores
-    tasks.forEach((task) => {
+    tasksToSubscribe.forEach((task) => {
       try {
         const unsubscribe = subscribeToSubtasks(task.id, (subtasks) => {
           if (!mounted) return;
@@ -366,13 +370,12 @@ export default function ReportsScreen({ navigation }) {
         }),
       ]).start();
       
-      // Efecto de pulso continuo para indicadores
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.05, duration: 1000, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
-        ])
-      ).start();
+      // OPTIMIZACIÓN: Pulso simple una vez en lugar de loop infinito
+      // para evitar consumo constante de CPU
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.03, duration: 600, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+      ]).start();
     }
   }, [metricsByType]);
 
@@ -597,8 +600,8 @@ export default function ReportsScreen({ navigation }) {
     setMetricsByType(byType);
   };
 
-  // Función auxiliar para filtrar métricas por áreas seleccionadas
-  const getFilteredMetrics = () => {
+  // Función auxiliar para filtrar métricas por áreas seleccionadas (memoizada)
+  const filteredMetricsData = useMemo(() => {
     if (filteredAreas.length === 0) {
       return { detailedAreaMetrics, areaMetrics, areasNeedingAttention };
     }
@@ -627,9 +630,9 @@ export default function ReportsScreen({ navigation }) {
       areaMetrics: filtered,
       areasNeedingAttention: filteredAlerts,
     };
-  };
+  }, [filteredAreas, detailedAreaMetrics, areaMetrics, areasNeedingAttention]);
 
-  const { detailedAreaMetrics: displayDetailedMetrics, areaMetrics: displayAreaMetrics, areasNeedingAttention: displayAlerts } = getFilteredMetrics();
+  const { detailedAreaMetrics: displayDetailedMetrics, areaMetrics: displayAreaMetrics, areasNeedingAttention: displayAlerts } = filteredMetricsData;
 
   // ✨ Calcular alertas, insights y análisis avanzados (optimizado con useMemo)
   useEffect(() => {
@@ -733,20 +736,21 @@ export default function ReportsScreen({ navigation }) {
 
   const currentStats = period === 'week' ? weeklyStats : monthlyStats;
 
-  const chartData = {
+  // OPTIMIZACIÓN: Memoizar datos de charts para evitar recreación
+  const chartData = useMemo(() => ({
     labels: dailyCompletions.map(d => d.date),
     datasets: [{
       data: dailyCompletions.map(d => d.count),
       strokeWidth: 2,
       color: (opacity = 1) => `rgba(159, 34, 65, ${opacity})`,
     }],
-  };
+  }), [dailyCompletions]);
 
-  const priorityChartData = [
+  const priorityChartData = useMemo(() => [
     { name: 'Alta', population: priorityDistribution.alta || 0, color: '#DC2626', legendFontColor: theme.text },
     { name: 'Media', population: priorityDistribution.media || 0, color: '#F59E0B', legendFontColor: theme.text },
     { name: 'Baja', population: priorityDistribution.baja || 0, color: '#10B981', legendFontColor: theme.text },
-  ].filter(d => d.population > 0);
+  ].filter(d => d.population > 0), [priorityDistribution, theme.text]);
 
   const isDesktopLarge = width >= 1440;
   const styles = React.useMemo(() => createStyles(theme, isDark, isDesktop, isTablet, isDesktopLarge, width, padding), [theme, isDark, isDesktop, isTablet, isDesktopLarge, width, padding]);

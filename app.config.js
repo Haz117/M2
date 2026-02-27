@@ -36,7 +36,7 @@ module.exports = {
       ]
     },
     web: {
-      favicon: './assets/icon.png',
+      favicon: './assets/favicon.png',
       bundler: 'metro',
       config: {
         firebase: {

@@ -11,6 +11,10 @@ const RippleButton = ({
   rippleColor = 'rgba(255, 255, 255, 0.3)',
   rippleDuration = 600,
   disabled = false,
+  accessibilityLabel,
+  accessibilityHint,
+  accessibilityRole = 'button',
+  testID,
   ...props 
 }) => {
   const rippleAnim = useRef(new Animated.Value(0)).current;
@@ -52,6 +56,12 @@ const RippleButton = ({
       onPress={handlePress}
       disabled={disabled}
       activeOpacity={0.8}
+      accessible={true}
+      accessibilityRole={accessibilityRole}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled }}
+      testID={testID}
       style={[styles.container, style]}
       {...props}
     >

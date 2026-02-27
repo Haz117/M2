@@ -20,12 +20,15 @@ import { getCurrentSession } from '../services/authFirestore';
 import { useTheme } from '../contexts/ThemeContext';
 import ProgressBar from '../components/ProgressBar';
 import LoadingIndicator from '../components/LoadingIndicator';
+import { useResponsive } from '../utils/responsive';
+import { MAX_WIDTHS } from '../theme/tokens';
 
 const { width } = Dimensions.get('window');
 
 export default function TaskProgressScreen({ route, navigation }) {
   const { taskId, task } = route.params;
   const { theme, isDark } = useTheme();
+  const { isDesktop } = useResponsive();
 
   const [expandedSubtask, setExpandedSubtask] = useState(null);
 
@@ -106,6 +109,7 @@ export default function TaskProgressScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.contentWrapper, { maxWidth: isDesktop ? MAX_WIDTHS.content : '100%' }]}>
       {/* Header */}
       <View style={[styles.headerBar, { backgroundColor: '#9F2241' }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
@@ -404,13 +408,20 @@ export default function TaskProgressScreen({ route, navigation }) {
           </View>
         )}
       </Animated.ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1
+    flex: 1,
+    alignItems: 'center',
+  },
+  contentWrapper: {
+    flex: 1,
+    width: '100%',
+    alignSelf: 'center',
   },
   headerBar: {
     flexDirection: 'row',

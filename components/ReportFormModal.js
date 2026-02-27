@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,15 @@ import {
   Alert,
   Dimensions,
   TextInput,
+  Platform,
 } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../contexts/ThemeContext';
 import { createTaskReport, uploadReportImage } from '../services/reportsService';
 import { getCurrentSession } from '../services/authFirestore';
+import { savePendingReport, updatePendingReportImages } from '../services/offlineReportsService';
 import Toast from './Toast';
 import WebSafeBlur from './WebSafeBlur';
 
@@ -32,6 +35,62 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [errors, setErrors] = useState({});
+  const [uploadProgress, setUploadProgress] = useState({});
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [showTemplates, setShowTemplates] = useState(true);
+
+  // 📋 Plantillas de reportes rápidos
+  const REPORT_TEMPLATES = [
+    {
+      id: 'progress',
+      icon: '📊',
+      label: 'Avance',
+      title: 'Reporte de avance',
+      description: 'Se ha realizado avance en la tarea. ',
+    },
+    {
+      id: 'completed',
+      icon: '✅',
+      label: 'Completado',
+      title: 'Tarea completada exitosamente',
+      description: 'Se completó la tarea satisfactoriamente. Resultados: ',
+    },
+    {
+      id: 'issue',
+      icon: '⚠️',
+      label: 'Problema',
+      title: 'Reporte de incidencia',
+      description: 'Se presenta el siguiente problema o bloqueo: ',
+    },
+    {
+      id: 'noNews',
+      icon: '📌',
+      label: 'Sin novedad',
+      title: 'Sin novedad',
+      description: 'No hay novedades que reportar en esta tarea. El trabajo continúa según lo planeado.',
+    },
+  ];
+
+  const applyTemplate = (template) => {
+    setTitle(template.title);
+    setDescription(template.description);
+    setShowTemplates(false);
+  };
+
+  // Monitorear estado de conexión
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected === true);
+    });
+    
+    // Verificar estado inicial
+    NetInfo.fetch().then(state => {
+      setIsOnline(state.isConnected === true);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const styles = StyleSheet.create({
     container: {
@@ -58,15 +117,47 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
     header: {
       marginBottom: 16,
     },
+    headerRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 4,
+    },
     title: {
       fontSize: 20,
       fontWeight: 'bold',
       color: isDark ? '#fff' : '#000',
-      marginBottom: 4,
+    },
+    connectionBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 12,
+      gap: 4,
+    },
+    connectionText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: '#fff',
     },
     subtitle: {
       fontSize: 13,
       color: isDark ? '#888' : '#666',
+    },
+    offlineWarning: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isDark ? '#3d2800' : '#fff3e0',
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 16,
+      gap: 8,
+    },
+    offlineWarningText: {
+      flex: 1,
+      fontSize: 12,
+      color: isDark ? '#FFB74D' : '#E65100',
     },
     section: {
       marginBottom: 24,
@@ -129,9 +220,46 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
       borderRadius: 16,
       padding: 4,
     },
+    uploadOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderRadius: 8,
+    },
+    successBadge: {
+      backgroundColor: 'rgba(0, 0, 0, 0.4)',
+      borderRadius: 50,
+      padding: 8,
+    },
+    errorBadge: {
+      backgroundColor: 'rgba(0, 0, 0, 0.4)',
+      borderRadius: 50,
+      padding: 8,
+    },
+    uploadSummary: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isDark ? '#272727' : '#f0f0f0',
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+    },
+    uploadSummaryText: {
+      fontSize: 13,
+      fontWeight: '500',
+    },
+    imageButtonsRow: {
+      flexDirection: 'row',
+      gap: 8,
+    },
     addImageButton: {
-      width: (width - 56) / 2,
-      height: (width - 56) / 2,
+      width: (width - 72) / 3,
+      aspectRatio: 1,
       borderRadius: 8,
       borderWidth: 2,
       borderStyle: 'dashed',
@@ -188,6 +316,54 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
       minHeight: 80,
       marginTop: 8,
     },
+    // 📋 Estilos de plantillas rápidas
+    templatesSection: {
+      marginBottom: 20,
+    },
+    templatesHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    templatesTitle: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: isDark ? '#aaa' : '#666',
+    },
+    templatesToggle: {
+      fontSize: 12,
+      color: theme.primary,
+      fontWeight: '500',
+    },
+    templatesGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    templateChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 10,
+      backgroundColor: isDark ? '#272727' : '#f5f5f5',
+      borderWidth: 1,
+      borderColor: isDark ? '#333' : '#e0e0e0',
+      gap: 6,
+    },
+    templateChipActive: {
+      backgroundColor: theme.primary + '15',
+      borderColor: theme.primary,
+    },
+    templateIcon: {
+      fontSize: 16,
+    },
+    templateLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: isDark ? '#fff' : '#333',
+    },
   });
 
   const handleAddImage = async () => {
@@ -209,7 +385,35 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      setToastMessage('Error selecting image');
+      setToastMessage('Error al seleccionar imagen');
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        setToastMessage('Se necesita permiso para usar la cámara');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const newImage = {
+          id: Date.now().toString(),
+          uri: result.assets[0].uri,
+          uploading: false,
+        };
+        setImages([...images, newImage]);
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      setToastMessage('Error al tomar foto');
     }
   };
 
@@ -221,15 +425,15 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
     const newErrors = {};
 
     if (!title.trim()) {
-      newErrors.title = 'Title is required';
+      newErrors.title = 'El título es requerido';
     } else if (title.length < 3) {
-      newErrors.title = 'Title must be at least 3 characters';
+      newErrors.title = 'El título debe tener al menos 3 caracteres';
     }
 
     if (!description.trim()) {
-      newErrors.description = 'Description is required';
+      newErrors.description = 'La descripción es requerida';
     } else if (description.length < 10) {
-      newErrors.description = 'Description must be at least 10 characters';
+      newErrors.description = 'La descripción debe tener al menos 10 caracteres';
     }
 
     setErrors(newErrors);
@@ -244,21 +448,70 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
       return;
     }
 
+    // Verificar conexión antes de intentar
+    const netState = await NetInfo.fetch();
+    const hasInternet = netState.isConnected === true;
+    
+    console.log('🌐 Connection status:', hasInternet ? 'ONLINE' : 'OFFLINE');
+
+    // Si no hay internet, ofrecer guardar offline inmediatamente
+    if (!hasInternet) {
+      Alert.alert(
+        '📶 Sin Conexión',
+        'No tienes conexión a internet. ¿Quieres guardar el reporte para enviarlo cuando tengas conexión?',
+        [
+          {
+            text: 'Cancelar',
+            style: 'cancel',
+          },
+          {
+            text: 'Guardar para Después',
+            onPress: async () => {
+              try {
+                setLoading(true);
+                const session = await getCurrentSession();
+                await savePendingReport({
+                  taskId,
+                  title: title.trim(),
+                  description: description.trim(),
+                  images: images.map(img => img.uri),
+                  imageCount: images.length,
+                  rating: rating > 0 ? rating : null,
+                  ratingComment: ratingComment.trim(),
+                  userId: session.session?.userId,
+                });
+                setToastMessage('💾 Reporte guardado localmente. Se enviará cuando haya conexión.');
+                setTimeout(() => closeAndReset(), 1000);
+              } catch (offlineError) {
+                console.error('Error guardando offline:', offlineError);
+                setToastMessage('Error al guardar: ' + offlineError.message);
+              } finally {
+                setLoading(false);
+              }
+            },
+          },
+        ]
+      );
+      return;
+    }
+
     console.log('✅ Form validated, starting submission...');
     setLoading(true);
+    setUploadingImages(false);
+    
     try {
       const result = await getCurrentSession();
       console.log('📝 Session result:', result.success ? 'OK' : 'FAILED');
       
       if (!result.success || !result.session) {
-        throw new Error('User not authenticated');
+        throw new Error('Usuario no autenticado');
       }
       const currentUser = result.session;
       console.log('👤 Current user:', currentUser.email, 'Role:', currentUser.role);
 
       console.log('📋 Creating report for taskId:', taskId);
       
-      // Create report SIN imágenes primero
+      // PASO 1: Crear reporte SIN imágenes primero
       const reportId = await createTaskReport(taskId, currentUser.userId, {
         title: title.trim(),
         description: description.trim(),
@@ -269,11 +522,25 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
       
       console.log('✅ Report created successfully with ID:', reportId);
 
-      // Subir imágenes - intentar Storage, fallback a base64
+      // PASO 2: Subir imágenes - Esperar a que TODAS terminen
       if (images.length > 0) {
+        setUploadingImages(true);
         console.log('📸 Processing', images.length, 'images...');
-        for (const img of images) {
+        
+        let failedImages = 0;
+        let successfulImages = 0;
+
+        for (let idx = 0; idx < images.length; idx++) {
+          const img = images[idx];
+          const imageId = img.id;
+          
           try {
+            // Actualizar progreso visual
+            setUploadProgress(prev => ({
+              ...prev,
+              [imageId]: { status: 'uploading', progress: 0 }
+            }));
+
             // Primero intentar convertir a base64 como fallback
             let base64Data = null;
             try {
@@ -288,37 +555,117 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
               console.warn('⚠️ Could not convert to base64:', convError);
             }
             
+            // Subir imagen (con fallback a base64)
             await uploadReportImage(taskId, reportId, {
               uri: img.uri,
               base64: base64Data ? base64Data.split(',')[1] : null,
               dataUrl: base64Data,
               uploadedBy: currentUser.userId,
             });
-            console.log('✅ Image processed:', img.uri.substring(0, 50) + '...');
+
+            // Marcar como completada
+            successfulImages++;
+            setUploadProgress(prev => ({
+              ...prev,
+              [imageId]: { status: 'success', progress: 100 }
+            }));
+
+            console.log(`✅ Image ${idx + 1}/${images.length} processed:`, img.uri.substring(0, 50) + '...');
           } catch (imgError) {
-            console.error('⚠️ Error processing image:', imgError);
-            // Continuar con las otras imágenes
+            failedImages++;
+            console.error(`⚠️ Error processing image ${idx + 1}:`, imgError);
+            
+            setUploadProgress(prev => ({
+              ...prev,
+              [imageId]: { status: 'error', progress: 0, error: imgError.message }
+            }));
           }
         }
+
+        setUploadingImages(false);
+        
+        // Log final del resultado
+        console.log(`📊 Upload Results: ${successfulImages}/${images.length} succeeded, ${failedImages} failed`);
+
+        if (failedImages > 0) {
+          // Si algunas fallaron, avisar pero permitir continuar
+          Alert.alert(
+            '⚠️ Aviso',
+            `${successfulImages}/${images.length} fotos se enviaron correctamente.\n${failedImages} foto(s) no se pudieron enviar. Puedes reintentar después.`,
+            [
+              {
+                text: 'Ir a Reportes',
+                onPress: () => closeAndReset(),
+              },
+            ]
+          );
+        } else {
+          setToastMessage('✅ ¡Reporte y fotos enviados exitosamente!');
+        }
+      } else {
+        setToastMessage('✅ ¡Reporte enviado exitosamente!');
       }
 
-      setToastMessage('Report created successfully!');
+      // PASO 3: Cerrar modal DESPUÉS de que terminen todos los uploads
       setTimeout(() => {
-        setTitle('');
-        setDescription('');
-        setImages([]);
-        setRating(0);
-        setRatingComment('');
-        setErrors({});
-        onSuccess?.();
-        onClose();
-      }, 500);
+        closeAndReset();
+      }, 800);
+
     } catch (error) {
       console.error('❌ Error creating report:', error);
-      setToastMessage('Error creating report: ' + error.message);
+      setToastMessage('Error: ' + error.message);
+      
+      // Ofrecer opción de guardar offline
+      Alert.alert(
+        '❌ Error al Enviar',
+        'No se pudo enviar el reporte. ¿Quieres guardarlo localmente para enviarlo después?',
+        [
+          {
+            text: 'Descartar',
+            onPress: () => {
+              closeAndReset();
+            },
+          },
+          {
+            text: 'Guardar para Después',
+            onPress: async () => {
+              try {
+                await savePendingReport({
+                  taskId,
+                  title: title.trim(),
+                  description: description.trim(),
+                  images: images.map(img => img.uri),
+                  imageCount: images.length,
+                  rating: rating > 0 ? rating : null,
+                  ratingComment: ratingComment.trim(),
+                  userId: (await getCurrentSession()).session?.userId,
+                });
+                setToastMessage('💾 Reporte guardado. Se enviará cuando haya conexión.');
+                closeAndReset();
+              } catch (offlineError) {
+                console.error('Error guardando offline:', offlineError);
+                setToastMessage('Error al guardar');
+              }
+            },
+          },
+        ]
+      );
     } finally {
       setLoading(false);
     }
+  };
+
+  const closeAndReset = () => {
+    setTitle('');
+    setDescription('');
+    setImages([]);
+    setRating(0);
+    setRatingComment('');
+    setErrors({});
+    setUploadProgress({});
+    setUploadingImages(false);
+    onSuccess?.();
+    onClose();
   };
 
   return (
@@ -338,18 +685,68 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
         <View style={styles.sheet}>
           <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
             <View style={styles.header}>
-              <Text style={styles.title}>Task Report</Text>
+              <View style={styles.headerRow}>
+                <Text style={styles.title}>Nuevo Reporte</Text>
+                {/* Indicador de conexión */}
+                <View style={[
+                  styles.connectionBadge,
+                  { backgroundColor: isOnline ? '#4CAF50' : '#FF9800' }
+                ]}>
+                  <Ionicons 
+                    name={isOnline ? 'wifi' : 'cloud-offline'} 
+                    size={12} 
+                    color="#fff" 
+                  />
+                  <Text style={styles.connectionText}>
+                    {isOnline ? 'Online' : 'Offline'}
+                  </Text>
+                </View>
+              </View>
               <Text style={styles.subtitle}>
-                Document task completion with photos and notes
+                Documenta el avance con fotos y notas
               </Text>
             </View>
 
+            {/* Aviso de modo offline */}
+            {!isOnline && (
+              <View style={styles.offlineWarning}>
+                <Ionicons name="information-circle" size={18} color="#FF9800" />
+                <Text style={styles.offlineWarningText}>
+                  Sin conexión. El reporte se guardará localmente y se enviará cuando tengas internet.
+                </Text>
+              </View>
+            )}
+
+            {/* Plantillas rápidas */}
+            {showTemplates && (
+              <View style={styles.templatesSection}>
+                <View style={styles.templatesHeader}>
+                  <Text style={styles.templatesTitle}>📋 Plantillas rápidas</Text>
+                  <TouchableOpacity onPress={() => setShowTemplates(false)}>
+                    <Ionicons name="close-circle-outline" size={20} color={isDark ? '#888' : '#666'} />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.templatesGrid}>
+                  {REPORT_TEMPLATES.map(template => (
+                    <TouchableOpacity 
+                      key={template.id} 
+                      style={[styles.templateChip, { backgroundColor: isDark ? '#2d2d2d' : '#f0f0f0' }]} 
+                      onPress={() => applyTemplate(template)}
+                    >
+                      <Text style={styles.templateIcon}>{template.icon}</Text>
+                      <Text style={[styles.templateLabel, { color: isDark ? '#fff' : '#333' }]}>{template.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
             {/* Title */}
             <View style={styles.section}>
-              <Text style={styles.label}>Report Title *</Text>
+              <Text style={styles.label}>Título del Reporte *</Text>
               <TextInput
                 style={styles.input}
-                placeholder="e.g., Completed website redesign"
+                placeholder="Ej: Trabajo completado exitosamente"
                 placeholderTextColor={isDark ? '#666' : '#ccc'}
                 value={title}
                 onChangeText={setTitle}
@@ -362,10 +759,10 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
 
             {/* Description */}
             <View style={styles.section}>
-              <Text style={styles.label}>Description *</Text>
+              <Text style={styles.label}>Descripción *</Text>
               <TextInput
                 style={[styles.input, styles.multilineInput]}
-                placeholder="Describe what was completed, steps taken, results..."
+                placeholder="Describe qué se hizo, pasos realizados, resultados..."
                 placeholderTextColor={isDark ? '#666' : '#ccc'}
                 value={description}
                 onChangeText={setDescription}
@@ -379,48 +776,100 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
 
             {/* Photos/Evidence */}
             <View style={styles.section}>
-              <Text style={styles.label}>Photos/Evidence</Text>
+              <Text style={styles.label}>Fotos / Evidencia</Text>
               <View style={styles.imageGrid}>
-                {images.map((image) => (
-                  <View key={image.id} style={styles.imageContainer}>
-                    <Image
-                      source={{ uri: image.uri }}
-                      style={styles.image}
-                    />
+                {images.map((image) => {
+                  const imageStatus = uploadProgress[image.id];
+                  return (
+                    <View key={image.id} style={styles.imageContainer}>
+                      <Image
+                        source={{ uri: image.uri }}
+                        style={styles.image}
+                        opacity={imageStatus?.status === 'error' ? 0.5 : 1}
+                      />
+                      
+                      {/* Indicador de estado de upload */}
+                      {uploadingImages && (
+                        <View style={styles.uploadOverlay}>
+                          {imageStatus?.status === 'uploading' && (
+                            <ActivityIndicator color="#fff" size="large" />
+                          )}
+                          {imageStatus?.status === 'success' && (
+                            <View style={styles.successBadge}>
+                              <Ionicons name="checkmark-circle" size={32} color="#4CAF50" />
+                            </View>
+                          )}
+                          {imageStatus?.status === 'error' && (
+                            <View style={styles.errorBadge}>
+                              <Ionicons name="close-circle" size={32} color="#FF3B30" />
+                            </View>
+                          )}
+                        </View>
+                      )}
+
+                      <TouchableOpacity
+                        style={styles.removeImageButton}
+                        onPress={() => handleRemoveImage(image.id)}
+                        disabled={uploadingImages}
+                      >
+                        <Ionicons
+                          name="close"
+                          size={18}
+                          color="#fff"
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+
+                {images.length < 5 && !uploadingImages && (
+                  <View style={styles.imageButtonsRow}>
                     <TouchableOpacity
-                      style={styles.removeImageButton}
-                      onPress={() => handleRemoveImage(image.id)}
+                      style={styles.addImageButton}
+                      onPress={handleTakePhoto}
                       disabled={loading}
                     >
                       <Ionicons
-                        name="close"
-                        size={18}
-                        color="#fff"
+                        name="camera"
+                        size={28}
+                        color={theme.primary}
                       />
+                      <Text style={styles.addImageText}>Cámara</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.addImageButton}
+                      onPress={handleAddImage}
+                      disabled={loading}
+                    >
+                      <Ionicons
+                        name="images"
+                        size={28}
+                        color={theme.primary}
+                      />
+                      <Text style={styles.addImageText}>Galería</Text>
                     </TouchableOpacity>
                   </View>
-                ))}
-
-                {images.length < 5 && (
-                  <TouchableOpacity
-                    style={styles.addImageButton}
-                    onPress={handleAddImage}
-                    disabled={loading}
-                  >
-                    <Ionicons
-                      name="camera"
-                      size={32}
-                      color={theme.primary}
-                    />
-                    <Text style={styles.addImageText}>Add Photo</Text>
-                  </TouchableOpacity>
                 )}
               </View>
+
+              {/* Resumen de uploads si está uploadingImages */}
+              {uploadingImages && (
+                <View style={[styles.uploadSummary, { marginTop: 12 }]}>
+                  <ActivityIndicator 
+                    color={theme.primary} 
+                    size="small" 
+                    style={{ marginRight: 8 }} 
+                  />
+                  <Text style={[styles.uploadSummaryText, { color: theme.primary }]}>
+                    Enviando {images.length} foto(s)...
+                  </Text>
+                </View>
+              )}
             </View>
 
             {/* Quality Rating */}
             <View style={styles.section}>
-              <Text style={styles.label}>Task Quality Rating</Text>
+              <Text style={styles.label}>Calificación de Calidad</Text>
               <View style={styles.ratingContainer}>
                 {[1, 2, 3, 4, 5].map((star) => (
                   <TouchableOpacity
@@ -443,10 +892,10 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
 
               {rating > 0 && (
                 <View style={styles.section}>
-                  <Text style={styles.label}>Additional Comments</Text>
+                  <Text style={styles.label}>Comentarios Adicionales</Text>
                   <TextInput
                     style={[styles.input, styles.ratingCommentInput]}
-                    placeholder="Share details about the quality and completion..."
+                    placeholder="Comparte detalles sobre la calidad del trabajo..."
                     placeholderTextColor={isDark ? '#666' : '#ccc'}
                     value={ratingComment}
                     onChangeText={setRatingComment}
@@ -465,7 +914,7 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
               onPress={onClose}
               disabled={loading}
             >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles.cancelButtonText}>Cancelar</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.saveButton}
@@ -477,7 +926,9 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
               ) : (
                 <>
                   <Ionicons name="checkmark-done" size={18} color="#fff" />
-                  <Text style={styles.buttonText}>Submit Report</Text>
+                  <Text style={styles.buttonText}>
+                    {isOnline ? 'Enviar Reporte' : 'Guardar Offline'}
+                  </Text>
                 </>
               )}
             </TouchableOpacity>

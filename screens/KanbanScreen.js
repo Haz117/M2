@@ -34,6 +34,9 @@ import TaskStatusButtons from '../components/TaskStatusButtons';
 import { useTheme } from '../contexts/ThemeContext';
 import { canChangeTaskStatus } from '../services/permissions';
 import HelpButton from '../components/HelpButton';
+import QuickTip, { TIPS } from '../components/QuickTip';
+import { useResponsive } from '../utils/responsive';
+import { MAX_WIDTHS } from '../theme/tokens';
 
 const STATUSES = [
   { key: 'pendiente', label: 'Pendiente', color: '#FF9800', icon: 'hourglass-outline' },
@@ -44,6 +47,7 @@ const STATUSES = [
 
 export default function KanbanScreen({ navigation }) {
   const { theme, isDark } = useTheme();
+  const { isDesktop } = useResponsive();
   // 🌍 USAR EL CONTEXT GLOBAL DE TAREAS
   const { tasks, setTasks } = useTasks();
   const [currentUserRole, setCurrentUserRole] = useState(null);
@@ -685,14 +689,11 @@ export default function KanbanScreen({ navigation }) {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <View style={[styles.contentWrapper, { maxWidth: isDesktop ? MAX_WIDTHS.content : '100%' }]}>
         <View style={[styles.headerGradient, { backgroundColor: theme.primary }]}>
           <View style={styles.header}>
             <View style={{ flex: 1 }}>
-              <View style={styles.greetingContainer}>
-                <Ionicons name="hand-right" size={14} color="#FFFFFF" style={{ marginRight: 6, opacity: 0.85 }} />
-                <Text style={styles.greeting}>Hola!</Text>
-              </View>
-              <Text style={styles.heading}>Kanban</Text>
+              <Text style={styles.heading}>Tablero Kanban</Text>
             </View>
             
             {/* Indicador de Vencidas Premium en el Header */}
@@ -1319,6 +1320,14 @@ export default function KanbanScreen({ navigation }) {
           type={toastType}
           onHide={() => setToastVisible(false)}
         />
+        
+        {/* 💡 Tip de ayuda para tablero Kanban */}
+        <QuickTip
+          {...TIPS.KANBAN_DRAG}
+          position="bottom"
+          delay={2500}
+        />
+        </View>{/* contentWrapper */}
       </View>
     </GestureHandlerRootView>
   );
@@ -1331,6 +1340,7 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
   container: { 
     flex: 1,
     backgroundColor: theme.background,
+    alignItems: 'center',
     ...(Platform.OS === 'web' ? {
       display: 'flex',
       flexDirection: 'column',
@@ -1338,6 +1348,11 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
       height: '100vh',
       overflow: 'hidden'
     } : {})
+  },
+  contentWrapper: {
+    flex: 1,
+    width: '100%',
+    alignSelf: 'center',
   },
   headerGradient: {
     paddingHorizontal: screenWidth > 768 ? 20 : 14,

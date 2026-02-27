@@ -11,6 +11,9 @@ export default function Card({
   style,
   padding = 16,
   animated = true,
+  accessibilityLabel,
+  accessibilityHint,
+  testID,
 }) {
   const { theme, isDark } = useTheme();
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -93,6 +96,11 @@ export default function Card({
           onPress={onPress}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel}
+          accessibilityHint={accessibilityHint}
+          testID={testID}
         >
           <CardContent />
         </Pressable>

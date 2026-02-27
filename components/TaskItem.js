@@ -39,9 +39,10 @@ const TaskItem = memo(function TaskItem({
   onReopen,
   currentUserRole = 'operativo',
   index = 0,
+  compact = false,  // 📱 Vista compacta para mostrar más tareas
   isDeleting: isDeleteProp = false  // ⚡ Prop para que el padre pueda controlar si se está borrando
 }) {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const { width: screenWidth } = useResponsive();
   const isSmallDevice = screenWidth < 400;
   const [now, setNow] = useState(Date.now());
@@ -229,6 +230,16 @@ const TaskItem = memo(function TaskItem({
   const priorityStyle = getPriorityStyle();
   const dueStatus = getDueStatus();
 
+  // Estilos compactos
+  const compactStyles = compact ? {
+    container: { paddingVertical: 10, paddingHorizontal: 12, marginHorizontal: 12, marginVertical: 4 },
+    title: { fontSize: 14 },
+    avatar: { width: 28, height: 28 },
+    meta: { fontSize: 11 },
+    hideCoordination: true,
+    hideButtons: true, // Ocultar botones de acción en vista compacta
+  } : {};
+
   return (
     <>
       <Swipeable renderRightActions={renderRightActions} renderLeftActions={renderLeftActions} friction={1.5} overshootFriction={8}>
@@ -242,7 +253,8 @@ const TaskItem = memo(function TaskItem({
                 shadowColor: theme.shadow,
                 opacity: isDeleteProp ? 0.6 : 1  // ⚡ Opcidad reducida cuando se está borrando
               },
-              task.status === 'cerrada' && { opacity: isDeleteProp ? 0.6 : 0.7, backgroundColor: theme.backgroundTertiary }
+              task.status === 'cerrada' && { opacity: isDeleteProp ? 0.6 : 0.7, backgroundColor: theme.backgroundTertiary },
+              compact && compactStyles.container
             ]}
           >
             {/* Indicador prominente de "BORRANDO..." */}
@@ -305,19 +317,44 @@ const TaskItem = memo(function TaskItem({
               >
                 {/* Fila 1: Avatar + Título */}
                 <View style={styles.row}>
-                  {task.assignedToNames && task.assignedToNames.length > 0 && <Avatar name={task.assignedToNames[0]} size={isSmallDevice ? 32 : 36} style={styles.avatar} showBorder />}
-                  <Text style={[styles.title, { color: theme.text }, task.status === 'cerrada' && styles.titleCompleted]} numberOfLines={2}>
+                  {task.assignedToNames && task.assignedToNames.length > 0 && (
+                    <Avatar 
+                      name={task.assignedToNames[0]} 
+                      size={compact ? 24 : (isSmallDevice ? 32 : 36)} 
+                      style={styles.avatar} 
+                      showBorder 
+                    />
+                  )}
+                  <Text 
+                    style={[
+                      styles.title, 
+                      { color: theme.text }, 
+                      task.status === 'cerrada' && styles.titleCompleted,
+                      compact && { fontSize: 14 }
+                    ]} 
+                    numberOfLines={compact ? 1 : 2}
+                  >
                     {task.title}
                   </Text>
                 </View>
               
-                {/* Fila 2: Área • Asignado */}
-                <Text style={[styles.meta, { color: theme.textSecondary }]} numberOfLines={1}>
-                  {task.area || 'Sin área'} • {task.assignedToNames?.length > 0 ? task.assignedToNames.join(', ') : 'Sin asignar'}
+                {/* Fila 2: Área • Asignado (simplificado en compacto) */}
+                <Text 
+                  style={[
+                    styles.meta, 
+                    { color: theme.textSecondary },
+                    compact && { fontSize: 11, marginTop: 2 }
+                  ]} 
+                  numberOfLines={1}
+                >
+                  {compact 
+                    ? `${task.area || 'Sin área'} • ${task.status === 'cerrada' ? '✓ Completada' : task.status === 'en_progreso' ? '▶ En progreso' : task.status === 'en_revision' ? '👁 Revisión' : '⏳ Pendiente'}`
+                    : `${task.area || 'Sin área'} • ${task.assignedToNames?.length > 0 ? task.assignedToNames.join(', ') : 'Sin asignar'}`
+                  }
                 </Text>
                 
-                {/* Indicador de Tarea Multi-Área (Coordinación) */}
-                {task.isCoordinationTask && (
+                {/* Indicador de Tarea Multi-Área (Coordinación) - Oculto en compacto */}
+                {!compact && task.isCoordinationTask && (
                   <View style={[styles.coordinationBadge, { backgroundColor: '#9C27B020', borderColor: '#9C27B0' }]}>
                     <Ionicons name="git-branch" size={14} color="#9C27B0" />
                     <Text style={[styles.coordinationText, { color: '#9C27B0' }]}>
@@ -326,13 +363,15 @@ const TaskItem = memo(function TaskItem({
                   </View>
                 )}
                 
-                {/* Fila 3: Estado */}
-                <Text style={[styles.statusText, { color: theme.textTertiary }]} numberOfLines={1}>
-                  {task.status === 'en_progreso' ? 'En progreso' : task.status === 'en_revision' ? 'En revisión' : task.status === 'cerrada' ? 'Completada' : 'Pendiente'}
-                </Text>
+                {/* Fila 3: Estado - Oculto en compacto (ya está en meta) */}
+                {!compact && (
+                  <Text style={[styles.statusText, { color: theme.textTertiary }]} numberOfLines={1}>
+                    {task.status === 'en_progreso' ? 'En progreso' : task.status === 'en_revision' ? 'En revisión' : task.status === 'cerrada' ? 'Completada' : 'Pendiente'}
+                  </Text>
+                )}
 
-                {/* Fila 3.5: Etiquetas */}
-                {task.tags && task.tags.length > 0 && (
+                {/* Fila 3.5: Etiquetas - Oculto en compacto */}
+                {!compact && task.tags && task.tags.length > 0 && (
                   <View style={styles.tagsRow}>
                     {task.tags.slice(0, 3).map((tag, idx) => (
                       <View key={idx} style={[styles.tagChip, { backgroundColor: theme.primaryLight || 'rgba(159,34,65,0.1)' }]}>
@@ -345,8 +384,8 @@ const TaskItem = memo(function TaskItem({
                   </View>
                 )}
 
-                {/* Fila 4: Botones de Acción Rápida */}
-                {onChangeStatus && task.status !== 'cerrada' && (
+                {/* Fila 4: Botones de Acción Rápida - Oculto en compacto */}
+                {!compact && onChangeStatus && task.status !== 'cerrada' && (
                   <View style={styles.quickActionsRow}>
                     {task.status === 'pendiente' && (
                       <TouchableOpacity
@@ -381,8 +420,8 @@ const TaskItem = memo(function TaskItem({
                   </View>
                 )}
 
-                {/* Fila 5: Barra de Progreso (EN TIEMPO REAL) */}
-                {progressData && progressData.subtaskStats && progressData.subtaskStats.total > 0 && (
+                {/* Fila 5: Barra de Progreso (EN TIEMPO REAL) - Oculto en compacto */}
+                {!compact && progressData && progressData.subtaskStats && progressData.subtaskStats.total > 0 && (
                   <View style={styles.progressSection}>
                     <View style={styles.progressHeader}>
                       <Text style={[styles.progressLabel, { color: theme.textSecondary }]}>

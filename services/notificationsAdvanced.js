@@ -445,3 +445,67 @@ export const cleanOldNotifications = async () => {
     console.error('Error limpiando notificaciones:', error);
   }
 };
+
+/**
+ * Obtener SOLO el conteo de notificaciones no leídas (optimizado para badge)
+ * Usa queries ligeras sin cargar datos completos
+ * @returns {Promise<number>}
+ */
+export const getUnreadNotificationsCount = async () => {
+  try {
+    const sessionResult = await getCurrentSession();
+    if (!sessionResult.success || !sessionResult.session) return 0;
+
+    const userId = sessionResult.session.userId || '';
+    const userEmail = sessionResult.session.email || '';
+
+    if (!userId && !userEmail) return 0;
+
+    let count = 0;
+    const seenIds = new Set();
+
+    // Query optimizada: solo notificaciones no leídas por userId
+    if (userId) {
+      try {
+        const q = query(
+          collection(db, NOTIFICATIONS_COLLECTION),
+          where('userId', '==', userId),
+          where('read', '==', false)
+        );
+        const snapshot = await getDocs(q);
+        snapshot.docs.forEach((doc) => {
+          if (!doc.data().deleted) {
+            seenIds.add(doc.id);
+            count++;
+          }
+        });
+      } catch (e) {
+        // Puede fallar si el índice no existe, fallback silencioso
+      }
+    }
+
+    // Query optimizada: solo no leídas por email
+    if (userEmail) {
+      try {
+        const q = query(
+          collection(db, NOTIFICATIONS_COLLECTION),
+          where('userEmail', '==', userEmail),
+          where('read', '==', false)
+        );
+        const snapshot = await getDocs(q);
+        snapshot.docs.forEach((doc) => {
+          if (!doc.data().deleted && !seenIds.has(doc.id)) {
+            count++;
+          }
+        });
+      } catch (e) {
+        // Fallback silencioso
+      }
+    }
+
+    return count;
+  } catch (error) {
+    console.error('Error contando notificaciones:', error);
+    return 0;
+  }
+};

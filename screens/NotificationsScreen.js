@@ -21,9 +21,12 @@ import { useTheme } from '../contexts/ThemeContext';
 import { getMyNotifications, markNotificationAsRead, deleteNotification } from '../services/notificationsAdvanced';
 import LoadingIndicator from '../components/LoadingIndicator';
 import Toast from '../components/Toast';
+import { useResponsive } from '../utils/responsive';
+import { MAX_WIDTHS } from '../theme/tokens';
 
 export default function NotificationsScreen({ navigation }) {
   const { theme, isDark } = useTheme();
+  const { isDesktop } = useResponsive();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -301,6 +304,7 @@ export default function NotificationsScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.contentWrapper, { maxWidth: isDesktop ? MAX_WIDTHS.content : '100%' }]}>
       {/* Header */}
       <LinearGradient
         colors={[theme.primary, theme.primary + '80']}
@@ -377,6 +381,7 @@ export default function NotificationsScreen({ navigation }) {
       )}
 
       <Toast visible={showToast} message={toastMessage} onDismiss={() => setShowToast(false)} />
+      </View>
     </View>
   );
 }
@@ -403,6 +408,12 @@ const formatTime = (timestamp) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    alignItems: 'center',
+  },
+  contentWrapper: {
+    flex: 1,
+    width: '100%',
+    alignSelf: 'center',
   },
   header: {
     paddingTop: 48,

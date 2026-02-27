@@ -1,51 +1,65 @@
 // components/NotificationsBell.js
-// Botón de notificaciones con badge
+// Botón de notificaciones con badge - OPTIMIZADO
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { TouchableOpacity, StyleSheet, View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getMyNotifications } from '../services/notificationsAdvanced';
+import { getUnreadNotificationsCount } from '../services/notificationsAdvanced';
 import { useTheme } from '../contexts/ThemeContext';
 
+// Cache global para evitar recargas innecesarias
+let cachedCount = 0;
+let lastFetchTime = 0;
+const CACHE_DURATION = 60000; // 1 minuto de cache
+
 export default function NotificationsBell({ onPress, theme }) {
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(cachedCount);
+  const isMountedRef = useRef(true);
+
+  const loadUnreadCount = useCallback(async (forceRefresh = false) => {
+    const now = Date.now();
+    
+    // Usar cache si no ha expirado y no se fuerza refresh
+    if (!forceRefresh && cachedCount > 0 && (now - lastFetchTime) < CACHE_DURATION) {
+      if (isMountedRef.current && unreadCount !== cachedCount) {
+        setUnreadCount(cachedCount);
+      }
+      return;
+    }
+
+    try {
+      const count = await getUnreadNotificationsCount();
+      cachedCount = count;
+      lastFetchTime = now;
+      
+      if (isMountedRef.current) {
+        setUnreadCount(count);
+      }
+    } catch (error) {
+      // Silent fail - mantener el último conteo
+    }
+  }, [unreadCount]);
 
   useEffect(() => {
-    let isMounted = true;
+    isMountedRef.current = true;
     
-    const loadUnreadCount = async () => {
-      try {
-        const notifications = await getMyNotifications(100);
-        if (isMounted) {
-          const unread = notifications.filter((n) => !n.read).length;
-          setUnreadCount(unread);
-        }
-      } catch (error) {
-        console.error('Error cargando notificaciones:', error);
-      }
-    };
-    
+    // Carga inicial (usa cache si disponible)
     loadUnreadCount();
-    // Recargar cada 30 segundos
-    const interval = setInterval(loadUnreadCount, 30000);
+    
+    // Recargar cada 60 segundos (antes era 30)
+    const interval = setInterval(() => loadUnreadCount(true), 60000);
     
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
       clearInterval(interval);
     };
   }, []);
 
-  const handlePress = async () => {
+  const handlePress = useCallback(() => {
     onPress();
-    // Recargar cuando se toca
-    try {
-      const notifications = await getMyNotifications(100);
-      const unread = notifications.filter((n) => !n.read).length;
-      setUnreadCount(unread);
-    } catch (error) {
-      // Silent fail on press reload
-    }
-  };
+    // Refrescar en background después de abrir
+    setTimeout(() => loadUnreadCount(true), 1000);
+  }, [onPress, loadUnreadCount]);
 
   return (
     <TouchableOpacity
@@ -62,6 +76,12 @@ export default function NotificationsBell({ onPress, theme }) {
     </TouchableOpacity>
   );
 }
+
+// Función para invalidar cache externamente (llamar después de marcar como leído)
+export const invalidateNotificationCache = () => {
+  lastFetchTime = 0;
+  cachedCount = 0;
+};
 
 const styles = StyleSheet.create({
   container: {
