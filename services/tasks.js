@@ -23,6 +23,8 @@ import { db } from '../firebase';
 import { getCurrentSession } from './authFirestore';
 import { notifyTaskAssigned } from './emailNotifications';
 import { getGeneralMetrics } from './analytics';
+import { validateData } from '../utils/dataValidation';
+import * as productionLogger from '../utils/productionLogger';
 import { 
   cacheTasksLocally, 
   getCachedTasks, 
@@ -298,6 +300,13 @@ export async function subscribeToTasks(callback) {
  */
 export async function createTask(task) {
   try {
+    // 🔍 Validar datos antes de procesar
+    const validation = validateData(task, 'task');
+    if (!validation.valid) {
+      productionLogger.logWarn('Invalid task data', { errors: validation.errors });
+      throw new Error(`Datos inválidos: ${validation.errors.join(', ')}`);
+    }
+
     // Obtener información del usuario actual
     const sessionResult = await getCurrentSession();
     const currentUserUID = sessionResult.success ? sessionResult.session.userId : 'anonymous';

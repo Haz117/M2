@@ -46,6 +46,8 @@ import { registerPushToken, setupPushNotificationListener } from './services/pus
 import { initConnectionListener, syncPendingOperations, clearOfflineData } from './services/offlineSync';
 import OfflineIndicator from './components/OfflineIndicator';
 import ErrorBoundary from './components/ErrorBoundary';
+import { startAutoCacheCleanup, stopAutoCacheCleanup } from './utils/cacheManager';
+import * as productionLogger from './utils/productionLogger';
 
 // Vercel Analytics y Speed Insights (solo en web)
 let Analytics, SpeedInsights;
@@ -424,6 +426,12 @@ export default function App() {
   useEffect(() => {
     let mounted = true;
     
+    // 🚀 Inicializar logger de producción
+    productionLogger.logInfo('App starting');
+    
+    // 💾 Inicializar auto-limpieza de cache
+    startAutoCacheCleanup();
+    
     // Iniciar monitoreo de conectividad para sincronización offline
     const unsubscribeConnectivity = startConnectivityMonitoring();
     
@@ -446,9 +454,13 @@ export default function App() {
           setIsAuthenticated(result.success);
           setIsLoading(false);
           clearTimeout(timeout);
+          if (result.success) {
+            productionLogger.logInfo('User authenticated', { userId: result.session?.uid });
+          }
         }
       })
-      .catch(() => {
+      .catch((error) => {
+        productionLogger.logError('Auth error', error);
         if (mounted) {
           setIsAuthenticated(false);
           setIsLoading(false);
@@ -462,6 +474,7 @@ export default function App() {
       if (unsubscribeConnectivity) unsubscribeConnectivity();
       if (unsubscribeConnection) unsubscribeConnection();
       if (notificationSubscription) notificationSubscription.remove();
+      stopAutoCacheCleanup();
     };
   }, []);
   
