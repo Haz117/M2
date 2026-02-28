@@ -48,6 +48,8 @@ import OfflineIndicator from './components/OfflineIndicator';
 import ErrorBoundary from './components/ErrorBoundary';
 import { startAutoCacheCleanup, stopAutoCacheCleanup } from './utils/cacheManager';
 import * as productionLogger from './utils/productionLogger';
+import { startNetworkMonitoring, stopNetworkMonitoring } from './utils/networkMonitor';
+import networkMonitor from './utils/networkMonitor';
 
 // Vercel Analytics y Speed Insights (solo en web)
 let Analytics, SpeedInsights;
@@ -432,6 +434,9 @@ export default function App() {
     // 💾 Inicializar auto-limpieza de cache
     startAutoCacheCleanup();
     
+    // 🌐 Inicializar network quality monitor
+    startNetworkMonitoring();
+    
     // Iniciar monitoreo de conectividad para sincronización offline
     const unsubscribeConnectivity = startConnectivityMonitoring();
     
@@ -475,6 +480,7 @@ export default function App() {
       if (unsubscribeConnection) unsubscribeConnection();
       if (notificationSubscription) notificationSubscription.remove();
       stopAutoCacheCleanup();
+      stopNetworkMonitoring();
     };
   }, []);
   

@@ -25,6 +25,8 @@ import { notifyTaskAssigned } from './emailNotifications';
 import { getGeneralMetrics } from './analytics';
 import { validateData } from '../utils/dataValidation';
 import * as productionLogger from '../utils/productionLogger';
+import { withRetry } from '../utils/errorRecovery';
+import { checkRateLimit } from '../utils/rateLimiter';
 import { 
   cacheTasksLocally, 
   getCachedTasks, 
@@ -300,6 +302,14 @@ export async function subscribeToTasks(callback) {
  */
 export async function createTask(task) {
   try {
+    // ⏱️ Rate limiting check
+    const rateCheck = await checkRateLimit('createTask');
+    if (!rateCheck.allowed) {
+      const error = new Error(rateCheck.message);
+      error.code = 'RATE_LIMIT_EXCEEDED';
+      throw error;
+    }
+
     // 🔍 Validar datos antes de procesar
     const validation = validateData(task, 'task');
     if (!validation.valid) {
@@ -334,7 +344,14 @@ export async function createTask(task) {
         dueAt: Timestamp.fromMillis(task.dueAt || Date.now())
       };
 
-      const docRef = await addDoc(collection(db, COLLECTION_NAME), firestoreData);
+      // 🔄 Retry automático con backoff exponencial
+      const docRef = await withRetry(
+        async () => {
+          return await addDoc(collection(db, COLLECTION_NAME), firestoreData);
+        },
+        'createTask',
+        { maxRetries: 3 }
+      );
       
       // Enviar notificación por email al asignado
       if (task.assignedTo) {
@@ -342,6 +359,7 @@ export async function createTask(task) {
           .catch(err => {});
       }
       
+      productionLogger.logInfo('Task created', { taskId: docRef.id });
       return docRef.id;
     } else {
       // MODO OFFLINE: Guardar localmente y encolar para sincronización
@@ -362,6 +380,7 @@ export async function createTask(task) {
       // Encolar para sincronización
       await queueOperation(OPERATION_TYPES.CREATE, taskData, tempId);
       
+      productionLogger.logInfo('Task queued offline', { tempId });
       return tempId;
     }
   } catch (error) {
