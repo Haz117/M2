@@ -1,14 +1,39 @@
 // services/analytics.js
 // Servicio de análisis y estadísticas de tareas
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { toMs } from '../utils/dateUtils';
+
+// ✅ OPTIMIZACIÓN: Cache simple con TTL
+const analyticsCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+
+function getCachedData(key) {
+  const cached = analyticsCache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+  analyticsCache.delete(key);
+  return null;
+}
+
+function setCachedData(key, data) {
+  analyticsCache.set(key, {
+    data,
+    timestamp: Date.now(),
+  });
+}
 
 // Helper function to check if a task is assigned to a user (supports both string and array formats)
 function isTaskAssignedToUser(task, userEmail) {
   if (!task.assignedTo) return false;
   if (Array.isArray(task.assignedTo)) {
-    return task.assignedTo.includes(userEmail.toLowerCase());
+    // Normalize emails before comparing
+    const normalizedEmail = userEmail?.toLowerCase().trim() || '';
+    if (Array.isArray(task.assignedTo)) {
+      return task.assignedTo.some(email => email?.toLowerCase().trim() === normalizedEmail);
+    }
+    return (task.assignedTo?.toLowerCase().trim() || '') === normalizedEmail;
   }
   // Backward compatibility: old string format
   return task.assignedTo.toLowerCase() === userEmail.toLowerCase();
@@ -29,24 +54,28 @@ function getTaskArea(task) {
  */
 export const getGeneralMetrics = async (userId, userRole) => {
   try {
+    // ✅ OPTIMIZACIÓN: Verificar cache primero
+    const cacheKey = `metrics_${userId}_${userRole}`;
+    const cached = getCachedData(cacheKey);
+    if (cached) return cached;
+
     let tasksQuery;
     
     // Admin, Secretario y Director ven tareas según su ámbito
     if (['admin', 'secretario', 'director'].includes(userRole)) {
-      // Admin/Secretario/Director ve todas las tareas (filtradas por área después)
-      tasksQuery = query(collection(db, 'tasks'));
+      // ✅ OPTIMIZACIÓN: Agregar limit para no cargar todo
+      tasksQuery = query(collection(db, 'tasks'), limit(500));
     } else {
-      // Otros usuarios ven todas cuando las filtramos
-      tasksQuery = query(collection(db, 'tasks'));
+      // ✅ OPTIMIZACIÓN: For non-admins, use where clause para filtrar en Firestore
+      tasksQuery = query(
+        collection(db, 'tasks'),
+        where('assignedTo', 'array-contains', userId),
+        limit(200)
+      );
     }
 
     const querySnapshot = await getDocs(tasksQuery);
     let tasks = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    
-    // Filtrar si no es admin ni secretario ni director
-    if (!['admin', 'secretario', 'director'].includes(userRole)) {
-      tasks = tasks.filter(task => isTaskAssignedToUser(task, userId));
-    }
 
     const now = Date.now();
     const today = new Date().setHours(0, 0, 0, 0);
@@ -128,6 +157,11 @@ export const getGeneralMetrics = async (userId, userRole) => {
         weeklyProductivity: parseFloat(weeklyProductivity),
       }
     };
+
+    // ✅ OPTIMIZACIÓN: Guardar en cache
+    const result = { success: true, metrics };
+    setCachedData(cacheKey, result);
+    return result;
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -375,9 +409,12 @@ export const getSecretarioMetrics = async () => {
 
     // Calcular métricas por secretario
     const secretarioStats = secretarios.map(secretario => {
-      // Tareas creadas por este secretario
+      const secEmail = secretario.email?.toLowerCase().trim() || '';
+      const secId = secretario.id || '';
+      
+      // Tareas creadas por este secretario (case-insensitive)
       const tasksCreated = tasks.filter(t => 
-        t.createdBy === secretario.email || t.createdBy === secretario.id
+        t.createdBy?.toLowerCase().trim() === secEmail || t.createdBy === secId
       );
 
       const tasksCreatedThisWeek = tasksCreated.filter(t => t.createdAt >= weekAgo);
@@ -498,10 +535,12 @@ export const getSecretarioActivitySummary = async (secretarioEmail) => {
     const tasksSnapshot = await getDocs(tasksQuery);
     const tasks = tasksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    // Filtrar tareas creadas por este secretario
+    const normalizedSecretarioEmail = secretarioEmail?.toLowerCase().trim() || '';
+    
+    // Filtrar tareas creadas por este secretario (case-insensitive)
     const secretarioTasks = tasks.filter(t => 
-      t.createdBy === secretarioEmail || 
-      (t.createdByEmail && t.createdByEmail.toLowerCase() === secretarioEmail.toLowerCase())
+      t.createdBy?.toLowerCase().trim() === normalizedSecretarioEmail || 
+      (t.createdByEmail && t.createdByEmail.toLowerCase().trim() === normalizedSecretarioEmail)
     );
 
     // Agrupar por día (últimos 30 días)

@@ -30,7 +30,12 @@ import { getDireccionesBySecretaria } from '../config/areas';
 function isTaskAssignedToUser(task, userEmail) {
   if (!task.assignedTo) return false;
   if (Array.isArray(task.assignedTo)) {
-    return task.assignedTo.includes(userEmail.toLowerCase());
+    // Normalize emails before comparing
+    const normalizedEmail = userEmail?.toLowerCase().trim() || '';
+    if (Array.isArray(task.assignedTo)) {
+      return task.assignedTo.some(email => email?.toLowerCase().trim() === normalizedEmail);
+    }
+    return (task.assignedTo?.toLowerCase().trim() || '') === normalizedEmail;
   }
   // Backward compatibility: old string format
   return task.assignedTo.toLowerCase() === userEmail.toLowerCase();
@@ -178,24 +183,36 @@ export default function MyInboxScreen({ navigation }) {
     const loadRecentMessages = async () => {
       try {
         const messages = [];
+        const userEmail = currentUser.email?.toLowerCase().trim() || '';
         
-        // Obtener tareas donde el usuario está involucrado
-        let userTasks = tasks.filter(task =>
-          task && 
-          task.id && 
-          (task.assignedTo === currentUser.email || 
-          task.createdBy === currentUser.email)
-        );
+        // Obtener tareas donde el usuario está involucrado (case-insensitive)
+        let userTasks = tasks.filter(task => {
+          if (!task || !task.id) return false;
+          // Verificar assignedTo (puede ser string o array)
+          let isAssigned = false;
+          if (Array.isArray(task.assignedTo)) {
+            isAssigned = task.assignedTo.some(e => e?.toLowerCase().trim() === userEmail);
+          } else {
+            isAssigned = task.assignedTo?.toLowerCase().trim() === userEmail;
+          }
+          const isCreator = task.createdBy?.toLowerCase().trim() === userEmail;
+          return isAssigned || isCreator;
+        });
 
         // Si es admin, agregar tareas donde haya actividad reciente (máximo 20)
         if (currentUser.role === 'admin' && userTasks.length < 10) {
           const otherTasks = tasks
-            .filter(task => 
-              task && 
-              task.id && 
-              task.assignedTo !== currentUser.email && 
-              task.createdBy !== currentUser.email
-            )
+            .filter(task => {
+              if (!task || !task.id) return false;
+              let isAssigned = false;
+              if (Array.isArray(task.assignedTo)) {
+                isAssigned = task.assignedTo.some(e => e?.toLowerCase().trim() === userEmail);
+              } else {
+                isAssigned = task.assignedTo?.toLowerCase().trim() === userEmail;
+              }
+              const isCreator = task.createdBy?.toLowerCase().trim() === userEmail;
+              return !isAssigned && !isCreator;
+            })
             .slice(0, 10 - userTasks.length);
           userTasks = [...userTasks, ...otherTasks];
         }

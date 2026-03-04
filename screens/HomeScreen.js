@@ -522,8 +522,8 @@ export default function HomeScreen({ navigation }) {
   const statusCounts = useMemo(() => ({
     todas: tasks.length,
     pendiente: tasks.filter(t => t.status === 'pendiente').length,
-    'en-progreso': tasks.filter(t => t.status === 'en-progreso' || t.status === 'en_proceso').length,
-    revision: tasks.filter(t => t.status === 'revision').length,
+    'en-progreso': tasks.filter(t => t.status === 'en_progreso' || t.status === 'en_proceso' || t.status === 'en-progreso').length,
+    revision: tasks.filter(t => t.status === 'en_revision' || t.status === 'revision').length,
     cerrada: tasks.filter(t => t.status === 'cerrada').length,
   }), [tasks]);
 
@@ -532,8 +532,8 @@ export default function HomeScreen({ navigation }) {
     return tasks.filter(task => {
       // Quick status filter (chips rápidos)
       if (quickStatusFilter !== 'todas') {
-        if (quickStatusFilter === 'en-progreso' && task.status !== 'en-progreso') return false;
-        if (quickStatusFilter === 'revision' && task.status !== 'revision') return false;
+        if (quickStatusFilter === 'en-progreso' && task.status !== 'en_progreso' && task.status !== 'en_proceso' && task.status !== 'en-progreso') return false;
+        if (quickStatusFilter === 'revision' && task.status !== 'en_revision' && task.status !== 'revision') return false;
         if (quickStatusFilter === 'pendiente' && task.status !== 'pendiente') return false;
         if (quickStatusFilter === 'cerrada' && task.status !== 'cerrada') return false;
       }
@@ -560,8 +560,12 @@ export default function HomeScreen({ navigation }) {
       // Filter by areas (multi-select)
       if (advancedFilters.areas.length > 0 && !advancedFilters.areas.includes(task.area)) return false;
       
-      // Filter by responsible (multi-select)
-      if (advancedFilters.responsible.length > 0 && !advancedFilters.responsible.includes(task.assignedTo)) return false;
+      // Filter by responsible (multi-select) - handle both string and array assignedTo
+      if (advancedFilters.responsible.length > 0) {
+        const assignedToArray = Array.isArray(task.assignedTo) ? task.assignedTo : (task.assignedTo ? [task.assignedTo] : []);
+        const hasMatchingResponsible = advancedFilters.responsible.some(responsible => assignedToArray.includes(responsible));
+        if (!hasMatchingResponsible) return false;
+      }
       
       // Filter by priorities (multi-select)
       if (advancedFilters.priorities.length > 0 && !advancedFilters.priorities.includes(task.priority)) return false;

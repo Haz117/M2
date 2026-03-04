@@ -18,7 +18,12 @@ import ChatImageUpload from '../components/ChatImageUpload';
 function isTaskAssignedToUser(task, userEmail) {
   if (!task.assignedTo) return false;
   if (Array.isArray(task.assignedTo)) {
-    return task.assignedTo.includes(userEmail.toLowerCase());
+    // Normalize emails before comparing
+    const normalizedEmail = userEmail?.toLowerCase().trim() || '';
+    if (Array.isArray(task.assignedTo)) {
+      return task.assignedTo.some(email => email?.toLowerCase().trim() === normalizedEmail);
+    }
+    return (task.assignedTo?.toLowerCase().trim() || '') === normalizedEmail;
   }
   // Backward compatibility: old string format
   return task.assignedTo.toLowerCase() === userEmail.toLowerCase();

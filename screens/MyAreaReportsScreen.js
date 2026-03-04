@@ -95,10 +95,12 @@ const MyAreaReportsScreen = ({ navigation }) => {
   const getFilteredReports = () => {
     if (!currentUser) return reports;
     
+    const userEmail = currentUser.email?.toLowerCase().trim() || '';
+    
     if (filter === 'mine') {
-      return reports.filter(r => r.createdBy === currentUser.email);
+      return reports.filter(r => r.createdBy?.toLowerCase().trim() === userEmail);
     } else if (filter === 'team') {
-      return reports.filter(r => r.createdBy !== currentUser.email);
+      return reports.filter(r => r.createdBy?.toLowerCase().trim() !== userEmail);
     }
     return reports;
   };
@@ -189,7 +191,7 @@ const MyAreaReportsScreen = ({ navigation }) => {
   };
 
   const renderReportCard = ({ item }) => {
-    const isMyReport = item.createdBy === currentUser?.email;
+    const isMyReport = item.createdBy?.toLowerCase().trim() === currentUser?.email?.toLowerCase().trim();
     
     return (
       <TouchableOpacity
@@ -265,7 +267,7 @@ const MyAreaReportsScreen = ({ navigation }) => {
 
   const renderDetailModal = () => {
     if (!selectedReport) return null;
-    const isMyReport = selectedReport.createdBy === currentUser?.email;
+    const isMyReport = selectedReport.createdBy?.toLowerCase().trim() === currentUser?.email?.toLowerCase().trim();
 
     return (
       <Modal
@@ -721,7 +723,8 @@ const MyAreaReportsScreen = ({ navigation }) => {
   }
 
   const filteredReports = getFilteredReports();
-  const myReports = reports.filter(r => r.createdBy === currentUser?.email).length;
+  const userEmail = currentUser?.email?.toLowerCase().trim() || '';
+  const myReports = reports.filter(r => r.createdBy?.toLowerCase().trim() === userEmail).length;
   const teamReports = reports.length - myReports;
   const pendingCount = reports.filter(r => !r.rating).length;
 

@@ -1,10 +1,12 @@
 // screens/DashboardScreen.js
 // Dashboard con métricas estilo Kanban mejorado - Glassmorphism + Animaciones
-import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo, Suspense } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions, TouchableOpacity, Platform, FlatList, Modal, ActivityIndicator, Alert, Animated, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
+const LineChart = React.lazy(() => import('react-native-chart-kit').then(module => ({ default: module.LineChart })));
+const BarChart = React.lazy(() => import('react-native-chart-kit').then(module => ({ default: module.BarChart })));
+const PieChart = React.lazy(() => import('react-native-chart-kit').then(module => ({ default: module.PieChart })));
 import { useTheme } from '../contexts/ThemeContext';
 import { getCurrentSession } from '../services/authFirestore';
 import { getGeneralMetrics, getTrendData, getAreaStats, getTopPerformers, formatCompletionTime } from '../services/analytics';
@@ -21,7 +23,7 @@ import StatCard from '../components/StatCard';
 import StateStatusCards from '../components/StateStatusCards';
 import StatColumn from '../components/StatColumn';
 import MetricCard from '../components/MetricCard';
-import Heatmap from '../components/Heatmap';
+const Heatmap = React.lazy(() => import('../components/Heatmap'));
 import OverdueAlert from '../components/OverdueAlert';
 import Toast from '../components/Toast';
 import FadeInView from '../components/FadeInView';

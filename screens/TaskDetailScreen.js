@@ -69,6 +69,59 @@ export default function TaskDetailScreen({ route, navigation }) {
   // Estado para múltiples asignados
   const [selectedAssignees, setSelectedAssignees] = useState([]);
   
+  // 🔥 Handler personalizado para selección de usuarios que auto-agrega áreas
+  const handleAssigneesChange = (newAssignees) => {
+    // Actualizar lista de asignados
+    setSelectedAssignees(newAssignees);
+    
+    // 🔥 AUTO-AGREGAR ÁREAS: Cuando se selecciona un usuario, agregar su área automáticamente
+    if (newAssignees.length > 0) {
+      const areasToAdd = new Set();
+      
+      newAssignees.forEach(user => {
+        console.log('[TaskDetail] 👤 Usuario seleccionado:', user.displayName, '| Rol:', user.role, '| Área:', user.area);
+        
+        // Para todos los roles: agregar su área principal
+        if (user.area) {
+          areasToAdd.add(user.area);
+        }
+        
+        // Para directores: solo su área directa
+        if (user.role === 'director' && user.area) {
+          areasToAdd.add(user.area);
+        }
+        
+        // Para secretarios: agregar su secretaría y todas sus direcciones
+        if (user.role === 'secretario') {
+          if (user.area) areasToAdd.add(user.area);
+          if (Array.isArray(user.direcciones)) {
+            user.direcciones.forEach(dir => areasToAdd.add(dir));
+          }
+          if (Array.isArray(user.areasPermitidas)) {
+            user.areasPermitidas.forEach(area => areasToAdd.add(area));
+          }
+        }
+        
+        // Para jefes/operativos: agregar su área y departamento
+        if (['jefe', 'operativo'].includes(user.role)) {
+          if (user.area) areasToAdd.add(user.area);
+          if (user.department && user.department !== user.area) {
+            areasToAdd.add(user.department);
+          }
+        }
+      });
+      
+      // Agregar las áreas nuevas a las existentes
+      if (areasToAdd.size > 0) {
+        setSelectedAreas(prevAreas => {
+          const newAreas = [...new Set([...prevAreas, ...Array.from(areasToAdd)])];
+          console.log('[TaskDetail] ✅ Áreas auto-agregadas:', Array.from(areasToAdd), '| Total:', newAreas);
+          return newAreas;
+        });
+      }
+    }
+  };
+  
   // Mantener backward compatibility
   const [assignedTo, setAssignedTo] = useState(editingTask ? editingTask.assignedTo : '');
   
@@ -294,104 +347,70 @@ export default function TaskDetailScreen({ route, navigation }) {
     return availableAreas;
   }, [currentUser, selectedAssignees, availableAreas]);
 
-  // 🔥 NUEVO: Auto-seleccionar área cuando se selecciona un usuario
+  // 🔥 MEJORADO: Auto-seleccionar TODAS las áreas de los usuarios seleccionados
   useEffect(() => {
-    // Solo para admin y al crear nueva tarea
-    if (!currentUser || currentUser.role !== 'admin' || editingTask) return;
     if (!selectedAssignees || selectedAssignees.length === 0) return;
     
-    // Obtener las áreas de los usuarios seleccionados
-    const userAreas = new Set();
+    // Recopilar TODAS las áreas de los usuarios seleccionados
+    const userAreasSet = new Set();
+    const userAreasMap = {}; // Para debugging
+    
     selectedAssignees.forEach(user => {
-      if (user.area) userAreas.add(user.area);
+      const userEmail = user.email?.toLowerCase() || '';
+      
+      // Agregar área principal
+      if (user.area) {
+        userAreasSet.add(user.area);
+        userAreasMap[userEmail] = userAreasMap[userEmail] || [];
+        userAreasMap[userEmail].push(user.area);
+      }
+      
+      // Agregar department/región
+      if (user.department && user.department !== user.area) {
+        userAreasSet.add(user.department);
+        userAreasMap[userEmail].push(user.department);
+      }
+      
+      // Para secretarios, agregar todas sus direcciones permitidas
+      if (user.role === 'secretario') {
+        if (Array.isArray(user.direcciones)) {
+          user.direcciones.forEach(dir => {
+            userAreasSet.add(dir);
+            userAreasMap[userEmail].push(dir);
+          });
+        }
+        if (Array.isArray(user.areasPermitidas)) {
+          user.areasPermitidas.forEach(area => {
+            userAreasSet.add(area);
+            userAreasMap[userEmail].push(area);
+          });
+        }
+      }
     });
     
-    // Si hay exactamente un área y no está ya seleccionada, auto-seleccionar
-    if (userAreas.size === 1) {
-      const userArea = Array.from(userAreas)[0];
-      if (!selectedAreas.includes(userArea)) {
-        setSelectedAreas([userArea]);
+    // Si encontramos áreas del usuario, hacer merge con selectedAreas
+    if (userAreasSet.size > 0) {
+      const userAreas = Array.from(userAreasSet);
+      
+      // Hacer merge: mantener áreas que ya están seleccionadas y agregar las nuevas
+      const newSelectedAreas = [...new Set([...selectedAreas, ...userAreas])];
+      
+      // Solo actualizar si cambió algo (evitar re-renders innecesarios)
+      if (JSON.stringify(newSelectedAreas) !== JSON.stringify(selectedAreas)) {
+        setSelectedAreas(newSelectedAreas);
+        
+        console.log('[TaskDetail] ✅ Áreas auto-seleccionadas de usuarios:', {
+          usuarios: selectedAssignees.map(u => u.displayName || u.email),
+          areasAgregadas: userAreas,
+          areasActuales: newSelectedAreas
+        });
       }
     }
-  }, [selectedAssignees, currentUser, editingTask]);
+  }, [selectedAssignees]);
 
-  // 🔥 Validar y auto-ajustar áreas cuando se selecciona un secretario (SOLO AL CREAR, NO AL EDITAR)
-  useEffect(() => {
-    const validateSecretarioAreas = async () => {
-      // Solo validar al crear nueva tarea, no al editar
-      if (editingTask) return;
-      
-      if (!selectedAssignees || selectedAssignees.length === 0) return;
-
-      try {
-        // Buscar secretarios en selectedAssignees
-        const secretarios = selectedAssignees.filter(user => user.role === 'secretario');
-        
-        if (secretarios.length === 0) return;
-
-        let needsUpdate = false;
-        let validAreaFound = false;
-        let firstValidArea = null;
-        let secretarioName = null;
-
-        // Obtener datos completos del secretario desde Firestore
-        for (const secretario of secretarios) {
-          try {
-            const usersRef = collection(db, 'users');
-            const q = query(usersRef, where('email', '==', secretario.email));
-            const snapshot = await getDocs(q);
-            
-            if (snapshot.empty) continue;
-            
-            const secretarioData = snapshot.docs[0].data();
-            const secretarioAreas = new Set();
-            
-            // Recopilar todas las áreas disponibles del secretario
-            if (secretarioData.area) secretarioAreas.add(secretarioData.area);
-            if (secretarioData.direcciones && Array.isArray(secretarioData.direcciones)) {
-              secretarioData.direcciones.forEach(dir => secretarioAreas.add(dir));
-            }
-            if (secretarioData.areasPermitidas && Array.isArray(secretarioData.areasPermitidas)) {
-              secretarioData.areasPermitidas.forEach(area => secretarioAreas.add(area));
-            }
-            if (secretarioData.allowedAreas && Array.isArray(secretarioData.allowedAreas)) {
-              secretarioData.allowedAreas.forEach(area => secretarioAreas.add(area));
-            }
-
-            // Validar que selectedAreas tengan overlap con las áreas del secretario
-            validAreaFound = selectedAreas && selectedAreas.length > 0 && 
-                           selectedAreas.some(area => secretarioAreas.has(area));
-            
-            // Si no hay área válida, preparar auto-selección
-            if (!validAreaFound && secretarioAreas.size > 0) {
-              needsUpdate = true;
-              firstValidArea = Array.from(secretarioAreas)[0];
-              secretarioName = secretario.displayName || secretario.email;
-              break; // Solo procesamos el primer secretario sin área válida
-            }
-          } catch (error) {
-            console.error(`Error validando secretario ${secretario.email}:`, error);
-          }
-        }
-
-        // Si necesita actualización, hacerlo
-        if (needsUpdate && firstValidArea) {
-          setSelectedAreas([firstValidArea]);
-          
-          // Mostrar alerta al usuario
-          Alert.alert(
-            'Área Auto-Seleccionada',
-            `El área fue auto-seleccionada a "${firstValidArea}" para coincidir con las áreas permitidas del secretario "${secretarioName}".`,
-            [{ text: 'Entendido' }]
-          );
-        }
-      } catch (error) {
-        console.error('Error en validación de áreas:', error);
-      }
-    };
-
-    validateSecretarioAreas();
-  }, [selectedAssignees, editingTask]);
+  // ⚠️ REMOVIDO: Esta lógica conflictaba con la auto-selección anterior
+  // El nuevo useEffect anterior ya se encarga de agregar las áreas de los usuarios seleccionados
+  // Los comentarios de debugging que estaban aquí se movieron al useEffect anterior
 
   // Referencia para trackear áreas previas y evitar ciclos
   const prevAreasRef = useRef([]);
@@ -952,7 +971,8 @@ export default function TaskDetailScreen({ route, navigation }) {
       ]).start();
 
       // Construir objeto tarea con múltiples asignados y múltiples áreas
-      const assignedEmails = selectedAssignees.map(a => a.email);
+      // 🔥 Normalizar emails a minúsculas para consistencia
+      const assignedEmails = selectedAssignees.map(a => a.email?.toLowerCase().trim()).filter(Boolean);
       
       // 🔥 VALIDAR Y LIMPIAR ÁREAS INVÁLIDAS PARA SECRETARIOS AL ACTUALIZAR
       let validareas = selectedAreas;
@@ -1479,7 +1499,7 @@ export default function TaskDetailScreen({ route, navigation }) {
             <View style={{ opacity: canEdit ? 1 : 0.5 }}>
               <MultiUserSelector
                 selectedUsers={selectedAssignees}
-                onSelectionChange={setSelectedAssignees}
+                onSelectionChange={handleAssigneesChange}
                 role={currentUser?.role || 'admin'}
                 area={currentUser?.department || selectedAreas[0]}
                 allowedAreas={currentUser?.direcciones || currentUser?.areasPermitidas || []}
@@ -1503,9 +1523,9 @@ export default function TaskDetailScreen({ route, navigation }) {
             <SuggestedDirectorsPanel
               selectedUsers={selectedAssignees}
               onAddUser={(director) => {
-                // Agregar el director a la lista de asignados
+                // Agregar el director a la lista de asignados y auto-seleccionar su área
                 const newAssignees = [...selectedAssignees, director];
-                setSelectedAssignees(newAssignees);
+                handleAssigneesChange(newAssignees);
               }}
               theme={theme}
             />
@@ -1514,9 +1534,9 @@ export default function TaskDetailScreen({ route, navigation }) {
             <SuggestedOperativesPanel
               selectedUsers={selectedAssignees}
               onAddUser={(operative) => {
-                // Agregar el operativo a la lista de asignados
+                // Agregar el operativo a la lista de asignados y auto-seleccionar su área
                 const newAssignees = [...selectedAssignees, operative];
-                setSelectedAssignees(newAssignees);
+                handleAssigneesChange(newAssignees);
               }}
               theme={theme}
             />

@@ -60,8 +60,8 @@ const notifyAdminsOfNewReport = async (taskId, reportId, reportTitle, createdByN
       const secData = secDoc.data();
       const secAreasPermitidas = secData.areasPermitidas || [secData.area];
       
-      // Si la tarea pertenece a una de las áreas del secretario
-      if (secAreasPermitidas.includes(taskArea)) {
+      // Si la tarea pertenece a una de las áreas del secretario (case-insensitive)
+      if (secAreasPermitidas.some(a => a?.toLowerCase().trim() === taskArea?.toLowerCase().trim())) {
         notifications.push({
           userId: secDoc.id,
           userEmail: secData.email,
@@ -134,7 +134,7 @@ export const createTaskReport = async (taskId, userId, reportData) => {
 
     const report = {
       taskId,
-      createdBy: userEmail || userId,
+      createdBy: (userEmail || userId).toLowerCase().trim(),
       createdByName: createdByName,
       createdByRole: userRole,
       createdByArea: userArea,
@@ -655,10 +655,10 @@ export const subscribeToAreaReports = (areas, callback) => {
       }
     }
 
-    // Filter reports by allowed areas
+    // Filter reports by allowed areas (case-insensitive)
     const filteredReports = reports.filter(report => {
-      const taskArea = report.area || tasksInfo[report.taskId]?.area || '';
-      return areas.includes(taskArea);
+      const taskArea = (report.area || tasksInfo[report.taskId]?.area || '').toLowerCase().trim();
+      return areas.some(a => a?.toLowerCase().trim() === taskArea);
     });
 
     // Enrich reports with task info

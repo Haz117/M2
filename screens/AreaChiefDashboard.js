@@ -63,8 +63,8 @@ export default function AreaChiefDashboard({ navigation }) {
         const userTasks = allTasks.filter(
           (t) =>
             Array.isArray(t.assignedTo)
-              ? t.assignedTo.includes(session.email)
-              : t.assignedTo === session.email
+              ? t.assignedTo.some(e => e?.toLowerCase().trim() === session.email?.toLowerCase().trim())
+              : (t.assignedTo?.toLowerCase().trim() === session.email?.toLowerCase().trim())
         );
 
         setTasks(userTasks);

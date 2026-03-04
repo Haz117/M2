@@ -22,6 +22,7 @@ import {
 import { db } from '../firebase';
 import { getCurrentSession } from './authFirestore';
 import { notifyTaskAssigned } from './emailNotifications';
+import { notifyAssignment } from './notifications';
 import { getGeneralMetrics } from './analytics';
 import { validateData } from '../utils/dataValidation';
 import * as productionLogger from '../utils/productionLogger';
@@ -42,11 +43,19 @@ const COLLECTION_NAME = 'tasks';
 // Helper function to check if a task is assigned to a user (supports both string and array formats)
 function isTaskAssignedToUser(task, userEmail) {
   if (!task.assignedTo) return false;
+  
+  const normalizedUserEmail = userEmail?.toLowerCase().trim() || '';
+  if (!normalizedUserEmail) return false;
+  
   if (Array.isArray(task.assignedTo)) {
-    return task.assignedTo.includes(userEmail.toLowerCase());
+    // Normalizar todos los emails en el array antes de comparar
+    return task.assignedTo.some(email => 
+      email?.toLowerCase().trim() === normalizedUserEmail
+    );
   }
+  
   // Backward compatibility: old string format
-  return task.assignedTo.toLowerCase() === userEmail.toLowerCase();
+  return (task.assignedTo?.toLowerCase().trim() || '') === normalizedUserEmail;
 }
 
 // 🔍 DIAGNÓSTICO: Detectar si emulador está activo
@@ -135,30 +144,69 @@ export async function subscribeToTasks(callback) {
     const filterTasksByRole = (tasks) => {
       let filtered = tasks;
       
+      // 🔍 DEBUG: Mostrar info del usuario y tareas
+      console.log('📋 [TasksFilter] Rol:', userRole, '| Email:', userEmail, '| Áreas:', userAreasPermitidas);
+      console.log('📋 [TasksFilter] Total tareas recibidas:', tasks.length);
+      
       if (userRole === 'operativo') {
         filtered = tasks.filter(task => isTaskAssignedToUser(task, userEmail));
       } else if (userRole === 'secretario') {
         filtered = tasks.filter(task => {
-          const taskArea = task.area || '';
-          if (userAreasPermitidas.includes(taskArea)) return true;
-          if (task.createdBy === userEmail) return true;
-          return false;
+          const taskArea = (task.area || '').toLowerCase().trim();
+          // Verificar si está en las áreas permitidas del secretario
+          const inArea = userAreasPermitidas.some(a => a?.toLowerCase().trim() === taskArea);
+          // Verificar si la creó
+          const isCreator = task.createdBy?.toLowerCase().trim() === userEmail?.toLowerCase().trim();
+          // 🔥 NUEVO: Verificar si está asignado a la tarea
+          const isAssigned = isTaskAssignedToUser(task, userEmail);
+          
+          // 🔍 DEBUG: Log para cada tarea
+          if (isAssigned || isCreator || inArea) {
+            console.log('✅ [TasksFilter] Tarea incluida:', task.title, '| Area:', taskArea, '| inArea:', inArea, '| isCreator:', isCreator, '| isAssigned:', isAssigned);
+          } else {
+            // 🔍 DEBUG: Ver por qué se excluye
+            console.log('❌ [TasksFilter] Tarea EXCLUIDA:', task.title, '| Area:', taskArea, '| assignedTo:', JSON.stringify(task.assignedTo));
+          }
+          
+          return inArea || isCreator || isAssigned;
         });
+        
+        console.log('📋 [TasksFilter] Tareas filtradas para secretario:', filtered.length);
       } else if (userRole === 'director') {
         // Director ve SOLO tareas de su área específica y las que le asignaron
         filtered = tasks.filter(task => {
-          const taskArea = task.area || '';
-          const taskAreas = task.areas || [taskArea];
+          const taskArea = (task.area || '').toLowerCase().trim();
+          const taskAreas = task.areas || [task.area || ''];
+          const normalizedUserArea = userArea?.toLowerCase().trim();
           
           // Solo si el área del director coincide exactamente
-          if (taskArea === userArea) return true;
-          if (taskAreas.includes(userArea)) return true;
+          if (taskArea === normalizedUserArea) return true;
+          if (taskAreas.some(a => a?.toLowerCase().trim() === normalizedUserArea)) return true;
           
           // O si está asignado a él
           if (isTaskAssignedToUser(task, userEmail)) return true;
           
           // O si la creó él
-          if (task.createdBy === userEmail) return true;
+          if (task.createdBy?.toLowerCase().trim() === userEmail?.toLowerCase().trim()) return true;
+          
+          return false;
+        });
+      } else if (userRole === 'jefe') {
+        // Jefe ve tareas de su departamento/área o asignadas a él
+        filtered = tasks.filter(task => {
+          const taskArea = (task.area || '').toLowerCase().trim();
+          const normalizedDept = userDepartment?.toLowerCase().trim();
+          const normalizedArea = userArea?.toLowerCase().trim();
+          
+          // Tareas de su departamento/área
+          if (normalizedDept && taskArea === normalizedDept) return true;
+          if (normalizedArea && taskArea === normalizedArea) return true;
+          
+          // O si está asignado a él
+          if (isTaskAssignedToUser(task, userEmail)) return true;
+          
+          // O si la creó él
+          if (task.createdBy?.toLowerCase().trim() === userEmail?.toLowerCase().trim()) return true;
           
           return false;
         });
@@ -212,9 +260,9 @@ export async function subscribeToTasks(callback) {
           orderBy('createdAt', 'desc')
         );
       } else if (userRole === 'jefe') {
+        // Jefe ve todas las tareas, filtro local (para incluir tareas asignadas a él)
         tasksQuery = query(
           collection(db, COLLECTION_NAME),
-          where('area', '==', userDepartment),
           orderBy('createdAt', 'desc')
         );
       } else if (userRole === 'operativo') {
@@ -353,10 +401,42 @@ export async function createTask(task) {
         { maxRetries: 3 }
       );
       
-      // Enviar notificación por email al asignado
+      // 🔔 Enviar notificaciones a los asignados
+      // Soporta tanto string como array
       if (task.assignedTo) {
-        notifyTaskAssigned({...task, id: docRef.id}, task.assignedTo)
-          .catch(err => {});
+        try {
+          // Usar notifyAssignment para notificaciones in-app/FCM (soporta arrays)
+          // Esto crea notificaciones en Firestore que se sincronizarán con los usuarios
+          await notifyAssignment({
+            id: docRef.id,
+            title: task.title,
+            description: task.description || '',
+            dueAt: task.dueAt,
+            assignedTo: task.assignedTo,
+            priority: task.priority,
+            area: task.area
+          }).catch(err => {
+            log('⚠️ Error en notifyAssignment:', err.message);
+          });
+          
+          // También intentar enviar email (backcompat con string o array)
+          if (task.assignedTo && Array.isArray(task.assignedTo) && task.assignedTo.length > 0) {
+            notifyTaskAssigned({...task, id: docRef.id}, task.assignedTo)
+              .catch(err => {
+                log('⚠️ Error notificación email:', err.message);
+              });
+          } else if (task.assignedTo && typeof task.assignedTo === 'string') {
+            notifyTaskAssigned({...task, id: docRef.id}, task.assignedTo)
+              .catch(err => {
+                log('⚠️ Error notificación email:', err.message);
+              });
+          }
+        } catch (notifErr) {
+          productionLogger.logWarn('Error sending notifications', { 
+            taskId: docRef.id, 
+            error: notifErr.message 
+          });
+        }
       }
       
       productionLogger.logInfo('Task created', { taskId: docRef.id });

@@ -1,7 +1,7 @@
 // screens/ReportsScreen.js
 // Pantalla de reportes con gráficos de progreso semanal/mensual
 // ✨ Integración: Alertas, Insights, Exportación, Optimizaciones
-import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo, Suspense } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,9 @@ import {
   ActivityIndicator,
   Alert
 } from 'react-native';
-import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
+const LineChart = React.lazy(() => import('react-native-chart-kit').then(module => ({ default: module.LineChart })));
+const BarChart = React.lazy(() => import('react-native-chart-kit').then(module => ({ default: module.BarChart })));
+const PieChart = React.lazy(() => import('react-native-chart-kit').then(module => ({ default: module.PieChart })));
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -30,12 +32,12 @@ import StatCard from '../components/StatCard';
 import SpringCard from '../components/SpringCard';
 import RippleButton from '../components/RippleButton';
 import AreaStatsCard from '../components/AreaStatsCard';
-import AreaComparisonChart from '../components/AreaComparisonChart';
+const AreaComparisonChart = React.lazy(() => import('../components/AreaComparisonChart'));
 import AreaRankingCard from '../components/AreaRankingCard';
 import AreaFilter from '../components/AreaFilter';
 import AlertsPanel from '../components/AlertsPanel';
 import InsightsPanel from '../components/InsightsPanel';
-import ComplianceReport from '../components/ComplianceReport';
+const ComplianceReport = React.lazy(() => import('../components/ComplianceReport'));
 import AreaMetricsPanel from '../components/AreaMetricsPanel';
 import { calculateDetailedAreaMetrics, generateAreaSummary, getAreasNeedingAttention } from '../services/areaMetrics';
 import { getAreaAlerts, getAreasForAttention } from '../services/AreaAlerts';
@@ -249,6 +251,7 @@ export default function ReportsScreen({ navigation }) {
         unsubscribe = await subscribeToTasks((updatedTasks) => {
           if (mounted) {
             setTasks(updatedTasks);
+            // Forzar que se salga de loading aunque no haya tareas
             setLoading(false);
           }
         });
@@ -258,8 +261,16 @@ export default function ReportsScreen({ navigation }) {
       }
     })();
 
+    // Timeout de seguridad para salir de loading después de 3 segundos
+    const timeout = setTimeout(() => {
+      if (mounted) {
+        setLoading(false);
+      }
+    }, 3000);
+
     return () => {
       mounted = false;
+      clearTimeout(timeout);
       if (typeof unsubscribe === 'function') {
         try {
           unsubscribe();
@@ -402,6 +413,9 @@ export default function ReportsScreen({ navigation }) {
 
     // Mostrar tareas según el rol del usuario
     let userTasks;
+    const userEmail = currentUser.email?.toLowerCase().trim() || '';
+    const userAreaNorm = currentUser.area?.toLowerCase().trim() || '';
+    
     if (currentUser.role === 'admin') {
       // Admin ve todas las tareas
       userTasks = allTasks;
@@ -409,46 +423,60 @@ export default function ReportsScreen({ navigation }) {
       // Secretario ve tareas de su secretaría, sus direcciones, o que haya creado
       const misDirecciones = getDireccionesBySecretaria(currentUser.area || '');
       userTasks = allTasks.filter(t => {
-        if (t.createdBy === currentUser.email) return true;
-        if (t.area === currentUser.area) return true;
+        const taskArea = (t.area || '').toLowerCase().trim();
+        if (t.createdBy?.toLowerCase().trim() === userEmail) return true;
+        if (taskArea === userAreaNorm) return true;
         // Usar mapeo oficial de direcciones (no depende de datos de Firebase)
-        if (misDirecciones.includes(t.area)) return true;
+        if (misDirecciones.some(d => d?.toLowerCase().trim() === taskArea)) return true;
         // Fallback: verificar si la tarea está en alguna de sus direcciones de Firebase
         if (currentUser.direcciones && Array.isArray(currentUser.direcciones)) {
-          if (currentUser.direcciones.includes(t.area)) return true;
+          if (currentUser.direcciones.some(d => d?.toLowerCase().trim() === taskArea)) return true;
         }
         return false;
       });
     } else if (currentUser.role === 'director') {
       // Director ve tareas de su área específica o asignadas a él
       userTasks = allTasks.filter(t => {
-        if (t.createdBy === currentUser.email) return true;
-        if (t.area === currentUser.area) return true;
+        const taskArea = (t.area || '').toLowerCase().trim();
+        if (t.createdBy?.toLowerCase().trim() === userEmail) return true;
+        if (taskArea === userAreaNorm) return true;
         // Verificar si está asignado a esta tarea
-        if (t.assignedTo === currentUser.email) return true;
+        if (t.assignedTo?.toLowerCase().trim() === userEmail) return true;
+        if (Array.isArray(t.assignedTo)) {
+          if (t.assignedTo.some(e => e?.toLowerCase().trim() === userEmail)) return true;
+        }
         if (t.assignedToMultiple && Array.isArray(t.assignedToMultiple)) {
-          return t.assignedToMultiple.some(a => a.email === currentUser.email);
+          return t.assignedToMultiple.some(a => a.email?.toLowerCase().trim() === userEmail);
         }
         return false;
       });
     } else if (currentUser.role === 'jefe') {
       // Jefe de área ve tareas de su área o asignadas a él
+      const userDept = currentUser.department?.toLowerCase().trim() || '';
       userTasks = allTasks.filter(t => {
-        if (t.createdBy === currentUser.email) return true;
-        if (t.area === currentUser.area || t.department === currentUser.department) return true;
-        if (t.assignedTo === currentUser.email) return true;
+        const taskArea = (t.area || '').toLowerCase().trim();
+        const taskDept = (t.department || '').toLowerCase().trim();
+        if (t.createdBy?.toLowerCase().trim() === userEmail) return true;
+        if (taskArea === userAreaNorm || taskDept === userDept) return true;
+        if (t.assignedTo?.toLowerCase().trim() === userEmail) return true;
+        if (Array.isArray(t.assignedTo)) {
+          if (t.assignedTo.some(e => e?.toLowerCase().trim() === userEmail)) return true;
+        }
         if (t.assignedToMultiple && Array.isArray(t.assignedToMultiple)) {
-          return t.assignedToMultiple.some(a => a.email === currentUser.email);
+          return t.assignedToMultiple.some(a => a.email?.toLowerCase().trim() === userEmail);
         }
         return false;
       });
     } else {
       // Operativo ve solo sus tareas asignadas o creadas
       userTasks = allTasks.filter(t => {
-        if (t.createdBy === currentUser.email) return true;
-        if (t.assignedTo === currentUser.email) return true;
+        if (t.createdBy?.toLowerCase().trim() === userEmail) return true;
+        if (t.assignedTo?.toLowerCase().trim() === userEmail) return true;
+        if (Array.isArray(t.assignedTo)) {
+          if (t.assignedTo.some(e => e?.toLowerCase().trim() === userEmail)) return true;
+        }
         if (t.assignedToMultiple && Array.isArray(t.assignedToMultiple)) {
-          return t.assignedToMultiple.some(a => a.email === currentUser.email);
+          return t.assignedToMultiple.some(a => a.email?.toLowerCase().trim() === userEmail);
         }
         return false;
       });
@@ -460,7 +488,7 @@ export default function ReportsScreen({ navigation }) {
     
     setWeeklyStats({
       completed: weeklyCompleted.length,
-      inProgress: weeklyTasks.filter(t => t.status === 'en-progreso' || t.status === 'en_proceso').length,
+      inProgress: weeklyTasks.filter(t => t.status === 'en-progreso' || t.status === 'en_proceso' || t.status === 'en_revision').length,
       pending: weeklyTasks.filter(t => t.status === 'pendiente').length,
       overdue: weeklyTasks.filter(t => toMs(t.dueAt) < now && t.status !== 'cerrada').length,
       completionRate: weeklyTasks.length > 0 ? Math.round((weeklyCompleted.length / weeklyTasks.length) * 100) : 0,
@@ -473,7 +501,7 @@ export default function ReportsScreen({ navigation }) {
     
     setMonthlyStats({
       completed: monthlyCompleted.length,
-      inProgress: monthlyTasks.filter(t => t.status === 'en-progreso' || t.status === 'en_proceso').length,
+      inProgress: monthlyTasks.filter(t => t.status === 'en-progreso' || t.status === 'en_proceso' || t.status === 'en_revision').length,
       pending: monthlyTasks.filter(t => t.status === 'pendiente').length,
       overdue: monthlyTasks.filter(t => toMs(t.dueAt) < now && t.status !== 'cerrada').length,
       completionRate: monthlyTasks.length > 0 ? Math.round((monthlyCompleted.length / monthlyTasks.length) * 100) : 0,
@@ -487,7 +515,7 @@ export default function ReportsScreen({ navigation }) {
     
     setQuarterlyStats({
       completed: quarterlyCompleted.length,
-      inProgress: quarterlyTasks.filter(t => t.status === 'en-progreso' || t.status === 'en_proceso').length,
+      inProgress: quarterlyTasks.filter(t => t.status === 'en-progreso' || t.status === 'en_proceso' || t.status === 'en_revision').length,
       pending: quarterlyTasks.filter(t => t.status === 'pendiente').length,
       overdue: quarterlyTasks.filter(t => toMs(t.dueAt) < now && t.status !== 'cerrada').length,
       completionRate: quarterlyTasks.length > 0 ? Math.round((quarterlyCompleted.length / quarterlyTasks.length) * 100) : 0,

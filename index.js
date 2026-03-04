@@ -1,7 +1,7 @@
 // index.js - Entry point con polyfills
 
 // Suprimir console.log en producción
-if (!__DEV__) {
+if (!__DEV__) {s
 	console.log = () => {};
 	console.warn = () => {};
 	console.debug = () => {};

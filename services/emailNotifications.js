@@ -83,32 +83,59 @@ function getEmailTemplate(title, content, actionUrl, actionText) {
 
 /**
  * Enviar email cuando se asigna una tarea
+ * Soporta tanto string como array de emails
  */
 export async function notifyTaskAssigned(task, assignedTo) {
-  const content = `
-    <h2>Nueva tarea asignada</h2>
-    <p>Se te ha asignado una nueva tarea:</p>
-    <div style="background: #f8f8f8; padding: 15px; border-radius: 8px; margin: 15px 0;">
-      <strong style="font-size: 16px; color: #9F2241;">${task.title}</strong>
-      <p style="margin: 10px 0;">${task.description}</p>
-      <p style="margin: 5px 0;"><strong>Área:</strong> ${task.area}</p>
-      <p style="margin: 5px 0;"><strong>Prioridad:</strong> <span style="color: ${task.priority === 'alta' ? '#EF4444' : task.priority === 'media' ? '#F59E0B' : '#10B981'}; font-weight: 600;">${task.priority.toUpperCase()}</span></p>
-      <p style="margin: 5px 0;"><strong>Vence:</strong> ${new Date(task.dueAt).toLocaleString('es-ES')}</p>
-    </div>
-  `;
+  // Asegurar que assignedTo es un array
+  const emails = Array.isArray(assignedTo) 
+    ? assignedTo 
+    : (assignedTo ? [assignedTo] : []);
   
-  const html = getEmailTemplate(
-    'Nueva Tarea Asignada',
-    content,
-    'https://tudominio.com/tasks/' + task.id,
-    'Ver Tarea'
-  );
+  if (emails.length === 0) {
+    return { success: false, error: 'No hay destinatarios' };
+  }
+
+  const results = [];
   
-  return await sendEmail({
-    to: assignedTo,
-    subject: `Nueva tarea: ${task.title}`,
-    html
-  });
+  // Enviar a cada persona asignada individualmente
+  for (const email of emails) {
+    if (!email || typeof email !== 'string') continue;
+    
+    const content = `
+      <h2>Nueva tarea asignada</h2>
+      <p>Se te ha asignado una nueva tarea:</p>
+      <div style="background: #f8f8f8; padding: 15px; border-radius: 8px; margin: 15px 0;">
+        <strong style="font-size: 16px; color: #9F2241;">${task.title}</strong>
+        <p style="margin: 10px 0;">${task.description || 'Sin descripción'}</p>
+        <p style="margin: 5px 0;"><strong>Área:</strong> ${task.area || 'Sin especificar'}</p>
+        <p style="margin: 5px 0;"><strong>Prioridad:</strong> <span style="color: ${task.priority === 'alta' ? '#EF4444' : task.priority === 'media' ? '#F59E0B' : '#10B981'}; font-weight: 600;">${(task.priority || 'normal').toUpperCase()}</span></p>
+        <p style="margin: 5px 0;"><strong>Vence:</strong> ${task.dueAt ? new Date(task.dueAt).toLocaleString('es-ES') : 'Sin fecha'}</p>
+      </div>
+    `;
+    
+    const html = getEmailTemplate(
+      'Nueva Tarea Asignada',
+      content,
+      'https://tudominio.com/tasks/' + task.id,
+      'Ver Tarea'
+    );
+    
+    const result = await sendEmail({
+      to: email,
+      subject: `Nueva tarea: ${task.title}`,
+      html
+    });
+    
+    results.push({ email, ...result });
+  }
+  
+  // Retornar éxito si al menos una notificación se envió
+  const successCount = results.filter(r => r.success).length;
+  return {
+    success: successCount > 0,
+    results,
+    message: `${successCount}/${emails.length} notificaciones enviadas`
+  };
 }
 
 /**

@@ -2,7 +2,7 @@
 // Dashboard ÚNICO y UNIFICADO para Admin
 // Combina: KPIs, Evolución, Comparativa, Cumplimiento, Rendimiento
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { LineChart } from 'react-native-chart-kit';
+const LineChart = React.lazy(() => import('react-native-chart-kit').then(module => ({ default: module.LineChart })));
 import { useTheme } from '../contexts/ThemeContext';
 import { subscribeToTasks } from '../services/tasks';
 import { collection, getDocs, onSnapshot } from 'firebase/firestore';
@@ -184,7 +184,9 @@ export default function AdminExecutiveDashboard({ navigation }) {
     
     return directores.map(user => {
       const userTasks = tasks.filter(t => 
-        t.assignedTo?.includes(user.email) || t.area === user.area
+        (Array.isArray(t.assignedTo) 
+          ? t.assignedTo.some(e => e?.toLowerCase().trim() === user.email?.toLowerCase().trim())
+          : t.assignedTo?.toLowerCase().trim() === user.email?.toLowerCase().trim()) || t.area === user.area
       );
       const completed = userTasks.filter(t => t.status === 'completada' || t.status === 'cerrada');
       const pending = userTasks.filter(t => t.status === 'pendiente');

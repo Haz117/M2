@@ -55,14 +55,22 @@ export async function createTaskMultiple(task) {
       usersMap[user.email] = user.displayName || user.email;
     });
     
-    // Construir array de asignaciones
-    const assignedEmails = task.assignedEmails || [];
+    // Construir array de asignaciones con emails normalizados
+    const assignedEmails = (task.assignedEmails || []).map(e => e?.toLowerCase().trim()).filter(Boolean);
     const assignments = assignedEmails.map(email => ({
       email: email,
-      name: usersMap[email] || email,
+      name: usersMap[email] || usersMap[Object.keys(usersMap).find(k => k.toLowerCase() === email)] || email,
       status: 'pendiente',
       completedAt: null
     }));
+    
+    // Obtener nombres considerando case-insensitive
+    const getNameForEmail = (email) => {
+      const directMatch = usersMap[email];
+      if (directMatch) return directMatch;
+      const key = Object.keys(usersMap).find(k => k?.toLowerCase().trim() === email);
+      return key ? usersMap[key] : email;
+    };
     
     const taskData = {
       title: task.title,
@@ -70,9 +78,9 @@ export async function createTaskMultiple(task) {
       priority: task.priority || 'normal',
       area: task.area,
       
-      // MÚLTIPLES ASIGNACIONES
+      // MÚLTIPLES ASIGNACIONES (emails normalizados)
       assignedTo: assignedEmails,
-      assignedToNames: assignedEmails.map(e => usersMap[e] || e),
+      assignedToNames: assignedEmails.map(e => getNameForEmail(e)),
       assignments: assignments,
       
       // PROGRESO
@@ -150,25 +158,28 @@ export async function updateTaskMultiple(taskId, task) {
     if (task.lastRecurrenceCreated !== undefined) updateData.lastRecurrenceCreated = task.lastRecurrenceCreated;
     if (task.notificationId !== undefined) updateData.notificationId = task.notificationId;
     
-    // Si se proporcionan nuevos asignados, actualizar array
+    // Si se proporcionan nuevos asignados, actualizar array con emails normalizados
     if (task.assignedEmails && Array.isArray(task.assignedEmails)) {
       const usersRef = collection(db, 'users');
       const usersSnapshot = await getDocs(usersRef);
       const usersMap = {};
       usersSnapshot.forEach(doc => {
         const user = doc.data();
-        usersMap[user.email] = user.displayName || user.email;
+        usersMap[user.email?.toLowerCase().trim()] = user.displayName || user.email;
       });
       
-      const assignments = task.assignedEmails.map(email => ({
+      // Normalizar emails
+      const normalizedEmails = task.assignedEmails.map(e => e?.toLowerCase().trim()).filter(Boolean);
+      
+      const assignments = normalizedEmails.map(email => ({
         email: email,
         name: usersMap[email] || email,
         status: 'pendiente',
         completedAt: null
       }));
       
-      updateData.assignedTo = task.assignedEmails;
-      updateData.assignedToNames = task.assignedEmails.map(e => usersMap[e] || e);
+      updateData.assignedTo = normalizedEmails;
+      updateData.assignedToNames = normalizedEmails.map(e => usersMap[e] || e);
       updateData.assignments = assignments;
     }
     
@@ -193,26 +204,34 @@ export async function addAssigneeToTask(taskId, email) {
     
     const taskData = taskSnap.data();
     const currentAssignees = taskData.assignedTo || [];
+    const normalizedEmail = email?.toLowerCase().trim() || '';
     
-    // Evitar duplicados
-    if (currentAssignees.includes(email)) {
+    // Evitar duplicados (case-insensitive)
+    if (currentAssignees.some(e => e?.toLowerCase().trim() === normalizedEmail)) {
       throw new Error('Este usuario ya está asignado');
     }
     
     // Obtener nombre del usuario
-    const userSnap = await getDoc(doc(db, 'users', email));
-    const displayName = userSnap.exists() ? userSnap.data().displayName : email;
+    const usersRef = collection(db, 'users');
+    const usersSnapshot = await getDocs(usersRef);
+    let displayName = normalizedEmail;
+    usersSnapshot.forEach(doc => {
+      const user = doc.data();
+      if (user.email?.toLowerCase().trim() === normalizedEmail) {
+        displayName = user.displayName || user.email;
+      }
+    });
     
-    // Agregar asignado
+    // Agregar asignado con email normalizado
     const newAssignment = {
-      email: email,
+      email: normalizedEmail,
       name: displayName,
       status: 'pendiente',
       completedAt: null
     };
     
     await updateDoc(taskRef, {
-      assignedTo: arrayUnion(email),
+      assignedTo: arrayUnion(normalizedEmail),
       assignedToNames: arrayUnion(displayName),
       assignments: arrayUnion(newAssignment),
       updatedAt: serverTimestamp()
@@ -567,39 +586,73 @@ export async function subscribeToTasksMultiple(callback) {
       return () => {};
     }
     
-    const { role, email, department } = sessionResult.session;
-    let tasksQuery;
+    const { role, email, department, area, areasPermitidas = [], direcciones = [] } = sessionResult.session;
+    const userEmail = email?.toLowerCase().trim() || '';
     
-    if (role === 'admin') {
-      // Admin ve todas
-      tasksQuery = query(
-        collection(db, TASKS_COLLECTION),
-        orderBy('createdAt', 'desc')
-      );
-    } else if (role === 'jefe') {
-      // Jefe ve su área
-      tasksQuery = query(
-        collection(db, TASKS_COLLECTION),
-        where('area', '==', department),
-        orderBy('createdAt', 'desc')
-      );
-    } else {
-      // Operativo ve tareas donde está asignado (array)
-      tasksQuery = query(
-        collection(db, TASKS_COLLECTION),
-        where('assignedTo', 'array-contains', email),
-        orderBy('createdAt', 'desc')
-      );
-    }
+    // Helper para verificar si está asignado
+    const isAssignedToUser = (task) => {
+      if (!task.assignedTo) return false;
+      if (Array.isArray(task.assignedTo)) {
+        return task.assignedTo.some(e => e?.toLowerCase().trim() === userEmail);
+      }
+      return task.assignedTo?.toLowerCase().trim() === userEmail;
+    };
+    
+    // Traer todas las tareas y filtrar localmente para soportar case-insensitive y asignaciones
+    const tasksQuery = query(
+      collection(db, TASKS_COLLECTION),
+      orderBy('createdAt', 'desc')
+    );
     
     const unsubscribe = onSnapshot(tasksQuery, (snapshot) => {
-      const tasks = snapshot.docs.map(doc => ({
+      let tasks = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         createdAt: doc.data().createdAt?.toMillis?.() || doc.data().createdAt,
         updatedAt: doc.data().updatedAt?.toMillis?.() || doc.data().updatedAt,
         dueAt: doc.data().dueAt?.toMillis?.() || doc.data().dueAt
       }));
+      
+      // Filtrar según rol
+      if (role === 'admin') {
+        // Admin ve todas
+      } else if (role === 'secretario') {
+        const userAreas = [...(area ? [area] : []), ...direcciones, ...areasPermitidas];
+        tasks = tasks.filter(task => {
+          const taskArea = (task.area || '').toLowerCase().trim();
+          if (userAreas.some(a => a?.toLowerCase().trim() === taskArea)) return true;
+          if (task.createdBy?.toLowerCase().trim() === userEmail) return true;
+          if (isAssignedToUser(task)) return true;
+          return false;
+        });
+      } else if (role === 'director') {
+        const normalizedArea = area?.toLowerCase().trim() || '';
+        tasks = tasks.filter(task => {
+          const taskArea = (task.area || '').toLowerCase().trim();
+          if (taskArea === normalizedArea) return true;
+          if (task.createdBy?.toLowerCase().trim() === userEmail) return true;
+          if (isAssignedToUser(task)) return true;
+          return false;
+        });
+      } else if (role === 'jefe') {
+        const normalizedDept = department?.toLowerCase().trim() || '';
+        const normalizedArea = area?.toLowerCase().trim() || '';
+        tasks = tasks.filter(task => {
+          const taskArea = (task.area || '').toLowerCase().trim();
+          if (normalizedDept && taskArea === normalizedDept) return true;
+          if (normalizedArea && taskArea === normalizedArea) return true;
+          if (task.createdBy?.toLowerCase().trim() === userEmail) return true;
+          if (isAssignedToUser(task)) return true;
+          return false;
+        });
+      } else {
+        // Operativo ve solo tareas asignadas a él o que creó
+        tasks = tasks.filter(task => {
+          if (task.createdBy?.toLowerCase().trim() === userEmail) return true;
+          if (isAssignedToUser(task)) return true;
+          return false;
+        });
+      }
       
       callback(tasks);
     }, (error) => {
