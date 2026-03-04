@@ -354,8 +354,9 @@ export const notifyDueTasksReminder = functions.pubsub
 
       for (const doc of tasksSnapshot.docs) {
         const task = doc.data();
+        const dueAtMs = task.dueAt?.toMillis ? task.dueAt.toMillis() : (task.dueAt?.seconds ? task.dueAt.seconds * 1000 : task.dueAt);
         const hoursUntilDue = Math.floor(
-          (task.dueAt - now) / (60 * 60 * 1000)
+          (dueAtMs - now) / (60 * 60 * 1000)
         );
 
         // Solo notificar si es menor a 6 horas

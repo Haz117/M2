@@ -20,18 +20,25 @@ export function calculateMonthlyComparative(allTasks) {
   const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
 
+  const getTaskDate = (t) => {
+    if (!t.createdAt) return new Date(0);
+    if (t.createdAt.seconds) return new Date(t.createdAt.seconds * 1000);
+    if (typeof t.createdAt === 'number') return new Date(t.createdAt);
+    return new Date(t.createdAt);
+  };
+
   const getCurrentMonthTasks = () => 
-    allTasks.filter(t => new Date(t.createdAt) >= currentMonth);
+    allTasks.filter(t => getTaskDate(t) >= currentMonth);
   
   const getLastMonthTasks = () => 
     allTasks.filter(t => {
-      const date = new Date(t.createdAt);
+      const date = getTaskDate(t);
       return date >= lastMonth && date < currentMonth;
     });
 
   const getTwoMonthsAgoTasks = () =>
     allTasks.filter(t => {
-      const date = new Date(t.createdAt);
+      const date = getTaskDate(t);
       return date >= twoMonthsAgo && date < lastMonth;
     });
 
@@ -118,15 +125,26 @@ export function identifyBottlenecks(areaMetrics, allTasks) {
 
     if (completedTasks.length === 0) return;
 
+    // Convertir timestamps Firebase a milisegundos
+    const completionTimes = completedTasks.map(t => {
+      const createdTime = t.createdAt.seconds 
+        ? t.createdAt.seconds * 1000 
+        : (typeof t.createdAt === 'number' ? t.createdAt : new Date(t.createdAt).getTime());
+      const completedTime = t.completedAt.seconds 
+        ? t.completedAt.seconds * 1000 
+        : (typeof t.completedAt === 'number' ? t.completedAt : new Date(t.completedAt).getTime());
+      return completedTime - createdTime;
+    });
+
     // Calcular tiempo promedio
-    const avgTime = completedTasks.reduce((sum, t) => sum + (t.completedAt - t.createdAt), 0) / completedTasks.length;
+    const avgTime = completionTimes.reduce((sum, time) => sum + time, 0) / completionTimes.length;
     const avgDays = Math.round(avgTime / (24 * 60 * 60 * 1000));
 
     // Calcular varianza (dispersión)
-    const variance = completedTasks.reduce((sum, t) => {
-      const time = (t.completedAt - t.createdAt) / (24 * 60 * 60 * 1000);
-      return sum + Math.pow(time - avgDays, 2);
-    }, 0) / completedTasks.length;
+    const variance = completionTimes.reduce((sum, time) => {
+      const timeDays = time / (24 * 60 * 60 * 1000);
+      return sum + Math.pow(timeDays - avgDays, 2);
+    }, 0) / completionTimes.length;
     const stdDev = Math.sqrt(variance);
 
     bottlenecks.push({
@@ -220,7 +238,15 @@ function calculateAvgCompletionTime(tasks) {
   const completedTasks = tasks.filter(t => t.status === 'cerrada' && t.completedAt && t.createdAt);
   if (completedTasks.length === 0) return 0;
   
-  const totalTime = completedTasks.reduce((sum, t) => sum + (t.completedAt - t.createdAt), 0);
+  const totalTime = completedTasks.reduce((sum, t) => {
+    const createdTime = t.createdAt.seconds 
+      ? t.createdAt.seconds * 1000 
+      : (typeof t.createdAt === 'number' ? t.createdAt : new Date(t.createdAt).getTime());
+    const completedTime = t.completedAt.seconds 
+      ? t.completedAt.seconds * 1000 
+      : (typeof t.completedAt === 'number' ? t.completedAt : new Date(t.completedAt).getTime());
+    return sum + (completedTime - createdTime);
+  }, 0);
   const avgMs = totalTime / completedTasks.length;
   return Math.round(avgMs / (24 * 60 * 60 * 1000)); // Convertir a días
 }

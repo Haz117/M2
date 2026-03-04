@@ -33,6 +33,7 @@ import Toast from '../components/Toast';
 import TaskStatusButtons from '../components/TaskStatusButtons';
 import { useTheme } from '../contexts/ThemeContext';
 import { canChangeTaskStatus } from '../services/permissions';
+import { toMs } from '../utils/dateUtils';
 import HelpButton from '../components/HelpButton';
 import QuickTip, { TIPS } from '../components/QuickTip';
 import { useResponsive } from '../utils/responsive';
@@ -481,22 +482,24 @@ export default function KanbanScreen({ navigation }) {
       if (filters.area && task.area !== filters.area) return false;
       if (filters.responsible && task.assignedTo !== filters.responsible) return false;
       if (filters.priority && task.priority !== filters.priority) return false;
-      if (filters.overdue && task.dueAt >= Date.now()) return false;
+      if (filters.overdue && toMs(task.dueAt) >= Date.now()) return false;
       
       // Filtro: Para hoy
       if (filters.dueToday) {
-        const dueDate = new Date(task.dueAt);
+        const dueMs = toMs(task.dueAt);
+        const dueDate = dueMs ? new Date(dueMs) : null;
         const today = new Date();
-        if (dueDate.toDateString() !== today.toDateString() || task.status === 'cerrada') return false;
+        if (!dueDate || dueDate.toDateString() !== today.toDateString() || task.status === 'cerrada') return false;
       }
       
       // Filtro: Esta semana
       if (filters.dueThisWeek) {
-        const dueDate = new Date(task.dueAt);
+        const dueMs = toMs(task.dueAt);
+        const dueDate = dueMs ? new Date(dueMs) : null;
         const today = new Date();
         const weekEnd = new Date(today);
         weekEnd.setDate(weekEnd.getDate() + 7);
-        if (dueDate < today || dueDate > weekEnd || task.status === 'cerrada') return false;
+        if (!dueDate || dueDate < today || dueDate > weekEnd || task.status === 'cerrada') return false;
       }
       
       return true;
@@ -523,12 +526,8 @@ export default function KanbanScreen({ navigation }) {
   // Verificar si una tarea está vencida
   const isTaskOverdue = (task) => {
     if (!task.dueAt || task.status === 'cerrada') return false;
-    try {
-      const dueDate = task.dueAt.toDate ? task.dueAt.toDate() : new Date(task.dueAt);
-      return dueDate < new Date();
-    } catch (e) {
-      return false;
-    }
+    const dueMs = toMs(task.dueAt);
+    return dueMs ? dueMs < Date.now() : false;
   };
 
   // Cambiar prioridad rápidamente
@@ -565,7 +564,7 @@ export default function KanbanScreen({ navigation }) {
     const completionRate = byStatus.length > 0 ? (filtered.length / byStatus.length) * 100 : 0;
     
     // Calcular tareas vencidas en esta columna
-    const overdueTasks = sorted.filter(task => task.dueAt < Date.now()).length;
+    const overdueTasks = sorted.filter(task => toMs(task.dueAt) < Date.now()).length;
     
     // Calcular tareas de alta prioridad
     const highPriorityTasks = sorted.filter(task => task.priority === 'alta').length;
@@ -697,7 +696,7 @@ export default function KanbanScreen({ navigation }) {
             </View>
             
             {/* Indicador de Vencidas Premium en el Header */}
-            {tasks.filter(t => t.dueAt < Date.now() && t.status !== 'cerrada').length > 0 && (
+            {tasks.filter(t => toMs(t.dueAt) < Date.now() && t.status !== 'cerrada').length > 0 && (
               <TouchableOpacity
                 onPress={() => {
                   setFilters({ ...filters, overdue: !filters.overdue });
@@ -714,7 +713,7 @@ export default function KanbanScreen({ navigation }) {
                 </View>
                 <View style={styles.overdueHeaderContent}>
                   <Text style={styles.overdueHeaderCount}>
-                    {tasks.filter(t => t.dueAt < Date.now() && t.status !== 'cerrada').length}
+                    {tasks.filter(t => toMs(t.dueAt) < Date.now() && t.status !== 'cerrada').length}
                   </Text>
                   <Text style={styles.overdueHeaderLabel}>vencidas</Text>
                 </View>

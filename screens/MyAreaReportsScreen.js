@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { subscribeToAreaReports, subscribeToMyReports, rateTaskReport, deleteTaskReport } from '../services/reportsService';
 import { getCurrentSession } from '../services/authFirestore';
+import { getDireccionesBySecretaria } from '../config/areas';
 import Toast from '../components/Toast';
 
 const MyAreaReportsScreen = ({ navigation }) => {
@@ -49,7 +50,16 @@ const MyAreaReportsScreen = ({ navigation }) => {
       
       if (userRole === 'secretario') {
         // Secretario ve todos los reportes de sus áreas
-        unsubscribe = subscribeToAreaReports(userAreas, (data) => {
+        // Combinar áreas de Firebase con mapeo oficial
+        const direccionesOficiales = getDireccionesBySecretaria(result.session.area || '');
+        const areasFirebase = result.session.areasPermitidas || [];
+        const todasAreas = [...new Set([
+          result.session.area,
+          ...direccionesOficiales,
+          ...areasFirebase
+        ])].filter(Boolean);
+        
+        unsubscribe = subscribeToAreaReports(todasAreas, (data) => {
           setReports(data);
           setLoading(false);
           setRefreshing(false);

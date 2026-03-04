@@ -102,7 +102,7 @@ export default function AreaChiefDashboard({ navigation }) {
       }
 
       const fullyCompletedTasks = taskList.filter((t) => t.status === 'cerrada').length;
-      const tasksInProgress = taskList.filter((t) => t.status === 'en_progreso').length;
+      const tasksInProgress = taskList.filter((t) => t.status === 'en_progreso' || t.status === 'en-progreso' || t.status === 'en_proceso').length;
       const totalTasks = taskList.length;
       
       // Calcular promedio de progreso de todas las tareas
@@ -133,7 +133,7 @@ export default function AreaChiefDashboard({ navigation }) {
       case 'pendiente':
         return tasks.filter((t) => t.status === 'pendiente');
       case 'en_progreso':
-        return tasks.filter((t) => t.status === 'en_progreso');
+        return tasks.filter((t) => t.status === 'en_progreso' || t.status === 'en-progreso' || t.status === 'en_proceso');
       case 'completed':
         return tasks.filter((t) => t.status === 'cerrada');
       default:

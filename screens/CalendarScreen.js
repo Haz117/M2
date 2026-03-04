@@ -22,6 +22,7 @@ import { useResponsive } from '../utils/responsive';
 import { SPACING, TYPOGRAPHY, RADIUS, SHADOWS, MAX_WIDTHS } from '../theme/tokens';
 import WebSafeBlur from '../components/WebSafeBlur';
 import HelpButton from '../components/HelpButton';
+import { toMs } from '../utils/dateUtils';
 
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const MONTHS_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -191,8 +192,8 @@ export default function CalendarScreen({ navigation }) {
     const totalTasks = monthTasks.length;
     const completedTasks = monthTasks.filter(t => t.status === 'cerrada').length;
     const highPriorityTasks = monthTasks.filter(t => t.priority === 'alta' && t.status !== 'cerrada').length;
-    const overdueTasks = monthTasks.filter(t => t.dueAt < Date.now() && t.status !== 'cerrada').length;
-    const inProgressTasks = monthTasks.filter(t => t.status === 'en_proceso').length;
+    const overdueTasks = monthTasks.filter(t => toMs(t.dueAt) < Date.now() && t.status !== 'cerrada').length;
+    const inProgressTasks = monthTasks.filter(t => t.status === 'en_proceso' || t.status === 'en-progreso').length;
     
     // Días con tareas
     const daysWithTasks = new Set(monthTasks.map(t => {
@@ -253,7 +254,7 @@ export default function CalendarScreen({ navigation }) {
     const dayTasks = getTasksForDate(date);
     const hasHighPriority = dayTasks.some(t => t.priority === 'alta');
     const hasMediumPriority = dayTasks.some(t => t.priority === 'media');
-    const isOverdue = dayTasks.some(t => t.dueAt < Date.now() && t.status !== 'cerrada');
+    const isOverdue = dayTasks.some(t => toMs(t.dueAt) < Date.now() && t.status !== 'cerrada');
     const today = isToday(date);
     const hasTasks = dayTasks.length > 0;
     const isWeekend = date.getDay() === 0 || date.getDay() === 6;
@@ -711,11 +712,11 @@ export default function CalendarScreen({ navigation }) {
                     </Text>
                   </View>
                 )}
-                {selectedDateTasks.filter(t => t.status === 'en_proceso').length > 0 && (
+                {selectedDateTasks.filter(t => t.status === 'en_proceso' || t.status === 'en-progreso').length > 0 && (
                   <View style={[styles.modalStatBadge, { backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : '#EFF6FF' }]}>
                     <Ionicons name="sync" size={14} color="#3B82F6" />
                     <Text style={[styles.modalStatText, { color: '#3B82F6' }]}>
-                      {selectedDateTasks.filter(t => t.status === 'en_proceso').length} en proceso
+                      {selectedDateTasks.filter(t => t.status === 'en_proceso' || t.status === 'en-progreso').length} en proceso
                     </Text>
                   </View>
                 )}

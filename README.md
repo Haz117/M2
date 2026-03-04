@@ -167,6 +167,10 @@ to-do/
 │   └── fcm.js               # Push notifications (FCM)
 ├── theme/                   # Estilos y temas
 ├── utils/                   # Funciones utilitarias
+│   ├── dateUtils.js         # 🆕 Helpers para timestamps Firebase
+│   ├── haptics.js           # Feedback háptico
+│   ├── responsive.js        # Utilidades responsive
+│   └── ...
 ├── App.js                   # Punto de entrada
 ├── firebase.js              # Configuración Firebase
 └── app.config.js            # Configuración Expo
@@ -206,6 +210,47 @@ Asegúrate de que Firebase está correctamente inicializado y que las credencial
 - **Firebase Cloud Messaging** - Notificaciones push
 - **React Navigation** - Navegación
 - **AsyncStorage** - Almacenamiento local
+
+## 🔄 Utilidades de Timestamp
+
+### dateUtils.js
+
+Nuevo módulo de utilidades para manejo seguro de timestamps de Firebase:
+
+```javascript
+import { toMs, isBefore, isAfter, isOverdue, diffDays } from './utils/dateUtils';
+
+// Convertir timestamp a milisegundos
+const ms = toMs(task.dueAt); // Soporta Firestore Timestamp, números y Dates
+
+// Comparar timestamps
+if (isBefore(task.dueAt)) {
+  // Tarea vencida
+}
+
+// Calcular diferencia en días
+const daysLeft = diffDays(task.dueAt, new Date());
+
+// Verificar si tarea está vencida
+if (isOverdue(task)) {
+  // Mostrar alerta
+}
+```
+
+**Características:**
+- ✅ Soporte para Firebase Timestamp con `.seconds` y `.toMillis()`
+- ✅ Compatibilidad backwards con tipos numéricos y Date
+- ✅ Funciones de comparación seguras
+- ✅ Cálculo de diferencias de tiempo
+
+## 🐛 Bugs Resueltos (2026)
+
+- ✅ **Timestamps**: Conversión correcta entre Firestore Timestamps y milisegundos
+- ✅ **Estados inconsistentes**: Normalización de `en_proceso`, `en-progreso`, `en_progreso`
+- ✅ **AssignedTo**: Soporte para strings y arrays
+- ✅ **Divisiones por cero**: Validaciones en cálculos
+- ✅ **NaN días**: Conversión correcta de timestamps
+- ✅ **Web responsiveness**: Media queries y layout improvements
 
 ## 🤝 Contribuir
 

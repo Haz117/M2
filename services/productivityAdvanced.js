@@ -128,7 +128,13 @@ export async function getWeeklyProductivityChart(userEmail) {
         weekMap[weekKey].tasksCompleted++;
         
         if (task.createdAt) {
-          const completionTime = task.completedAt - task.createdAt;
+          const createdTime = task.createdAt.seconds 
+            ? task.createdAt.seconds * 1000 
+            : (typeof task.createdAt === 'number' ? task.createdAt : new Date(task.createdAt).getTime());
+          const completedTime = task.completedAt.seconds 
+            ? task.completedAt.seconds * 1000 
+            : (typeof task.completedAt === 'number' ? task.completedAt : new Date(task.completedAt).getTime());
+          const completionTime = completedTime - createdTime;
           weekMap[weekKey].totalCompletionTime += completionTime;
         }
       }
@@ -180,7 +186,13 @@ export async function getEstimatedVsRealTime(userEmail) {
     }
     
     const tasksWithComparison = tasks.map(task => {
-      const realHours = (task.completedAt - task.createdAt) / (1000 * 60 * 60);
+      const createdTime = task.createdAt.seconds 
+        ? task.createdAt.seconds * 1000 
+        : (typeof task.createdAt === 'number' ? task.createdAt : new Date(task.createdAt).getTime());
+      const completedTime = task.completedAt.seconds 
+        ? task.completedAt.seconds * 1000 
+        : (typeof task.completedAt === 'number' ? task.completedAt : new Date(task.completedAt).getTime());
+      const realHours = (completedTime - createdTime) / (1000 * 60 * 60);
       const estimated = task.estimatedHours || 0;
       const difference = realHours - estimated;
       const accuracyPercent = estimated > 0 ? Math.abs((difference / estimated) * 100) : 0;

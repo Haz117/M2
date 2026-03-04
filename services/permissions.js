@@ -278,11 +278,14 @@ export function canCreateSubtask(user, task) {
   
   // Secretario puede crear subtareas en sus áreas
   if (user.role === ROLES.SECRETARIO) {
-    const direccionesPermitidas = user.direcciones || [];
+    // Usar mapeo oficial como fuente principal
+    const direccionesOficiales = getDireccionesBySecretaria(user.area || '');
+    const direccionesFirebase = user.direcciones || [];
     const areasPermitidas = user.areasPermitidas || [];
     const todasAreas = [...new Set([
       user.area,
-      ...direccionesPermitidas,
+      ...direccionesOficiales,
+      ...direccionesFirebase,
       ...areasPermitidas
     ])].filter(Boolean);
     
@@ -327,11 +330,14 @@ export function canChangeTaskStatus(user, task) {
   
   // Secretario puede cambiar status de tareas en sus áreas
   if (user.role === ROLES.SECRETARIO) {
-    const direccionesPermitidas = user.direcciones || [];
+    // Usar mapeo oficial como fuente principal
+    const direccionesOficiales = getDireccionesBySecretaria(user.area || '');
+    const direccionesFirebase = user.direcciones || [];
     const areasPermitidas = user.areasPermitidas || [];
     const todasAreas = [...new Set([
       user.area,
-      ...direccionesPermitidas,
+      ...direccionesOficiales,
+      ...direccionesFirebase,
       ...areasPermitidas
     ])].filter(Boolean);
     

@@ -145,7 +145,8 @@ export const notifySubtaskCompleted = async (subtask, completedBy) => {
  */
 export const notifyTaskDueSoon = async (task) => {
   try {
-    const daysLeft = Math.ceil((task.dueAt - Date.now()) / (1000 * 60 * 60 * 24));
+    const dueAtMs = task.dueAt?.seconds ? task.dueAt.seconds * 1000 : (typeof task.dueAt === 'number' ? task.dueAt : new Date(task.dueAt).getTime());
+    const daysLeft = Math.ceil((dueAtMs - Date.now()) / (1000 * 60 * 60 * 24));
 
     await recordNotification({
       type: 'task_due_soon',

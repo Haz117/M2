@@ -64,7 +64,7 @@ export const calculateDetailedAreaMetrics = (tasks = [], previousTasks = []) => 
       }
     } else if (status === 'pendiente') {
       byArea[area].pending++;
-    } else if (status === 'en progreso' || status === 'en_progreso') {
+    } else if (status === 'en progreso' || status === 'en_progreso' || status === 'en-progreso') {
       byArea[area].inProgress++;
     }
 
@@ -188,7 +188,7 @@ export const getAreaTaskDistribution = (tasks, areaName) => {
       distribution.completed++;
     } else if (status === 'pendiente') {
       distribution.pending++;
-    } else if (status === 'en progreso' || status === 'en_progreso') {
+    } else if (status === 'en progreso' || status === 'en_progreso' || status === 'en-progreso') {
       distribution.inProgress++;
     }
 

@@ -129,51 +129,72 @@ export default function ChatImageUpload({
       const timestamp = Date.now();
       const filename = `${timestamp}-${Math.random().toString(36).substr(2, 9)}.jpg`;
       
-      // En web, usar base64 directamente (evita CORS)
-      if (Platform.OS === 'web' || selectedImage.base64) {
-        setUploadProgress(50);
-        
-        // Crear data URL para web
-        let imageUri = selectedImage.uri;
-        if (selectedImage.base64) {
-          imageUri = `data:image/jpeg;base64,${selectedImage.base64}`;
+      // Helper para convertir base64 a Blob
+      const base64ToBlob = (base64, mimeType = 'image/jpeg') => {
+        const byteCharacters = atob(base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
         }
-        
-        setUploadProgress(100);
-        
-        onImageCapture({
-          uri: imageUri,
-          name: filename,
-          type: 'image',
-          isBase64: true,
-          localUri: selectedImage.uri
-        });
-        
-        // Limpiar
-        setSelectedImage(null);
-        setPreviewModalVisible(false);
-        setUploadProgress(0);
+        const byteArray = new Uint8Array(byteNumbers);
+        return new Blob([byteArray], { type: mimeType });
+      };
+      
+      // Verificar si Storage está disponible
+      if (!storage) {
+        // Sin Storage, usar base64 como fallback (no recomendado)
+        if (selectedImage.base64) {
+          const imageUri = `data:image/jpeg;base64,${selectedImage.base64}`;
+          onImageCapture({
+            uri: imageUri,
+            name: filename,
+            type: 'image',
+            isBase64: true,
+            localUri: selectedImage.uri
+          });
+          setSelectedImage(null);
+          setPreviewModalVisible(false);
+          setUploadProgress(0);
+          return;
+        }
+        Alert.alert('No disponible', 'El almacenamiento de imágenes no está configurado.');
         return;
       }
       
-      // Para móvil con Storage disponible
-      if (!storage) {
-        Alert.alert(
-          'No disponible', 
-          'El almacenamiento de imágenes no está configurado.'
-        );
-        return;
-      }
-
-      // Leer archivo
-      const response = await fetch(selectedImage.uri);
-      const blob = await response.blob();
-
       // Crear referencia en Storage
       const storageRef = ref(storage, `chat-images/${filename}`);
-
-      // Subir imagen
-      setUploadProgress(30);
+      setUploadProgress(20);
+      
+      let blob;
+      
+      // En web o con base64, convertir a blob
+      if (Platform.OS === 'web' || selectedImage.base64) {
+        if (selectedImage.base64) {
+          blob = base64ToBlob(selectedImage.base64);
+        } else {
+          // En web sin base64, intentar fetch
+          try {
+            const response = await fetch(selectedImage.uri);
+            blob = await response.blob();
+          } catch (fetchError) {
+            console.error('Error fetch en web:', fetchError);
+            // Fallback a base64 si no funciona
+            if (selectedImage.base64) {
+              blob = base64ToBlob(selectedImage.base64);
+            } else {
+              throw new Error('No se pudo procesar la imagen');
+            }
+          }
+        }
+      } else {
+        // Para móvil nativo
+        const response = await fetch(selectedImage.uri);
+        blob = await response.blob();
+      }
+      
+      setUploadProgress(50);
+      
+      // Subir a Firebase Storage
       await uploadBytes(storageRef, blob);
       setUploadProgress(80);
 

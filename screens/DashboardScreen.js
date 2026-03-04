@@ -28,6 +28,7 @@ import FadeInView from '../components/FadeInView';
 import SpringCard from '../components/SpringCard';
 import RippleButton from '../components/RippleButton';
 import ProjectCard from '../components/ProjectCard';
+import { toMs } from '../utils/dateUtils';
 import WebSafeBlur from '../components/WebSafeBlur';
 import SecretarioStatsCard from '../components/SecretarioStatsCard';
 import { useResponsive } from '../utils/responsive';
@@ -209,7 +210,8 @@ export default function DashboardScreen({ navigation }) {
       groups[area][status]++;
       groups[area].total++;
       
-      if (task.dueAt && task.dueAt < Date.now() && status !== 'cerrada') {
+      const dueAtMs = toMs(task.dueAt);
+      if (dueAtMs && dueAtMs < Date.now() && status !== 'cerrada') {
         groups[area].vencidas++;
       }
     });
@@ -266,23 +268,25 @@ export default function DashboardScreen({ navigation }) {
     const week = 7 * 24 * 60 * 60 * 1000;
     
     return tasks
-      .filter(t => 
-        t.dueAt && 
-        t.dueAt > now && 
-        t.dueAt <= now + week && 
-        t.status !== 'cerrada'
-      )
-      .sort((a, b) => (a.dueAt || 0) - (b.dueAt || 0))
+      .filter(t => {
+        const dueAtMs = toMs(t.dueAt);
+        return dueAtMs && 
+        dueAtMs > now && 
+        dueAtMs <= now + week && 
+        t.status !== 'cerrada';
+      })
+      .sort((a, b) => (toMs(a.dueAt) || 0) - (toMs(b.dueAt) || 0))
       .slice(0, 5);
   }, [tasks]);
 
   // Tareas vencidas (memoizado)
   const overdueTasks = useMemo(() => {
-    return tasks.filter(t => 
-      t.dueAt && 
-      t.dueAt < Date.now() && 
-      (t.status !== 'cerrada')
-    ).sort((a, b) => (a.dueAt || 0) - (b.dueAt || 0));
+    return tasks.filter(t => {
+      const dueAtMs = toMs(t.dueAt);
+      return dueAtMs && 
+      dueAtMs < Date.now() && 
+      (t.status !== 'cerrada');
+    }).sort((a, b) => (toMs(a.dueAt) || 0) - (toMs(b.dueAt) || 0));
   }, [tasks]);
 
   // Exportar datos

@@ -48,9 +48,10 @@ import {
 } from '../services/AreaAnalytics';
 import { exportAreaReport, exportProductivityReport } from '../services/ReportsExport';
 import { subscribeToAreas } from '../services/area/areaManagement';
-import { getAreaType, SECRETARIAS, DIRECCIONES } from '../config/areas';
+import { getAreaType, SECRETARIAS, DIRECCIONES, getDireccionesBySecretaria } from '../config/areas';
 import { MAX_WIDTHS } from '../theme/tokens';
 import HelpButton from '../components/HelpButton';
+import { toMs } from '../utils/dateUtils';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -75,6 +76,15 @@ export default function ReportsScreen({ navigation }) {
   });
 
   const [monthlyStats, setMonthlyStats] = useState({
+    completed: 0,
+    inProgress: 0,
+    pending: 0,
+    overdue: 0,
+    completionRate: 0,
+    avgCompletionTime: 0
+  });
+
+  const [quarterlyStats, setQuarterlyStats] = useState({
     completed: 0,
     inProgress: 0,
     pending: 0,
@@ -396,15 +406,16 @@ export default function ReportsScreen({ navigation }) {
       // Admin ve todas las tareas
       userTasks = allTasks;
     } else if (currentUser.role === 'secretario') {
-      // Secretario ve tareas de su área o que haya creado
+      // Secretario ve tareas de su secretaría, sus direcciones, o que haya creado
+      const misDirecciones = getDireccionesBySecretaria(currentUser.area || '');
       userTasks = allTasks.filter(t => {
         if (t.createdBy === currentUser.email) return true;
         if (t.area === currentUser.area) return true;
-        // Verificar si la tarea está en alguna de sus direcciones
+        // Usar mapeo oficial de direcciones (no depende de datos de Firebase)
+        if (misDirecciones.includes(t.area)) return true;
+        // Fallback: verificar si la tarea está en alguna de sus direcciones de Firebase
         if (currentUser.direcciones && Array.isArray(currentUser.direcciones)) {
-          return currentUser.direcciones.some(dir => 
-            (t.area || '').toLowerCase().includes(dir.toLowerCase())
-          );
+          if (currentUser.direcciones.includes(t.area)) return true;
         }
         return false;
       });
@@ -449,9 +460,9 @@ export default function ReportsScreen({ navigation }) {
     
     setWeeklyStats({
       completed: weeklyCompleted.length,
-      inProgress: weeklyTasks.filter(t => t.status === 'en_proceso').length,
+      inProgress: weeklyTasks.filter(t => t.status === 'en-progreso' || t.status === 'en_proceso').length,
       pending: weeklyTasks.filter(t => t.status === 'pendiente').length,
-      overdue: weeklyTasks.filter(t => t.dueAt < now && t.status !== 'cerrada').length,
+      overdue: weeklyTasks.filter(t => toMs(t.dueAt) < now && t.status !== 'cerrada').length,
       completionRate: weeklyTasks.length > 0 ? Math.round((weeklyCompleted.length / weeklyTasks.length) * 100) : 0,
       avgCompletionTime: calculateAverageCompletionTime(weeklyCompleted)
     });
@@ -462,11 +473,25 @@ export default function ReportsScreen({ navigation }) {
     
     setMonthlyStats({
       completed: monthlyCompleted.length,
-      inProgress: monthlyTasks.filter(t => t.status === 'en_proceso').length,
+      inProgress: monthlyTasks.filter(t => t.status === 'en-progreso' || t.status === 'en_proceso').length,
       pending: monthlyTasks.filter(t => t.status === 'pendiente').length,
-      overdue: monthlyTasks.filter(t => t.dueAt < now && t.status !== 'cerrada').length,
+      overdue: monthlyTasks.filter(t => toMs(t.dueAt) < now && t.status !== 'cerrada').length,
       completionRate: monthlyTasks.length > 0 ? Math.round((monthlyCompleted.length / monthlyTasks.length) * 100) : 0,
       avgCompletionTime: calculateAverageCompletionTime(monthlyCompleted)
+    });
+
+    // Quarterly stats (90 days)
+    const quarterAgo = now - 90 * 24 * 60 * 60 * 1000;
+    const quarterlyTasks = userTasks.filter(t => t.createdAt >= quarterAgo);
+    const quarterlyCompleted = quarterlyTasks.filter(t => t.status === 'cerrada' || t.status === 'completada');
+    
+    setQuarterlyStats({
+      completed: quarterlyCompleted.length,
+      inProgress: quarterlyTasks.filter(t => t.status === 'en-progreso' || t.status === 'en_proceso').length,
+      pending: quarterlyTasks.filter(t => t.status === 'pendiente').length,
+      overdue: quarterlyTasks.filter(t => toMs(t.dueAt) < now && t.status !== 'cerrada').length,
+      completionRate: quarterlyTasks.length > 0 ? Math.round((quarterlyCompleted.length / quarterlyTasks.length) * 100) : 0,
+      avgCompletionTime: calculateAverageCompletionTime(quarterlyCompleted)
     });
 
     // Daily completions (últimos 7 días)
@@ -673,8 +698,12 @@ export default function ReportsScreen({ navigation }) {
     if (completedTasks.length === 0) return 0;
 
     const totalTime = completedTasks.reduce((sum, task) => {
-      const created = task.createdAt.seconds * 1000 || new Date(task.createdAt).getTime();
-      const completed = task.completedAt?.seconds * 1000 || new Date(task.completedAt).getTime();
+      const created = task.createdAt.seconds 
+        ? task.createdAt.seconds * 1000 
+        : new Date(task.createdAt).getTime();
+      const completed = task.completedAt?.seconds 
+        ? task.completedAt.seconds * 1000 
+        : new Date(task.completedAt).getTime();
       return sum + (completed - created);
     }, 0);
 
@@ -734,7 +763,7 @@ export default function ReportsScreen({ navigation }) {
     }
   }, [areaMetrics, tasks, period]);
 
-  const currentStats = period === 'week' ? weeklyStats : monthlyStats;
+  const currentStats = period === 'week' ? weeklyStats : period === 'month' ? monthlyStats : quarterlyStats;
 
   // OPTIMIZACIÓN: Memoizar datos de charts para evitar recreación
   const chartData = useMemo(() => ({
@@ -765,8 +794,8 @@ export default function ReportsScreen({ navigation }) {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.contentWrapper, { maxWidth: isDesktop ? MAX_WIDTHS.content : '100%' }]}>
+    <View style={[styles.container, Platform.OS === 'web' && { minHeight: '100vh' }]}>
+      <View style={[styles.contentWrapper, { maxWidth: isDesktop ? MAX_WIDTHS.content : '100%' }, Platform.OS === 'web' && { width: '100%', paddingHorizontal: padding }]}>
         {/* Header Premium Compacto */}
         <Animated.View style={{ opacity: headerOpacity, transform: [{ translateY: headerSlide }] }}>
           <LinearGradient
@@ -1756,8 +1785,8 @@ const createStyles = (theme, isDark, isDesktop, isTablet, isDesktopLarge, width,
     },
     contentWrapper: {
       flex: 1,
-      width: width,
-      maxWidth: width,
+      width: '100%',
+      maxWidth: Platform.OS === 'web' ? MAX_WIDTHS.content : width,
       alignSelf: 'center',
     },
     centered: {
@@ -1848,6 +1877,7 @@ const createStyles = (theme, isDark, isDesktop, isTablet, isDesktopLarge, width,
     scroll: {
       flex: 1,
       width: '100%',
+      minHeight: Platform.OS === 'web' ? '100vh' : 'auto',
     },
     scrollContent: {
       paddingHorizontal: responsiveContentPadding,

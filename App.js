@@ -2,12 +2,19 @@
 import './polyfills'; // Debe ser lo primero
 import 'react-native-gesture-handler';
 
-// 🔒 SEGURIDAD: Deshabilitar todos los console.* para evitar fugas de información
+// 🔒 SEGURIDAD: Deshabilitar console.log en producción, pero mantener errores
+const originalError = console.error;
 console.log = () => {};
 console.warn = () => {};
-console.error = () => {};
 console.info = () => {};
 console.debug = () => {};
+// Filtrar errores de CORS de Google (inofensivos en desarrollo)
+console.error = (...args) => {
+  const message = args[0]?.toString() || '';
+  if (!message.includes('CORS') && !message.includes('google') && !message.includes('favicon')) {
+    originalError(...args);
+  }
+};
 
 import React, { useEffect, useState, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
@@ -41,10 +48,12 @@ import AnalyticsScreen from './screens/AnalyticsScreen';
 import TaskReportsAndActivityScreen from './screens/TaskReportsAndActivityScreen';
 import { getCurrentSession, logoutUser } from './services/authFirestore';
 import { startConnectivityMonitoring } from './services/offlineQueue';
+import { toMs } from './utils/dateUtils';
 import { setupNotificationResponseListener } from './services/notifications';
 import { registerPushToken, setupPushNotificationListener } from './services/pushNotifications';
 import { initConnectionListener, syncPendingOperations, clearOfflineData } from './services/offlineSync';
 import OfflineIndicator from './components/OfflineIndicator';
+import OfflineSyncIndicator from './components/OfflineSyncIndicator';
 import ErrorBoundary from './components/ErrorBoundary';
 import { startAutoCacheCleanup, stopAutoCacheCleanup } from './utils/cacheManager';
 import * as productionLogger from './utils/productionLogger';
@@ -125,10 +134,10 @@ function MainTabs({ onLogout }) {
       const tomorrow = now + (24 * 60 * 60 * 1000); // 24 horas
       
       if (currentUser.role === 'admin') {
-        userOverdue = tasks.filter(t => t.dueAt < now && t.status !== 'cerrada');
+        userOverdue = tasks.filter(t => toMs(t.dueAt) < now && t.status !== 'cerrada');
       } else {
         userOverdue = tasks.filter(t => 
-          t.dueAt < now && 
+          toMs(t.dueAt) < now && 
           t.status !== 'cerrada' && 
           t.assignedTo === currentUser.email
         );
@@ -139,12 +148,12 @@ function MainTabs({ onLogout }) {
       if (currentUser.role === 'admin') {
         urgentTasks = tasks.filter(t => 
           t.status !== 'cerrada' && 
-          t.dueAt < tomorrow
+          toMs(t.dueAt) < tomorrow
         );
       } else {
         urgentTasks = tasks.filter(t => 
           t.status !== 'cerrada' && 
-          t.dueAt < tomorrow &&
+          toMs(t.dueAt) < tomorrow &&
           (Array.isArray(t.assignedTo) 
             ? t.assignedTo.includes(currentUser.email)
             : t.assignedTo === currentUser.email)
@@ -499,6 +508,8 @@ export default function App() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         {/* Indicador de estado offline */}
         {isAuthenticated && <OfflineIndicator />}
+        {/* Indicador de reportes pendientes de sincronizar */}
+        {isAuthenticated && <OfflineSyncIndicator compact={true} />}
         
         <NavigationContainer ref={navigationRef} key={`navigation-${forceUpdate}`}>
           <Stack.Navigator 

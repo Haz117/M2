@@ -24,6 +24,7 @@ import OverdueAlert from '../components/OverdueAlert';
 import { useResponsive } from '../utils/responsive';
 import { SPACING, TYPOGRAPHY, RADIUS, SHADOWS, MAX_WIDTHS } from '../theme/tokens';
 import HelpButton from '../components/HelpButton';
+import { getDireccionesBySecretaria } from '../config/areas';
 
 // Helper function to check if a task is assigned to a user (supports both string and array formats)
 function isTaskAssignedToUser(task, userEmail) {
@@ -292,12 +293,15 @@ export default function MyInboxScreen({ navigation }) {
       if (userRole === 'admin') {
         // No filtrar por asignación
       }
-      // Secretario ve tareas de su área
+      // Secretario ve tareas de su área Y de todas sus direcciones
       else if (userRole === 'secretario') {
-        const isInMyArea = task.area === userArea;
+        const misDirecciones = getDireccionesBySecretaria(userArea);
+        const isInMySecretaria = task.area === userArea;
+        const isInMyDirecciones = misDirecciones.includes(task.area);
         const isAssignedToMe = isTaskAssignedToUser(task, userEmail);
         const isCreatedByMe = task.createdBy?.toLowerCase() === userEmail;
-        if (!isInMyArea && !isAssignedToMe && !isCreatedByMe) return false;
+        // El secretario ve: tareas de su secretaría, tareas de sus direcciones, tareas asignadas a él, o tareas que creó
+        if (!isInMySecretaria && !isInMyDirecciones && !isAssignedToMe && !isCreatedByMe) return false;
       }
       // Director ve tareas de su área o asignadas a él
       else if (userRole === 'director') {
@@ -353,7 +357,8 @@ export default function MyInboxScreen({ navigation }) {
     const userArea = currentUser.area || currentUser.department || '';
     if (userRole === 'admin') return true;
     if (userRole === 'secretario') {
-      return task.area === userArea || isTaskAssignedToUser(task, userEmail) || task.createdBy?.toLowerCase() === userEmail;
+      const misDirecciones = getDireccionesBySecretaria(userArea);
+      return task.area === userArea || misDirecciones.includes(task.area) || isTaskAssignedToUser(task, userEmail) || task.createdBy?.toLowerCase() === userEmail;
     }
     if (userRole === 'director') {
       return task.area === userArea || isTaskAssignedToUser(task, userEmail) || task.createdBy?.toLowerCase() === userEmail;

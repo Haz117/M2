@@ -397,7 +397,7 @@ const TaskItem = memo(function TaskItem({
                         <Text style={[styles.quickActionText, { color: '#2196F3' }]}>Iniciar</Text>
                       </TouchableOpacity>
                     )}
-                    {(task.status === 'pendiente' || task.status === 'en_proceso') && (
+                    {(task.status === 'pendiente' || task.status === 'en_proceso' || task.status === 'en-progreso') && (
                       <TouchableOpacity
                         style={[styles.quickActionBtn, { backgroundColor: '#9C27B020', borderColor: '#9C27B0' }]}
                         onPress={() => { hapticMedium(); onChangeStatus(task, 'en_revision'); }}
@@ -407,7 +407,7 @@ const TaskItem = memo(function TaskItem({
                         <Text style={[styles.quickActionText, { color: '#9C27B0' }]}>Revisión</Text>
                       </TouchableOpacity>
                     )}
-                    {(task.status === 'en_proceso' || task.status === 'en_revision') && (
+                    {(task.status === 'en_proceso' || task.status === 'en-progreso' || task.status === 'en_revision') && (
                       <TouchableOpacity
                         style={[styles.quickActionBtn, { backgroundColor: '#4CAF5020', borderColor: '#4CAF50' }]}
                         onPress={() => { hapticMedium(); onChangeStatus(task, 'cerrada'); }}

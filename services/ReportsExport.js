@@ -106,7 +106,7 @@ export async function exportAreaReport(areaMetrics, allTasks, period = 'month') 
     // SECCIÓN 3: Distribución por estado
     const statusDistribution = {
       pendiente: allTasks.filter(t => t.status === 'pendiente').length,
-      en_proceso: allTasks.filter(t => t.status === 'en_proceso').length,
+      en_proceso: allTasks.filter(t => t.status === 'en_proceso' || t.status === 'en-progreso' || t.status === 'en progreso').length,
       en_revision: allTasks.filter(t => t.status === 'en_revision').length,
       cerrada: allTasks.filter(t => t.status === 'cerrada').length,
     };

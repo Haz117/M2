@@ -115,7 +115,8 @@ export async function notifyTaskAssigned(task, assignedTo) {
  * Enviar email cuando una tarea está por vencer (24h)
  */
 export async function notifyTaskDueSoon(task, assignedTo) {
-  const hoursRemaining = Math.floor((task.dueAt - Date.now()) / (1000 * 60 * 60));
+  const dueAtMs = task.dueAt?.seconds ? task.dueAt.seconds * 1000 : (typeof task.dueAt === 'number' ? task.dueAt : new Date(task.dueAt).getTime());
+  const hoursRemaining = Math.floor((dueAtMs - Date.now()) / (1000 * 60 * 60));
   
   const content = `
     <h2>⏰ Tarea próxima a vencer</h2>
@@ -123,8 +124,8 @@ export async function notifyTaskDueSoon(task, assignedTo) {
     <div style="background: #FFF3E0; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #F59E0B;">
       <strong style="font-size: 16px; color: #F59E0B;">${task.title}</strong>
       <p style="margin: 10px 0;">${task.description}</p>
-      <p style="margin: 5px 0;"><strong>Vence:</strong> ${new Date(task.dueAt).toLocaleString('es-ES')}</p>
-      <p style="margin: 5px 0;"><strong>Estado:</strong> ${task.status === 'pendiente' ? 'Pendiente' : task.status === 'en_proceso' ? 'En proceso' : 'En revisión'}</p>
+      <p style="margin: 5px 0;"><strong>Vence:</strong> ${new Date(dueAtMs).toLocaleString('es-ES')}</p>
+      <p style="margin: 5px 0;"><strong>Estado:</strong> ${task.status === 'pendiente' ? 'Pendiente' : (task.status === 'en_proceso' || task.status === 'en-progreso') ? 'En proceso' : 'En revisión'}</p>
     </div>
     <p>¡No olvides completarla a tiempo!</p>
   `;

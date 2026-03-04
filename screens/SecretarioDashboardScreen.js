@@ -20,6 +20,7 @@ import { getCurrentSession } from '../services/authFirestore';
 import { subscribeToTasks } from '../services/tasks';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
+import { getDireccionesBySecretaria } from '../config/areas';
 import ProgressBar from '../components/ProgressBar';
 import Avatar from '../components/Avatar';
 
@@ -73,8 +74,11 @@ export default function SecretarioDashboardScreen({ navigation }) {
 
   const loadDirectors = async (user) => {
     try {
-      // Obtener las direcciones del secretario
-      const direcciones = user.direcciones || [];
+      // Obtener las direcciones del secretario usando mapeo oficial primero
+      const direccionesOficiales = getDireccionesBySecretaria(user.area || '');
+      const direccionesFirebase = user.direcciones || [];
+      // Combinar ambas fuentes sin duplicados
+      const direcciones = [...new Set([...direccionesOficiales, ...direccionesFirebase])].filter(Boolean);
       const secretariaArea = user.area || '';
       
       // Buscar directores de sus áreas
@@ -145,11 +149,12 @@ export default function SecretarioDashboardScreen({ navigation }) {
     
     // Métricas generales
     const pendingTasks = areaTasks.filter(t => t.status === 'pendiente');
-    const inProgressTasks = areaTasks.filter(t => t.status === 'en_proceso' || t.status === 'en_progreso');
+    const inProgressTasks = areaTasks.filter(t => t.status === 'en_proceso' || t.status === 'en_progreso' || t.status === 'en-progreso');
     const completedTasks = areaTasks.filter(t => t.status === 'completada' || t.status === 'cerrada');
     const overdueTasks = areaTasks.filter(t => {
       if (t.status === 'completada' || t.status === 'cerrada') return false;
-      const dueDate = t.dueAt ? new Date(t.dueAt) : null;
+      const dueMs = t.dueAt?.seconds ? t.dueAt.seconds * 1000 : (typeof t.dueAt === 'number' ? t.dueAt : t.dueAt ? new Date(t.dueAt).getTime() : null);
+      const dueDate = dueMs ? new Date(dueMs) : null;
       return dueDate && dueDate < now;
     });
     
@@ -172,10 +177,11 @@ export default function SecretarioDashboardScreen({ navigation }) {
         t.status === 'completada' || t.status === 'cerrada'
       );
       const areaPending = areaTasks_dir.filter(t => t.status === 'pendiente');
-      const areaInProgress = areaTasks_dir.filter(t => t.status === 'en_proceso' || t.status === 'en_progreso');
+      const areaInProgress = areaTasks_dir.filter(t => t.status === 'en_proceso' || t.status === 'en_progreso' || t.status === 'en-progreso');
       const areaOverdue = areaTasks_dir.filter(t => {
         if (t.status === 'completada' || t.status === 'cerrada') return false;
-        const dueDate = t.dueAt ? new Date(t.dueAt) : null;
+        const dueMs = t.dueAt?.seconds ? t.dueAt.seconds * 1000 : (typeof t.dueAt === 'number' ? t.dueAt : t.dueAt ? new Date(t.dueAt).getTime() : null);
+        const dueDate = dueMs ? new Date(dueMs) : null;
         return dueDate && dueDate < now;
       });
       

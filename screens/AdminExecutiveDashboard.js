@@ -56,7 +56,7 @@ export default function AdminExecutiveDashboard({ navigation }) {
     
     const now = new Date();
     const pending = tasks.filter(t => t.status === 'pendiente');
-    const inProgress = tasks.filter(t => t.status === 'en_proceso' || t.status === 'en_progreso');
+    const inProgress = tasks.filter(t => t.status === 'en_proceso' || t.status === 'en_progreso' || t.status === 'en-progreso');
     const completed = tasks.filter(t => t.status === 'completada' || t.status === 'cerrada');
     const overdue = tasks.filter(t => {
       if (t.status === 'completada' || t.status === 'cerrada') return false;

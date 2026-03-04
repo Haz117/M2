@@ -2,6 +2,7 @@
 // Servicio de análisis y estadísticas de tareas
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
+import { toMs } from '../utils/dateUtils';
 
 // Helper function to check if a task is assigned to a user (supports both string and array formats)
 function isTaskAssignedToUser(task, userEmail) {
@@ -56,16 +57,24 @@ export const getGeneralMetrics = async (userId, userRole) => {
     const total = tasks.length;
     const completed = tasks.filter(t => t.status === 'cerrada').length;
     const pending = tasks.filter(t => t.status === 'pendiente').length;
-    const inProgress = tasks.filter(t => t.status === 'en_proceso').length;
+    const inProgress = tasks.filter(t => t.status === 'en_proceso' || t.status === 'en-progreso' || t.status === 'en_progreso' || t.status === 'en progreso').length;
     const inReview = tasks.filter(t => t.status === 'en_revision').length;
     const overdue = tasks.filter(t => 
-      t.status !== 'cerrada' && t.dueAt && t.dueAt < now
+      t.status !== 'cerrada' && t.dueAt && toMs(t.dueAt) < now
     ).length;
 
     // Métricas de tiempo
     const completedTasks = tasks.filter(t => t.status === 'cerrada' && t.completedAt && t.createdAt);
     const avgCompletionTime = completedTasks.length > 0
-      ? completedTasks.reduce((sum, t) => sum + (t.completedAt - t.createdAt), 0) / completedTasks.length
+      ? completedTasks.reduce((sum, t) => {
+          const createdTime = t.createdAt.seconds 
+            ? t.createdAt.seconds * 1000 
+            : (typeof t.createdAt === 'number' ? t.createdAt : new Date(t.createdAt).getTime());
+          const completedTime = t.completedAt.seconds 
+            ? t.completedAt.seconds * 1000 
+            : (typeof t.completedAt === 'number' ? t.completedAt : new Date(t.completedAt).getTime());
+          return sum + (completedTime - createdTime);
+        }, 0) / completedTasks.length
       : 0;
 
     // Tareas por prioridad
@@ -208,11 +217,17 @@ export const getAreaStats = async () => {
       if (task.status === 'cerrada') {
         areas[area].completed++;
         if (task.completedAt && task.createdAt) {
-          areas[area].avgCompletionTime += (task.completedAt - task.createdAt);
+          const createdTime = task.createdAt.seconds 
+            ? task.createdAt.seconds * 1000 
+            : (typeof task.createdAt === 'number' ? task.createdAt : new Date(task.createdAt).getTime());
+          const completedTime = task.completedAt.seconds 
+            ? task.completedAt.seconds * 1000 
+            : (typeof task.completedAt === 'number' ? task.completedAt : new Date(task.completedAt).getTime());
+          areas[area].avgCompletionTime += (completedTime - createdTime);
         }
       } else {
         areas[area].pending++;
-        if (task.dueAt && task.dueAt < Date.now()) {
+        if (task.dueAt && toMs(task.dueAt) < Date.now()) {
           areas[area].overdue++;
         }
       }
@@ -275,7 +290,13 @@ export const getTopPerformers = async () => {
           }
 
           if (task.completedAt && task.createdAt) {
-            users[user].avgCompletionTime += (task.completedAt - task.createdAt);
+            const createdTime = task.createdAt.seconds 
+              ? task.createdAt.seconds * 1000 
+              : (typeof task.createdAt === 'number' ? task.createdAt : new Date(task.createdAt).getTime());
+            const completedTime = task.completedAt.seconds 
+              ? task.completedAt.seconds * 1000 
+              : (typeof task.completedAt === 'number' ? task.completedAt : new Date(task.completedAt).getTime());
+            users[user].avgCompletionTime += (completedTime - createdTime);
           }
 
           if (task.dueAt && task.completedAt <= task.dueAt) {
@@ -372,13 +393,21 @@ export const getSecretarioMetrics = async () => {
       const tasksOverdue = tasksPending.filter(t => t.dueAt && t.dueAt < now);
 
       // Tareas en proceso y en revisión
-      const tasksInProgress = tasksCreated.filter(t => t.status === 'en_proceso');
+      const tasksInProgress = tasksCreated.filter(t => t.status === 'en_proceso' || t.status === 'en-progreso' || t.status === 'en progreso');
       const tasksInReview = tasksCreated.filter(t => t.status === 'en_revision');
 
       // Tiempo promedio de completitud
       const completedWithTimes = tasksCompleted.filter(t => t.completedAt && t.createdAt);
       const avgCompletionTime = completedWithTimes.length > 0
-        ? completedWithTimes.reduce((sum, t) => sum + (t.completedAt - t.createdAt), 0) / completedWithTimes.length
+        ? completedWithTimes.reduce((sum, t) => {
+            const createdTime = t.createdAt.seconds 
+              ? t.createdAt.seconds * 1000 
+              : (typeof t.createdAt === 'number' ? t.createdAt : new Date(t.createdAt).getTime());
+            const completedTime = t.completedAt.seconds 
+              ? t.completedAt.seconds * 1000 
+              : (typeof t.completedAt === 'number' ? t.completedAt : new Date(t.completedAt).getTime());
+            return sum + (completedTime - createdTime);
+          }, 0) / completedWithTimes.length
         : 0;
 
       // Tareas completadas a tiempo
@@ -517,7 +546,7 @@ export const getSecretarioActivitySummary = async (secretarioEmail) => {
         byArea[area].completed++;
       } else {
         byArea[area].pending++;
-        if (task.dueAt && task.dueAt < Date.now()) {
+        if (task.dueAt && toMs(task.dueAt) < Date.now()) {
           byArea[area].overdue++;
         }
       }

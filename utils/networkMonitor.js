@@ -296,7 +296,9 @@ class NetworkQualityMonitor {
     const avgSpeed = speeds.length ? 
       speeds.reduce((a, b) => a + b) / speeds.length : null;
 
-    const downtime = history.filter(h => !h.isOnline).length / history.length * 100;
+    const downtime = history.length > 0 
+      ? (history.filter(h => !h.isOnline).length / history.length * 100)
+      : 0;
 
     return {
       avgLatency: avgLatency ? Math.round(avgLatency) : null,

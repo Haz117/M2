@@ -522,7 +522,7 @@ export default function HomeScreen({ navigation }) {
   const statusCounts = useMemo(() => ({
     todas: tasks.length,
     pendiente: tasks.filter(t => t.status === 'pendiente').length,
-    'en-progreso': tasks.filter(t => t.status === 'en-progreso').length,
+    'en-progreso': tasks.filter(t => t.status === 'en-progreso' || t.status === 'en_proceso').length,
     revision: tasks.filter(t => t.status === 'revision').length,
     cerrada: tasks.filter(t => t.status === 'cerrada').length,
   }), [tasks]);
@@ -543,7 +543,15 @@ export default function HomeScreen({ navigation }) {
         const search = searchText.toLowerCase();
         const matchTitle = task.title?.toLowerCase().includes(search);
         const matchDescription = task.description?.toLowerCase().includes(search);
-        const matchAssigned = task.assignedTo?.toLowerCase().includes(search);
+        
+        // Handle assignedTo - can be array or string
+        let matchAssigned = false;
+        if (Array.isArray(task.assignedTo)) {
+          matchAssigned = task.assignedTo.some(a => a?.toLowerCase().includes(search));
+        } else if (typeof task.assignedTo === 'string') {
+          matchAssigned = task.assignedTo.toLowerCase().includes(search);
+        }
+        
         const matchTags = task.tags?.some(tag => tag.toLowerCase().includes(search));
         if (!matchTitle && !matchDescription && !matchAssigned && !matchTags) return false;
       }

@@ -9,6 +9,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useTheme } from '../contexts/ThemeContext';
 import { SPACING, RADIUS, TYPOGRAPHY, SHADOWS } from '../theme/tokens';
+import { toMs } from '../utils/dateUtils';
 
 const AreaMetricsPanel = ({ 
   userArea,
@@ -74,7 +75,7 @@ const AreaMetricsPanel = ({
     const now = Date.now();
     const completed = areaTasks.filter(t => t.status === 'cerrada').length;
     const pending = areaTasks.filter(t => t.status !== 'cerrada').length;
-    const overdue = areaTasks.filter(t => t.status !== 'cerrada' && t.dueAt < now).length;
+    const overdue = areaTasks.filter(t => t.status !== 'cerrada' && toMs(t.dueAt) < now).length;
     
     // Calcular métricas por director
     const directorMetrics = directors.map(director => {
@@ -90,7 +91,7 @@ const AreaMetricsPanel = ({
       
       const dirCompleted = directorTasks.filter(t => t.status === 'cerrada').length;
       const dirPending = directorTasks.filter(t => t.status !== 'cerrada').length;
-      const dirOverdue = directorTasks.filter(t => t.status !== 'cerrada' && t.dueAt < now).length;
+      const dirOverdue = directorTasks.filter(t => t.status !== 'cerrada' && toMs(t.dueAt) < now).length;
       const completionRate = directorTasks.length > 0 
         ? Math.round((dirCompleted / directorTasks.length) * 100) 
         : 0;

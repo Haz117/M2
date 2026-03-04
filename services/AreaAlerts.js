@@ -4,6 +4,7 @@
 
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
+import { toMs } from '../utils/dateUtils';
 
 /**
  * Monitorear alertas en áreas
@@ -40,7 +41,8 @@ export function subscribeToAreaAlerts(callback) {
       areaStats[area].total++;
 
       // Contar vencidas
-      if (task.dueAt && task.dueAt < now && task.status !== 'cerrada') {
+      const dueAtMs = toMs(task.dueAt);
+      if (dueAtMs && dueAtMs < now && task.status !== 'cerrada') {
         areaStats[area].overdue++;
       }
 
