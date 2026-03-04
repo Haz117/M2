@@ -1203,9 +1203,9 @@ export default function KanbanScreen({ navigation }) {
           <TouchableOpacity
             style={[styles.fab, { backgroundColor: theme.primary }]}
             onPress={() => {
-              // Solo admin y jefe pueden crear tareas
-              if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'jefe')) {
-                setToastMessage('Solo administradores y jefes pueden crear tareas');
+              // Solo admin puede crear tareas
+              if (!currentUser || (currentUser.role !== 'admin')) {
+                setToastMessage('Solo administradores pueden crear tareas');
                 setToastType('warning');
                 setToastVisible(true);
                 return;

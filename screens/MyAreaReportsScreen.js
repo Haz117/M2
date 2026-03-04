@@ -73,7 +73,6 @@ const MyAreaReportsScreen = ({ navigation }) => {
           setRefreshing(false);
         });
       } else {
-        // Operativos ven solo sus propios reportes
         unsubscribe = subscribeToMyReports(userEmail, (data) => {
           setReports(data);
           setLoading(false);
@@ -109,7 +108,6 @@ const MyAreaReportsScreen = ({ navigation }) => {
     const colors = {
       director: '#3498db',
       secretario: '#9b59b6',
-      operativo: '#2ecc71',
       admin: '#f39c12',
     };
     return colors[role] || '#95a5a6';

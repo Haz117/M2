@@ -91,23 +91,19 @@ const ENCRYPTED_CREDENTIALS = {
     email: encrypt('admin@todo.com'),
     password: encrypt('admin123')
   },
-  jefeJuridica: {
-    email: encrypt('jefe.juridica@todo.com'),
-    password: encrypt('jefe123')
+  secretario: {
+    email: encrypt('secretario@todo.com'),
+    password: encrypt('sec123')
   },
-  jefeObras: {
-    email: encrypt('jefe.obras@todo.com'),
-    password: encrypt('jefe123')
-  },
-  operativo: {
-    email: encrypt('operativo.juridica@todo.com'),
-    password: encrypt('oper123')
+  director: {
+    email: encrypt('director@todo.com'),
+    password: encrypt('dir123')
   }
 };
 
 /**
  * Obtiene credenciales desencriptadas por rol
- * @param {string} role - Rol del usuario (admin, jefeJuridica, jefeObras, operativo)
+ * @param {string} role - Rol del usuario (admin, secretario, director)
  * @returns {Object} - Credenciales desencriptadas
  */
 function getCredentials(role) {

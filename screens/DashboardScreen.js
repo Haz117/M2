@@ -85,11 +85,15 @@ export default function DashboardScreen({ navigation }) {
   const chartsOpacity = useRef(new Animated.Value(0)).current;
   const chartsSlide = useRef(new Animated.Value(60)).current;
 
+  // ⚠️ En web, useNativeDriver puede causar problemas
+  const useNativeDriver = Platform.OS !== 'web';
+
   useEffect(() => {
     loadAllData();
     // Suscribirse a tareas en tiempo real
     let unsubscribe;
     subscribeToTasks((updatedTasks) => {
+      console.log('📊 [Dashboard] Tareas recibidas:', updatedTasks.length);
       setTasks(updatedTasks);
       
       // Suscribirse a progreso de las tareas
@@ -115,24 +119,27 @@ export default function DashboardScreen({ navigation }) {
   // Animación de entrada escalonada
   useEffect(() => {
     if (!loading) {
+      console.log('📊 [Dashboard] Iniciando animaciones de entrada');
       Animated.stagger(120, [
         Animated.parallel([
-          Animated.timing(headerOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-          Animated.spring(headerSlide, { toValue: 0, tension: 50, friction: 8, useNativeDriver: true }),
+          Animated.timing(headerOpacity, { toValue: 1, duration: 400, useNativeDriver }),
+          Animated.spring(headerSlide, { toValue: 0, tension: 50, friction: 8, useNativeDriver }),
         ]),
         Animated.parallel([
-          Animated.timing(kanbanOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-          Animated.spring(kanbanSlide, { toValue: 0, tension: 50, friction: 8, useNativeDriver: true }),
+          Animated.timing(kanbanOpacity, { toValue: 1, duration: 400, useNativeDriver }),
+          Animated.spring(kanbanSlide, { toValue: 0, tension: 50, friction: 8, useNativeDriver }),
         ]),
         Animated.parallel([
-          Animated.timing(summaryOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-          Animated.spring(summarySlide, { toValue: 0, tension: 50, friction: 8, useNativeDriver: true }),
+          Animated.timing(summaryOpacity, { toValue: 1, duration: 400, useNativeDriver }),
+          Animated.spring(summarySlide, { toValue: 0, tension: 50, friction: 8, useNativeDriver }),
         ]),
         Animated.parallel([
-          Animated.timing(chartsOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-          Animated.spring(chartsSlide, { toValue: 0, tension: 50, friction: 8, useNativeDriver: true }),
+          Animated.timing(chartsOpacity, { toValue: 1, duration: 400, useNativeDriver }),
+          Animated.spring(chartsSlide, { toValue: 0, tension: 50, friction: 8, useNativeDriver }),
         ]),
-      ]).start();
+      ]).start(() => {
+        console.log('📊 [Dashboard] Animaciones completadas');
+      });
     }
   }, [loading]);
 
@@ -141,6 +148,7 @@ export default function DashboardScreen({ navigation }) {
       const session = await getCurrentSession();
       if (session.success) {
         setCurrentUser(session.session);
+        console.log('📊 [Dashboard] Usuario:', session.session.email, 'Rol:', session.session.role);
         
         const [metricsRes, trendRes, areasRes, performersRes] = await Promise.all([
           getGeneralMetrics(session.session.userId, session.session.role),
@@ -149,8 +157,14 @@ export default function DashboardScreen({ navigation }) {
           session.session.role === 'admin' ? getTopPerformers() : Promise.resolve({ success: true, performers: [] }),
         ]);
 
-        if (metricsRes.success) setMetrics(metricsRes.metrics);
-        if (trendRes.success) setTrendData(trendRes.data);
+        if (metricsRes.success) {
+          setMetrics(metricsRes.metrics);
+          console.log('📊 [Dashboard] Métricas cargadas:', metricsRes.metrics);
+        }
+        if (trendRes.success) {
+          setTrendData(trendRes.data);
+          console.log('📊 [Dashboard] Datos de tendencia:', trendRes.data?.length || 0);
+        }
         if (areasRes.success) setAreaStats(areasRes.areas);
         if (performersRes.success) setPerformers(performersRes.performers);
 
@@ -158,6 +172,7 @@ export default function DashboardScreen({ navigation }) {
         loadAdvancedMetrics(session.session.email);
       }
     } catch (error) {
+      console.error('❌ [Dashboard] Error cargando datos:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -381,7 +396,7 @@ export default function DashboardScreen({ navigation }) {
     <View style={styles.container}>
       <View style={[styles.contentWrapper, { maxWidth: isDesktop ? MAX_WIDTHS.content : '100%' }]}>
         {/* Header con gradiente premium y animación */}
-        <Animated.View style={[styles.headerGradient, { opacity: headerOpacity, transform: [{ translateY: headerSlide }] }]}>
+        <Animated.View style={[styles.headerGradient, { opacity: Platform.OS === 'web' ? 1 : headerOpacity, transform: Platform.OS === 'web' ? [] : [{ translateY: headerSlide }] }]}>
           <LinearGradient
             colors={isDark ? ['#2A1520', '#1A1A1A'] : ['#9F2241', '#7F1D35']}
             start={{ x: 0, y: 0 }}
@@ -469,7 +484,7 @@ export default function DashboardScreen({ navigation }) {
         )}
 
         {/* LAYOUT KANBAN - Columnas de Estados con animación */}
-        <Animated.View style={[styles.kanbanContainer, { opacity: kanbanOpacity, transform: [{ translateY: kanbanSlide }] }]}>
+        <Animated.View style={[styles.kanbanContainer, { opacity: Platform.OS === 'web' ? 1 : kanbanOpacity, transform: Platform.OS === 'web' ? [] : [{ translateY: kanbanSlide }] }]}>
           <View style={styles.sectionHeaderContainer}>
             <View style={[styles.sectionIconBadge, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
               <Ionicons name="layers-outline" size={20} color="#3B82F6" />
@@ -653,14 +668,14 @@ export default function DashboardScreen({ navigation }) {
               <OverdueAlert 
                 tasks={overdueTasks.slice(0, 10)} 
                 currentUserEmail={currentUser?.email || ''}
-                role={currentUser?.role || 'operativo'}
+                role={currentUser?.role || 'director'}
               />
             )}
           </View>
         )}
 
         {/* Resumen del periodo - Con glassmorphism */}
-        <Animated.View style={[styles.summaryCardWrapper, { opacity: summaryOpacity, transform: [{ translateY: summarySlide }] }]}>
+        <Animated.View style={[styles.summaryCardWrapper, { opacity: Platform.OS === 'web' ? 1 : summaryOpacity, transform: Platform.OS === 'web' ? [] : [{ translateY: summarySlide }] }]}>
           <View style={[styles.summaryCard, { backgroundColor: isDark ? 'rgba(30, 30, 35, 0.95)' : 'rgba(255, 255, 255, 0.98)' }]}>
             <View style={styles.summaryHeader}>
               <View style={styles.summaryHeaderLeft}>
@@ -704,7 +719,7 @@ export default function DashboardScreen({ navigation }) {
         {/* Gráfica de tendencia */}
         {/* Gráfica de tendencia - Con glassmorphism */}
         {trendData.length > 0 && (
-          <Animated.View style={[{ opacity: chartsOpacity, transform: [{ translateY: chartsSlide }] }]}>
+          <Animated.View style={[{ opacity: Platform.OS === 'web' ? 1 : chartsOpacity, transform: Platform.OS === 'web' ? [] : [{ translateY: chartsSlide }] }]}>
             <View style={[styles.chartCard, { backgroundColor: isDark ? 'rgba(30, 30, 35, 0.95)' : 'rgba(255, 255, 255, 0.98)' }]}>
               <View style={styles.chartHeader}>
                 <View style={[styles.chartIconBadge, { backgroundColor: 'rgba(159, 34, 65, 0.15)' }]}>
@@ -712,27 +727,29 @@ export default function DashboardScreen({ navigation }) {
                 </View>
                 <Text style={[styles.chartTitle, { color: theme.text }]}>Tendencia (últimos 7 días)</Text>
               </View>
-              <LineChart
-                data={lineData}
-                width={screenWidth - 64}
-                height={220}
-                chartConfig={{
-                  backgroundColor: 'transparent',
-                  backgroundGradientFrom: 'transparent',
-                  backgroundGradientTo: 'transparent',
-                  decimalPlaces: 0,
-                  color: (opacity = 1) => `rgba(159, 34, 65, ${opacity})`,
-                  labelColor: (opacity = 1) => isDark ? `rgba(255, 255, 255, ${opacity * 0.7})` : `rgba(0, 0, 0, ${opacity * 0.6})`,
-                  style: { borderRadius: 16 },
-                  propsForDots: { r: '5', strokeWidth: '3', stroke: theme.primary },
-                  propsForBackgroundLines: {
-                    strokeDasharray: '5,5',
-                    stroke: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
-                  },
-                }}
-                bezier
-                style={styles.chart}
-              />
+              <Suspense fallback={<ActivityIndicator color={theme.primary} />}>
+                <LineChart
+                  data={lineData}
+                  width={screenWidth - 64}
+                  height={220}
+                  chartConfig={{
+                    backgroundColor: 'transparent',
+                    backgroundGradientFrom: 'transparent',
+                    backgroundGradientTo: 'transparent',
+                    decimalPlaces: 0,
+                    color: (opacity = 1) => `rgba(159, 34, 65, ${opacity})`,
+                    labelColor: (opacity = 1) => isDark ? `rgba(255, 255, 255, ${opacity * 0.7})` : `rgba(0, 0, 0, ${opacity * 0.6})`,
+                    style: { borderRadius: 16 },
+                    propsForDots: { r: '5', strokeWidth: '3', stroke: theme.primary },
+                    propsForBackgroundLines: {
+                      strokeDasharray: '5,5',
+                      stroke: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                    },
+                  }}
+                  bezier
+                  style={styles.chart}
+                />
+              </Suspense>
             </View>
           </Animated.View>
         )}
@@ -747,20 +764,22 @@ export default function DashboardScreen({ navigation }) {
                 </View>
                 <Text style={[styles.chartTitle, { color: theme.text }]}>Distribución por Estado</Text>
               </View>
-              <PieChart
-                data={statusPieData}
-                width={screenWidth - 64}
-                height={220}
-                chartConfig={{
-                  color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                }}
-              accessor="population"
-              backgroundColor="transparent"
-              paddingLeft="15"
-              absolute
-              style={styles.chart}
-            />
-          </View>
+              <Suspense fallback={<ActivityIndicator color={theme.primary} />}>
+                <PieChart
+                  data={statusPieData}
+                  width={screenWidth - 64}
+                  height={220}
+                  chartConfig={{
+                    color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                  }}
+                accessor="population"
+                backgroundColor="transparent"
+                paddingLeft="15"
+                absolute
+                style={styles.chart}
+              />
+              </Suspense>
+            </View>
           </FadeInView>
         )}
 
@@ -993,7 +1012,9 @@ export default function DashboardScreen({ navigation }) {
                 </View>
                 <Text style={[styles.chartTitle, { color: theme.text }]}>Actividad (Últimos 90 días)</Text>
               </View>
-              <Heatmap data={heatmapData} />
+              <Suspense fallback={<ActivityIndicator color={theme.primary} />}>
+                <Heatmap data={heatmapData} />
+              </Suspense>
             </View>
           </FadeInView>
         )}

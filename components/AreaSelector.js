@@ -61,10 +61,6 @@ export default function AreaSelector({
   const canSelectArea = (area) => {
     if (disabled) return false;
     if (userRole === 'admin') return true;
-    if (userRole === 'jefe') {
-      const areaDep = areaToDepMap[area] || area.toLowerCase();
-      return areaDep === userDepartment;
-    }
     return false;
   };
 

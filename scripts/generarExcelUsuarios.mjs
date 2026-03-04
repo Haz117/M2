@@ -18,9 +18,7 @@ const db = getFirestore(app);
 const passwordsDefault = {
   admin: 'Admin2024',
   secretario: 'Sec2024',
-  director: 'Dir2024',
-  jefe: 'Jefe2024',
-  operativo: 'Op2024'
+  director: 'Dir2024'
 };
 
 async function generarExcel() {

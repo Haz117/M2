@@ -206,34 +206,6 @@ export const notifyAreaCreated = async (area) => {
 };
 
 /**
- * Notificación cuando se asigna como jefe de área
- * @param {String} userId - Email del jefe
- * @param {Object} area - { id, nombre }
- */
-export const notifyAreaChiefAssigned = async (userId, area) => {
-  try {
-    await recordNotification({
-      type: 'area_chief_assigned',
-      title: `Asignado como Jefe de Área`,
-      body: `Área: ${area.nombre}`,
-      userId,
-      areaId: area.id,
-      metadata: {
-        areaName: area.nombre,
-      },
-    });
-
-    await sendLocalNotification({
-      title: '👨‍💼 Asignado como Jefe',
-      body: area.nombre,
-      data: { areaId: area.id, type: 'chief_assigned' },
-    });
-  } catch (error) {
-    console.error('Error notificando asignación de jefe:', error);
-  }
-};
-
-/**
  * Registrar notificación en BD (para historial)
  * @private
  */

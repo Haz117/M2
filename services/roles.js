@@ -5,19 +5,15 @@ import { getCurrentSession } from './authFirestore';
 // Roles disponibles en el sistema
 export const ROLES = {
   ADMIN: 'admin',           // Alcalde (máximo nivel)
-  SECRETARIO: 'secretario', // Secretario (puede delegar a operativos)
-  DIRECTOR: 'director',     // Director de área (nivel medio)
-  JEFE: 'jefe',             // Jefe de departamento
-  OPERATIVO: 'operativo'    // Personal operativo
+  SECRETARIO: 'secretario', // Secretario
+  DIRECTOR: 'director'      // Director de área (nivel medio)
 };
 
 // Jerarquía de roles (mayor número = mayor nivel)
 export const ROLE_HIERARCHY = {
-  [ROLES.ADMIN]: 4,
-  [ROLES.SECRETARIO]: 3,
-  [ROLES.DIRECTOR]: 2,      // Director tiene mismo nivel que jefe
-  [ROLES.JEFE]: 2,
-  [ROLES.OPERATIVO]: 1
+  [ROLES.ADMIN]: 3,
+  [ROLES.SECRETARIO]: 2,
+  [ROLES.DIRECTOR]: 1
 };
 
 // Departamentos del municipio
@@ -59,7 +55,7 @@ export const createUserProfile = async (userId, data) => {
     const userProfile = {
       email: data.email,
       displayName: data.displayName || '',
-      role: ROLES.OPERATIVO, // Por defecto operativo
+      role: ROLES.DIRECTOR, // Por defecto director
       department: data.department || '',
       createdAt: new Date().toISOString(),
       active: true
@@ -113,11 +109,11 @@ export const isAdmin = async () => {
   }
 };
 
-// Verificar si el usuario es jefe o admin
-export const isJefeOrAdmin = async () => {
+// Verificar si el usuario es admin
+export const isAdmin = async () => {
   try {
     const profile = await getUserProfile();
-    return profile?.role === ROLES.ADMIN || profile?.role === ROLES.JEFE;
+    return profile?.role === ROLES.ADMIN;
   } catch (error) {
     return false;
   }
@@ -143,11 +139,11 @@ export const isSecretarioOrAdmin = async () => {
   }
 };
 
-// Verificar si el usuario puede delegar tareas (admin, secretario o jefe)
+// Verificar si el usuario puede delegar tareas (admin o secretario)
 export const canDelegateTasks = async () => {
   try {
     const profile = await getUserProfile();
-    const delegateRoles = [ROLES.ADMIN, ROLES.SECRETARIO, ROLES.JEFE];
+    const delegateRoles = [ROLES.ADMIN, ROLES.SECRETARIO];
     return delegateRoles.includes(profile?.role);
   } catch (error) {
     return false;
@@ -214,8 +210,8 @@ export const getTitularesByAreas = async (areas) => {
     
     // Filtrar usuarios que son titulares de las áreas seleccionadas
     const titulares = allUsers.filter(user => {
-      // Solo considerar directores, secretarios y jefes
-      const isTitular = ['director', 'secretario', 'jefe'].includes(user.role);
+      // Solo considerar directores y secretarios
+      const isTitular = ['director', 'secretario'].includes(user.role);
       if (!isTitular) return false;
       
       // Verificar si el área del usuario coincide con alguna de las áreas seleccionadas

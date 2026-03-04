@@ -88,12 +88,6 @@ export default function SuggestedAreasPanel({
             if (userData.role === 'director' && userData.area) {
               areasDeUsuarios.add(userData.area);
             }
-            
-            // Para jefes y operativos, agregar su departamento
-            if ((userData.role === 'jefe' || userData.role === 'operativo')) {
-              if (userData.department) areasDeUsuarios.add(userData.department);
-              if (userData.area) areasDeUsuarios.add(userData.area);
-            }
           }
         } catch (error) {
           console.error(`Error cargando áreas del usuario ${user.email}:`, error);

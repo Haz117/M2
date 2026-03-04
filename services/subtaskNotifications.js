@@ -42,7 +42,7 @@ export async function notifySubtaskCompletion(taskId, subtaskId, completedBy, su
     // Determinar a quién notificar
     const notifyEmails = [];
     
-    // Agregar al admin/jefe si existe
+    // Agregar al creador si existe
     if (task.createdBy && task.createdBy !== completedBy) {
       notifyEmails.push(task.createdBy);
     }

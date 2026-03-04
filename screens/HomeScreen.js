@@ -233,18 +233,17 @@ export default function HomeScreen({ navigation }) {
     }
   }, [tasks, tasksLoading]);
 
-  // Navegar a pantalla para crear nueva tarea (admin, jefe, secretario y director)
+  // Navegar a pantalla para crear nueva tarea (admin)
   const goToCreate = useCallback(() => {
-    if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'jefe' || currentUser.role === 'secretario' || currentUser.role === 'director')) {
+    if (currentUser && (currentUser.role === 'admin')) {
       navigation.navigate('TaskDetail');
     } else {
-      Alert.alert('Sin permisos', 'Solo administradores, secretarios y directores pueden crear tareas');
+      Alert.alert('Sin permisos', 'Solo administradores pueden crear tareas');
     }
   }, [currentUser, navigation]);
 
   const openDetail = useCallback((task) => {
     // Todos pueden ver los detalles de las tareas
-    // Admin/Jefe pueden editar, operativos ven solo el modal
     navigation.navigate('TaskDetail', { task });
   }, [navigation]);
 
@@ -988,7 +987,6 @@ export default function HomeScreen({ navigation }) {
         renderItem={({ item, index }) => {
           // Determinar permisos según el rol
           const isAdmin = currentUser?.role === 'admin';
-          const isJefe = currentUser?.role === 'jefe';
           const isSecretario = currentUser?.role === 'secretario';
           
           const content = (
@@ -1002,11 +1000,11 @@ export default function HomeScreen({ navigation }) {
               onToggleComplete={() => toggleComplete(item)}
               // Solo admin puede reabrir tareas
               onReopen={isAdmin ? reopenTask : undefined}
-              // Admin, jefe y secretario pueden duplicar tareas
-              onDuplicate={isAdmin || isJefe || isSecretario ? () => duplicateTask(item) : undefined}
+              // Solo admin y secretario pueden duplicar tareas
+              onDuplicate={isAdmin || isSecretario ? () => duplicateTask(item) : undefined}
               onShare={() => shareTask(item)}
               onChangeStatus={(task, newStatus) => changeTaskStatus(task.id, newStatus)}
-              currentUserRole={currentUser?.role || 'operativo'}
+              currentUserRole={currentUser?.role || 'director'}
             />
           );
 
@@ -1060,8 +1058,8 @@ export default function HomeScreen({ navigation }) {
         swipeToDismiss
       />
       
-      {/* FAB con acciones rápidas - Admin y Jefe */}
-      {currentUser && (currentUser.role === 'admin' || currentUser.role === 'jefe') && (
+      {/* FAB con acciones rápidas - Admin */}
+      {currentUser && (currentUser.role === 'admin') && (
         <QuickActionButton
           actions={[
             {
@@ -1087,8 +1085,8 @@ export default function HomeScreen({ navigation }) {
         />
       )}
       
-      {/* FAB simple para operativos - Solo ver notificaciones */}
-      {currentUser && currentUser.role === 'operativo' && (
+      {/* FAB simple para otros roles - Solo ver notificaciones */}
+      {currentUser && (currentUser.role === 'secretario' || currentUser.role === 'director') && (
         <QuickActionButton
           actions={[
             {

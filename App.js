@@ -202,8 +202,7 @@ function MainTabs({ onLogout }) {
   const isAdmin = currentUser?.role === 'admin';
   const isSecretario = currentUser?.role === 'secretario';
   const isDirector = currentUser?.role === 'director';
-  const isJefe = currentUser?.role === 'jefe';
-  const canSeeReports = isAdmin || isSecretario || isDirector || isJefe;
+  const canSeeReports = isAdmin || isSecretario || isDirector;
 
   // Función para obtener el label del rol
   const getRoleLabel = (role) => {
@@ -211,8 +210,7 @@ function MainTabs({ onLogout }) {
       case 'admin': return 'Admin';
       case 'secretario': return 'Secretario';
       case 'director': return 'Director';
-      case 'jefe': return 'Jefe';
-      default: return 'Operativo';
+      default: return 'Director';
     }
   };
 
@@ -222,7 +220,6 @@ function MainTabs({ onLogout }) {
       case 'admin': return '#DC2626';
       case 'secretario': return '#9F2241';
       case 'director': return '#235B4E';
-      case 'jefe': return '#06B6D4';
       default: return '#3B82F6';
     }
   };
@@ -233,7 +230,6 @@ function MainTabs({ onLogout }) {
       case 'admin': return 'shield-checkmark';
       case 'secretario': return 'briefcase';
       case 'director': return 'business';
-      case 'jefe': return 'ribbon';
       default: return 'person';
     }
   };

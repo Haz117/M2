@@ -77,8 +77,8 @@ export default function TaskProgressScreen({ route, navigation }) {
   };
 
   const handleEdit = () => {
-    if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'jefe')) {
-      Alert.alert('Sin permisos', 'Solo administradores y jefes pueden editar tareas');
+    if (!currentUser || (currentUser.role !== 'admin')) {
+      Alert.alert('Sin permisos', 'Solo administradores pueden editar tareas');
       return;
     }
     navigation.navigate('TaskDetail', { task });
@@ -122,7 +122,7 @@ export default function TaskProgressScreen({ route, navigation }) {
         <TouchableOpacity onPress={onRefresh} style={styles.headerButton}>
           <Ionicons name="refresh" size={20} color="#FFFFFF" />
         </TouchableOpacity>
-        {currentUser && (currentUser.role === 'admin' || currentUser.role === 'jefe') && (
+        {currentUser && (currentUser.role === 'admin') && (
           <TouchableOpacity onPress={handleEdit} style={styles.headerButton}>
             <Ionicons name="pencil" size={20} color="#FFFFFF" />
           </TouchableOpacity>

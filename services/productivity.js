@@ -8,11 +8,15 @@ const COLLECTION_NAME = 'tasks';
 // Helper function to check if a task is assigned to a user (supports both string and array formats)
 function isTaskAssignedToUser(task, userEmail) {
   if (!task.assignedTo) return false;
+  
+  const normalizedUserEmail = userEmail?.toLowerCase().trim() || '';
+  if (!normalizedUserEmail) return false;
+  
   if (Array.isArray(task.assignedTo)) {
-    return task.assignedTo.includes(userEmail.toLowerCase());
+    return task.assignedTo.some(email => email?.toLowerCase().trim() === normalizedUserEmail);
   }
   // Backward compatibility: old string format
-  return task.assignedTo.toLowerCase() === userEmail.toLowerCase();
+  return (task.assignedTo?.toLowerCase().trim() || '') === normalizedUserEmail;
 }
 
 /**

@@ -43,22 +43,31 @@ const AreaMetricsPanel = ({
   }, [directors, tasks]);
 
   const loadDirectors = async () => {
-    if (!userArea) return;
+    if (!userArea) {
+      setLoading(false);
+      return;
+    }
     
     setLoading(true);
     try {
       const usersRef = collection(db, 'users');
+      // Solo filtrar por role, luego filtrar área en cliente (case-insensitive)
       const q = query(
         usersRef, 
-        where('role', '==', 'director'),
-        where('area', '==', userArea)
+        where('role', '==', 'director')
       );
       const snapshot = await getDocs(q);
       
-      const directorsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      // Filtrar por área de forma case-insensitive
+      const userAreaNorm = userArea.toLowerCase().trim();
+      const directorsData = snapshot.docs
+        .map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }))
+        .filter(d => (d.area || '').toLowerCase().trim() === userAreaNorm);
+      
+      console.log('📊 [AreaMetricsPanel] Directores del área', userArea, ':', directorsData.length);
       
       setDirectors(directorsData);
     } catch (error) {
@@ -69,13 +78,16 @@ const AreaMetricsPanel = ({
   };
 
   const calculateMetrics = () => {
-    // Filtrar tareas del área
-    const areaTasks = tasks.filter(t => t.area === userArea);
+    // Filtrar tareas del área (normalizar case-insensitive)
+    const userAreaNorm = (userArea || '').toLowerCase().trim();
+    const areaTasks = tasks.filter(t => (t.area || '').toLowerCase().trim() === userAreaNorm);
+    
+    console.log('📊 [AreaMetricsPanel] userArea:', userArea, '| Tareas del área:', areaTasks.length);
     
     const now = Date.now();
-    const completed = areaTasks.filter(t => t.status === 'cerrada').length;
-    const pending = areaTasks.filter(t => t.status !== 'cerrada').length;
-    const overdue = areaTasks.filter(t => t.status !== 'cerrada' && toMs(t.dueAt) < now).length;
+    const completed = areaTasks.filter(t => t.status === 'cerrada' || t.status === 'completada').length;
+    const pending = areaTasks.filter(t => t.status !== 'cerrada' && t.status !== 'completada').length;
+    const overdue = areaTasks.filter(t => t.status !== 'cerrada' && t.status !== 'completada' && toMs(t.dueAt) < now).length;
     
     // Calcular métricas por director
     const directorMetrics = directors.map(director => {

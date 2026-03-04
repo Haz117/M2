@@ -54,21 +54,14 @@ export default function MultiUserSelector({
           // Combinar todas las áreas del secretario
           const todasAreasSec = [...new Set([area, ...allowedAreas])].filter(Boolean);
           
-          if (userData.role === 'director') {
-            // Solo directores de las áreas del secretario
-            include = todasAreasSec.includes(userData.area);
-          } else if (['jefe', 'operativo'].includes(userData.role)) {
-            // Jefes y operativos de las áreas del secretario
+          if (['director'].includes(userData.role)) {
+            // Directors de las áreas del secretario
             include = todasAreasSec.includes(userData.area) || todasAreasSec.includes(userData.department);
           }
         } else if (role === 'director') {
-          // Director puede asignar a usuarios de su área (operativos/jefes)
+          // Director can only view their own data
           include = userData.area === area && 
-                   ['operativo', 'jefe'].includes(userData.role);
-        } else if (role === 'jefe') {
-          // Jefe puede asignar a operativos de su departamento
-          include = (userData.department === area || userData.area === area) && 
-                   userData.role === 'operativo';
+                   ['director'].includes(userData.role);
         }
         
         // Excluir admins de la lista a menos que seas admin
@@ -91,9 +84,9 @@ export default function MultiUserSelector({
       
       // Ordenar por rol y nombre
       usersList.sort((a, b) => {
-        const roleOrder = { admin: 0, secretario: 1, director: 2, jefe: 3, operativo: 4 };
-        const orderA = roleOrder[a.role] || 5;
-        const orderB = roleOrder[b.role] || 5;
+        const roleOrder = { admin: 0, secretario: 1, director: 2 };
+        const orderA = roleOrder[a.role] || 3;
+        const orderB = roleOrder[b.role] || 3;
         if (orderA !== orderB) return orderA - orderB;
         return (a.displayName || '').localeCompare(b.displayName || '');
       });
@@ -112,9 +105,7 @@ export default function MultiUserSelector({
     const colors = {
       admin: '#DC2626',
       secretario: '#9F2241',
-      director: '#235B4E',
-      jefe: '#06B6D4',
-      operativo: '#3B82F6'
+      director: '#235B4E'
     };
     return colors[role] || '#6B7280';
   };
@@ -123,9 +114,7 @@ export default function MultiUserSelector({
     const labels = {
       admin: '🛡️ Admin',
       secretario: '💼 Secretario',
-      director: '🏢 Director',
-      jefe: '👥 Funcionario',
-      operativo: '👥 Funcionario'
+      director: '🏢 Director'
     };
     return labels[role] || '👥 Funcionario';
   };

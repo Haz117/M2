@@ -16,7 +16,7 @@ const simpleHash = (text) => {
 };
 
 // Registrar nuevo usuario
-export const registerUser = async (email, password, displayName, role = 'operativo') => {
+export const registerUser = async (email, password, displayName, role = 'director') => {
   try {
     // Verificar si el usuario ya existe
     const usersRef = collection(db, 'users');
@@ -33,7 +33,7 @@ export const registerUser = async (email, password, displayName, role = 'operati
       email: email.toLowerCase(),
       password: hashedPassword,
       displayName: displayName,
-      role: role, // 'admin', 'secretario', 'jefe' o 'operativo'
+      role: role, // 'admin', 'secretario', o 'director'
       active: true,
       createdAt: new Date()
     });
@@ -191,20 +191,11 @@ export const isDirector = async () => {
   return false;
 };
 
-// Verificar si el usuario es jefe de área
-export const isJefe = async () => {
-  const result = await getCurrentSession();
-  if (result.success) {
-    return result.session.role === 'jefe';
-  }
-  return false;
-};
-
-// Verificar si puede crear tareas (admin, secretario, director)
+// Verificar si puede crear tareas (admin)
 export const canCreateTasks = async () => {
   const result = await getCurrentSession();
   if (result.success) {
-    return ['admin', 'secretario', 'director', 'jefe'].includes(result.session.role);
+    return ['admin'].includes(result.session.role);
   }
   return false;
 };

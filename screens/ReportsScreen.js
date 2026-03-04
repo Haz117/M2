@@ -151,6 +151,9 @@ export default function ReportsScreen({ navigation }) {
   const glowAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  // ⚠️ En web, useNativeDriver puede causar problemas
+  const useNativeDriver = Platform.OS !== 'web';
+
   // Load current user
   useEffect(() => {
     let mounted = true;
@@ -250,6 +253,7 @@ export default function ReportsScreen({ navigation }) {
       try {
         unsubscribe = await subscribeToTasks((updatedTasks) => {
           if (mounted) {
+            console.log('📊 [Reports] Tareas recibidas:', updatedTasks.length);
             setTasks(updatedTasks);
             // Forzar que se salga de loading aunque no haya tareas
             setLoading(false);
@@ -283,8 +287,11 @@ export default function ReportsScreen({ navigation }) {
 
   // Recalcular estadísticas cuando cambian las tareas O el usuario
   useEffect(() => {
-    if (tasks.length > 0) {
+    if (tasks.length > 0 && currentUser) {
+      console.log('📊 [Reports] Recalculando stats - Role:', currentUser.role, '| Tareas:', tasks.length);
       calculateStats(tasks);
+    } else if (tasks.length === 0) {
+      console.log('📊 [Reports] Sin tareas para mostrar');
     }
   }, [tasks, currentUser]);
 
@@ -327,28 +334,31 @@ export default function ReportsScreen({ navigation }) {
       chartsSlide.setValue(20);
       
       // Then animate them in sequence
+      console.log('📊 [Reports] Iniciando animaciones de entrada');
       Animated.stagger(100, [
         Animated.parallel([
-          Animated.timing(headerOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-          Animated.spring(headerSlide, { toValue: 0, tension: 50, friction: 8, useNativeDriver: true }),
+          Animated.timing(headerOpacity, { toValue: 1, duration: 400, useNativeDriver }),
+          Animated.spring(headerSlide, { toValue: 0, tension: 50, friction: 8, useNativeDriver }),
         ]),
         Animated.parallel([
-          Animated.timing(filterAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
-          Animated.timing(filterSlide, { toValue: 0, duration: 400, useNativeDriver: true }),
+          Animated.timing(filterAnim, { toValue: 1, duration: 400, useNativeDriver }),
+          Animated.timing(filterSlide, { toValue: 0, duration: 400, useNativeDriver }),
         ]),
         Animated.parallel([
-          Animated.timing(statsOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-          Animated.timing(statsSlide, { toValue: 0, duration: 400, useNativeDriver: true }),
+          Animated.timing(statsOpacity, { toValue: 1, duration: 400, useNativeDriver }),
+          Animated.timing(statsSlide, { toValue: 0, duration: 400, useNativeDriver }),
         ]),
         Animated.parallel([
-          Animated.timing(emptyStateAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
-          Animated.timing(emptyStateSlide, { toValue: 0, duration: 400, useNativeDriver: true }),
+          Animated.timing(emptyStateAnim, { toValue: 1, duration: 400, useNativeDriver }),
+          Animated.timing(emptyStateSlide, { toValue: 0, duration: 400, useNativeDriver }),
         ]),
         Animated.parallel([
-          Animated.timing(chartsOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-          Animated.timing(chartsSlide, { toValue: 0, duration: 400, useNativeDriver: true }),
+          Animated.timing(chartsOpacity, { toValue: 1, duration: 400, useNativeDriver }),
+          Animated.timing(chartsSlide, { toValue: 0, duration: 400, useNativeDriver }),
         ]),
-      ]).start();
+      ]).start(() => {
+        console.log('📊 [Reports] Animaciones completadas');
+      });
     }
   }, [loading]);
 
@@ -367,13 +377,13 @@ export default function ReportsScreen({ navigation }) {
       Animated.sequence([
         Animated.delay(300),
         Animated.parallel([
-          Animated.timing(hierarchyAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
-          Animated.spring(hierarchySlide, { toValue: 0, tension: 60, friction: 10, useNativeDriver: true }),
+          Animated.timing(hierarchyAnim, { toValue: 1, duration: 500, useNativeDriver }),
+          Animated.spring(hierarchySlide, { toValue: 0, tension: 60, friction: 10, useNativeDriver }),
         ]),
         // Animación de tarjetas con escala
         Animated.stagger(150, [
-          Animated.spring(secretariaScale, { toValue: 1, tension: 80, friction: 8, useNativeDriver: true }),
-          Animated.spring(direccionScale, { toValue: 1, tension: 80, friction: 8, useNativeDriver: true }),
+          Animated.spring(secretariaScale, { toValue: 1, tension: 80, friction: 8, useNativeDriver }),
+          Animated.spring(direccionScale, { toValue: 1, tension: 80, friction: 8, useNativeDriver }),
         ]),
       ]).start();
       
@@ -394,8 +404,8 @@ export default function ReportsScreen({ navigation }) {
       // OPTIMIZACIÓN: Pulso simple una vez en lugar de loop infinito
       // para evitar consumo constante de CPU
       Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.03, duration: 600, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1.03, duration: 600, useNativeDriver }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 400, useNativeDriver }),
       ]).start();
     }
   }, [metricsByType]);
@@ -422,6 +432,7 @@ export default function ReportsScreen({ navigation }) {
     } else if (currentUser.role === 'secretario') {
       // Secretario ve tareas de su secretaría, sus direcciones, o que haya creado
       const misDirecciones = getDireccionesBySecretaria(currentUser.area || '');
+      console.log('📊 [Reports] Secretario:', userEmail, '| Área:', currentUser.area, '| Direcciones:', misDirecciones);
       userTasks = allTasks.filter(t => {
         const taskArea = (t.area || '').toLowerCase().trim();
         if (t.createdBy?.toLowerCase().trim() === userEmail) return true;
@@ -434,6 +445,7 @@ export default function ReportsScreen({ navigation }) {
         }
         return false;
       });
+      console.log('📊 [Reports] Tareas visibles para secretario:', userTasks.length);
     } else if (currentUser.role === 'director') {
       // Director ve tareas de su área específica o asignadas a él
       userTasks = allTasks.filter(t => {
@@ -441,36 +453,6 @@ export default function ReportsScreen({ navigation }) {
         if (t.createdBy?.toLowerCase().trim() === userEmail) return true;
         if (taskArea === userAreaNorm) return true;
         // Verificar si está asignado a esta tarea
-        if (t.assignedTo?.toLowerCase().trim() === userEmail) return true;
-        if (Array.isArray(t.assignedTo)) {
-          if (t.assignedTo.some(e => e?.toLowerCase().trim() === userEmail)) return true;
-        }
-        if (t.assignedToMultiple && Array.isArray(t.assignedToMultiple)) {
-          return t.assignedToMultiple.some(a => a.email?.toLowerCase().trim() === userEmail);
-        }
-        return false;
-      });
-    } else if (currentUser.role === 'jefe') {
-      // Jefe de área ve tareas de su área o asignadas a él
-      const userDept = currentUser.department?.toLowerCase().trim() || '';
-      userTasks = allTasks.filter(t => {
-        const taskArea = (t.area || '').toLowerCase().trim();
-        const taskDept = (t.department || '').toLowerCase().trim();
-        if (t.createdBy?.toLowerCase().trim() === userEmail) return true;
-        if (taskArea === userAreaNorm || taskDept === userDept) return true;
-        if (t.assignedTo?.toLowerCase().trim() === userEmail) return true;
-        if (Array.isArray(t.assignedTo)) {
-          if (t.assignedTo.some(e => e?.toLowerCase().trim() === userEmail)) return true;
-        }
-        if (t.assignedToMultiple && Array.isArray(t.assignedToMultiple)) {
-          return t.assignedToMultiple.some(a => a.email?.toLowerCase().trim() === userEmail);
-        }
-        return false;
-      });
-    } else {
-      // Operativo ve solo sus tareas asignadas o creadas
-      userTasks = allTasks.filter(t => {
-        if (t.createdBy?.toLowerCase().trim() === userEmail) return true;
         if (t.assignedTo?.toLowerCase().trim() === userEmail) return true;
         if (Array.isArray(t.assignedTo)) {
           if (t.assignedTo.some(e => e?.toLowerCase().trim() === userEmail)) return true;
@@ -825,7 +807,7 @@ export default function ReportsScreen({ navigation }) {
     <View style={[styles.container, Platform.OS === 'web' && { minHeight: '100vh' }]}>
       <View style={[styles.contentWrapper, { maxWidth: isDesktop ? MAX_WIDTHS.content : '100%' }, Platform.OS === 'web' && { width: '100%', paddingHorizontal: padding }]}>
         {/* Header Premium Compacto */}
-        <Animated.View style={{ opacity: headerOpacity, transform: [{ translateY: headerSlide }] }}>
+        <Animated.View style={{ opacity: Platform.OS === 'web' ? 1 : headerOpacity, transform: Platform.OS === 'web' ? [] : [{ translateY: headerSlide }] }}>
           <LinearGradient
             colors={isDark ? ['#9F2241', '#7A1A33'] : ['#9F2241', '#BC2E52']}
             start={{ x: 0, y: 0 }}
@@ -915,8 +897,8 @@ export default function ReportsScreen({ navigation }) {
           {/* Area Filter */}
           <Animated.View style={{ 
             marginBottom: 20, 
-            opacity: filterAnim,
-            transform: [{ translateY: filterSlide }]
+            opacity: Platform.OS === 'web' ? 1 : filterAnim,
+            transform: Platform.OS === 'web' ? [] : [{ translateY: filterSlide }]
           }}>
             <AreaFilter
               areas={Object.keys(areaMetrics).length > 0 ? Object.keys(areaMetrics) : ['Sin datos']}
@@ -929,8 +911,8 @@ export default function ReportsScreen({ navigation }) {
           {/* ✨ ALERTAS Y SUGERENCIAS */}
           {alerts.length > 0 || suggestions.length > 0 ? (
             <Animated.View style={{ 
-              opacity: filterAnim,
-              transform: [{ translateY: filterSlide }]
+              opacity: Platform.OS === 'web' ? 1 : filterAnim,
+              transform: Platform.OS === 'web' ? [] : [{ translateY: filterSlide }]
             }}>
               <AlertsPanel
                 alerts={alerts}
@@ -944,8 +926,8 @@ export default function ReportsScreen({ navigation }) {
           {/* Debug: Data Status - Improved Design */}
           {Object.keys(areaMetrics).length === 0 && (
             <Animated.View style={{ 
-              opacity: emptyStateAnim,
-              transform: [{ translateY: emptyStateSlide }]
+              opacity: Platform.OS === 'web' ? 1 : emptyStateAnim,
+              transform: Platform.OS === 'web' ? [] : [{ translateY: emptyStateSlide }]
             }}>
               <SpringCard style={{ 
                 background: isDark 
@@ -998,8 +980,8 @@ export default function ReportsScreen({ navigation }) {
 
           {/* Key Stats - Dashboard Premium */}
           <Animated.View style={{ 
-            opacity: statsOpacity,
-            transform: [{ translateY: statsSlide }]
+            opacity: Platform.OS === 'web' ? 1 : statsOpacity,
+            transform: Platform.OS === 'web' ? [] : [{ translateY: statsSlide }]
           }}>
             {/* Tarjeta Principal de Resumen */}
             <View style={[styles.summaryCard, { backgroundColor: theme.card, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
@@ -1066,8 +1048,8 @@ export default function ReportsScreen({ navigation }) {
           {/* ✨ INSIGHTS Y PREDICCIONES */}
           {Object.keys(areaMetrics).length > 0 && (monthlyComparative || bottlenecks.length > 0) && (
             <Animated.View style={{ 
-              opacity: chartsOpacity,
-              transform: [{ translateY: chartsSlide }]
+              opacity: Platform.OS === 'web' ? 1 : chartsOpacity,
+              transform: Platform.OS === 'web' ? [] : [{ translateY: chartsSlide }]
             }}>
               <InsightsPanel
                 monthlyComparative={monthlyComparative}
@@ -1081,21 +1063,23 @@ export default function ReportsScreen({ navigation }) {
           {/* 📊 REPORTE DE CUMPLIMIENTO - Solo admin */}
           {currentUser?.role === 'admin' && tasks.length > 0 && (
             <Animated.View style={{ 
-              opacity: chartsOpacity,
-              transform: [{ translateY: chartsSlide }]
+              opacity: Platform.OS === 'web' ? 1 : chartsOpacity,
+              transform: Platform.OS === 'web' ? [] : [{ translateY: chartsSlide }]
             }}>
-              <ComplianceReport 
-                tasks={tasks}
-                showDetails={true}
-              />
+              <Suspense fallback={<ActivityIndicator color={theme.primary} />}>
+                <ComplianceReport 
+                  tasks={tasks}
+                  showDetails={true}
+                />
+              </Suspense>
             </Animated.View>
           )}
 
           {/* 📊 MÉTRICAS DE ÁREA - Solo secretarios y directores */}
           {(currentUser?.role === 'secretario' || currentUser?.role === 'director') && tasks.length > 0 && (
             <Animated.View style={{ 
-              opacity: chartsOpacity,
-              transform: [{ translateY: chartsSlide }]
+              opacity: Platform.OS === 'web' ? 1 : chartsOpacity,
+              transform: Platform.OS === 'web' ? [] : [{ translateY: chartsSlide }]
             }}>
               <AreaMetricsPanel 
                 userArea={currentUser?.area || currentUser?.department}
@@ -1196,8 +1180,8 @@ export default function ReportsScreen({ navigation }) {
           {/* Task Progress with Subtasks (Top 10) */}
           {tasksWithProgress.length > 0 && (
             <Animated.View style={{ 
-              opacity: chartsOpacity,
-              transform: [{ translateY: chartsSlide }]
+              opacity: Platform.OS === 'web' ? 1 : chartsOpacity,
+              transform: Platform.OS === 'web' ? [] : [{ translateY: chartsSlide }]
             }}>
               <SpringCard style={styles.chartCard}>
                 <Text style={[styles.chartTitle, { color: theme.text }]}>
@@ -1241,27 +1225,29 @@ export default function ReportsScreen({ navigation }) {
 
           {/* Charts */}
           <Animated.View style={{ 
-            opacity: chartsOpacity,
-            transform: [{ translateY: chartsSlide }]
+            opacity: Platform.OS === 'web' ? 1 : chartsOpacity,
+            transform: Platform.OS === 'web' ? [] : [{ translateY: chartsSlide }]
           }}>
             {/* Daily Completions Chart */}
             {dailyCompletions.length > 0 && (
               <SpringCard style={styles.chartCard}>
                 <Text style={[styles.chartTitle, { color: theme.text }]}>Tareas Completadas por Día</Text>
-                <LineChart
-                  data={chartData}
-                  width={width - (padding * 2 + 40)}
-                  height={220}
-                  chartConfig={{
-                    backgroundColor: theme.card,
-                    backgroundGradientFrom: theme.card,
-                    backgroundGradientTo: theme.card,
-                    color: (opacity = 1) => `rgba(159, 34, 65, ${opacity})`,
-                    strokeWidth: 2,
-                    style: { borderRadius: 16 },
-                  }}
-                  style={styles.chart}
-                />
+                <Suspense fallback={<ActivityIndicator color={theme.primary} />}>
+                  <LineChart
+                    data={chartData}
+                    width={width - (padding * 2 + 40)}
+                    height={220}
+                    chartConfig={{
+                      backgroundColor: theme.card,
+                      backgroundGradientFrom: theme.card,
+                      backgroundGradientTo: theme.card,
+                      color: (opacity = 1) => `rgba(159, 34, 65, ${opacity})`,
+                      strokeWidth: 2,
+                      style: { borderRadius: 16 },
+                    }}
+                    style={styles.chart}
+                  />
+                </Suspense>
               </SpringCard>
             )}
 
@@ -1269,18 +1255,20 @@ export default function ReportsScreen({ navigation }) {
             {priorityChartData.length > 0 && (
               <SpringCard style={styles.chartCard}>
                 <Text style={[styles.chartTitle, { color: theme.text }]}>Distribución por Prioridad</Text>
-                <PieChart
-                  data={priorityChartData}
-                  width={width - (padding * 2 + 40)}
-                  height={220}
-                  chartConfig={{
-                    color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-                    style: { borderRadius: 16 },
-                  }}
-                  accessor="population"
-                  backgroundColor="transparent"
-                  paddingLeft="15"
-                />
+                <Suspense fallback={<ActivityIndicator color={theme.primary} />}>
+                  <PieChart
+                    data={priorityChartData}
+                    width={width - (padding * 2 + 40)}
+                    height={220}
+                    chartConfig={{
+                      color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                      style: { borderRadius: 16 },
+                    }}
+                    accessor="population"
+                    backgroundColor="transparent"
+                    paddingLeft="15"
+                  />
+                </Suspense>
               </SpringCard>
             )}
 
@@ -1304,8 +1292,8 @@ export default function ReportsScreen({ navigation }) {
             {/* ✨ NUEVO: Resumen Jerárquico Premium por Tipo de Área */}
             {(metricsByType.secretaria.total > 0 || metricsByType.direccion.total > 0) && (
               <Animated.View style={{
-                opacity: hierarchyAnim,
-                transform: [{ translateY: hierarchySlide }]
+                opacity: Platform.OS === 'web' ? 1 : hierarchyAnim,
+                transform: Platform.OS === 'web' ? [] : [{ translateY: hierarchySlide }]
               }}>
                 <View style={[styles.hierarchySectionWrapper, { backgroundColor: theme.card }]}>
                   {/* Header de sección */}
@@ -1332,7 +1320,7 @@ export default function ReportsScreen({ navigation }) {
                     {/* Tarjeta Secretarías - Premium Design */}
                     <Animated.View style={[
                       styles.hierarchyCardWrapper,
-                      { transform: [{ scale: secretariaScale }] }
+                      Platform.OS === 'web' ? {} : { transform: [{ scale: secretariaScale }] }
                     ]}>
                       <TouchableOpacity 
                         onPress={() => setFilteredAreas(metricsByType.secretaria.areas.map(a => a.name))}
@@ -1361,7 +1349,7 @@ export default function ReportsScreen({ navigation }) {
                                 {metricsByType.secretaria.areas.length} áreas activas
                               </Text>
                             </View>
-                            <Animated.View style={[styles.hierarchyRateBadge, { transform: [{ scale: pulseAnim }] }]}>
+                            <Animated.View style={[styles.hierarchyRateBadge, Platform.OS === 'web' ? {} : { transform: [{ scale: pulseAnim }] }]}>
                               <Text style={styles.hierarchyRateBadgeText}>
                                 {metricsByType.secretaria.avgRate}%
                               </Text>
@@ -1431,7 +1419,7 @@ export default function ReportsScreen({ navigation }) {
                     {/* Tarjeta Direcciones - Premium Design */}
                     <Animated.View style={[
                       styles.hierarchyCardWrapper,
-                      { transform: [{ scale: direccionScale }] }
+                      Platform.OS === 'web' ? {} : { transform: [{ scale: direccionScale }] }
                     ]}>
                       <TouchableOpacity 
                         onPress={() => setFilteredAreas(metricsByType.direccion.areas.map(a => a.name))}
@@ -1460,7 +1448,7 @@ export default function ReportsScreen({ navigation }) {
                                 {metricsByType.direccion.areas.length} áreas activas
                               </Text>
                             </View>
-                            <Animated.View style={[styles.hierarchyRateBadge, { transform: [{ scale: pulseAnim }] }]}>
+                            <Animated.View style={[styles.hierarchyRateBadge, Platform.OS === 'web' ? {} : { transform: [{ scale: pulseAnim }] }]}>
                               <Text style={styles.hierarchyRateBadgeText}>
                                 {metricsByType.direccion.avgRate}%
                               </Text>
@@ -1574,8 +1562,8 @@ export default function ReportsScreen({ navigation }) {
               </SpringCard>
             ) : (
               <Animated.View style={{ 
-                opacity: chartsOpacity,
-                transform: [{ translateY: chartsSlide }]
+                opacity: Platform.OS === 'web' ? 1 : chartsOpacity,
+                transform: Platform.OS === 'web' ? [] : [{ translateY: chartsSlide }]
               }}>
                 <SpringCard style={styles.emptyCardContainer}>
                   <View style={styles.emptyCardContent}>
@@ -1600,17 +1588,19 @@ export default function ReportsScreen({ navigation }) {
                   <Ionicons name="arrow-forward-outline" size={20} color={theme.primary} />
                   <Text style={[styles.chartTitle, { color: theme.text }]}>Comparación de Rendimiento</Text>
                 </View>
-                <AreaComparisonChart
-                  areaMetrics={displayAreaMetrics}
-                  padding={padding}
-                  isDesktop={isDesktop}
-                  onAreaSelect={(area) => setSelectedArea(area)}
-                />
+                <Suspense fallback={<ActivityIndicator color={theme.primary} />}>
+                  <AreaComparisonChart
+                    areaMetrics={displayAreaMetrics}
+                    padding={padding}
+                    isDesktop={isDesktop}
+                    onAreaSelect={(area) => setSelectedArea(area)}
+                  />
+                </Suspense>
               </SpringCard>
             ) : (
               <Animated.View style={{ 
-                opacity: chartsOpacity,
-                transform: [{ translateY: chartsSlide }]
+                opacity: Platform.OS === 'web' ? 1 : chartsOpacity,
+                transform: Platform.OS === 'web' ? [] : [{ translateY: chartsSlide }]
               }}>
                 <SpringCard style={styles.emptyCardContainer}>
                   <View style={styles.emptyCardContent}>
@@ -1647,8 +1637,8 @@ export default function ReportsScreen({ navigation }) {
               </SpringCard>
             ) : (
               <Animated.View style={{ 
-                opacity: chartsOpacity,
-                transform: [{ translateY: chartsSlide }]
+                opacity: Platform.OS === 'web' ? 1 : chartsOpacity,
+                transform: Platform.OS === 'web' ? [] : [{ translateY: chartsSlide }]
               }}>
                 <SpringCard style={styles.emptyCardContainer}>
                   <View style={styles.emptyCardContent}>

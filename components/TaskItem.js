@@ -37,7 +37,7 @@ const TaskItem = memo(function TaskItem({
   onShare,
   onChangeStatus,
   onReopen,
-  currentUserRole = 'operativo',
+  currentUserRole = 'director',
   index = 0,
   compact = false,  // 📱 Vista compacta para mostrar más tareas
   isDeleting: isDeleteProp = false  // ⚡ Prop para que el padre pueda controlar si se está borrando
@@ -142,7 +142,7 @@ const TaskItem = memo(function TaskItem({
 
   // Construir acciones del menú basadas en permisos disponibles
   const menuActions = [
-    // Solo mostrar duplicar si el callback está disponible (admin y jefe)
+    // Solo mostrar duplicar si el callback está disponible (admin)
     ...(onDuplicate ? [{ icon: 'copy-outline', label: 'Duplicar tarea', onPress: () => { hapticMedium(); onDuplicate(task); } }] : []),
     { icon: 'share-outline', label: 'Compartir', onPress: () => { hapticMedium(); onShare && onShare(task); } },
     // Reabrir solo para admin si está cerrada

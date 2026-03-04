@@ -6,14 +6,12 @@ import { getDireccionesBySecretaria, getSecretariaByDireccion } from '../config/
 
 /**
  * Roles disponibles en orden de jerarquía
- * admin (4) > secretario (3) > director/jefe (2) > operativo (1)
+ * admin (3) > secretario (2) > director (1)
  */
 export const ROLES = {
   ADMIN: 'admin',
   SECRETARIO: 'secretario',
-  DIRECTOR: 'director',
-  JEFE: 'jefe',
-  OPERATIVO: 'operativo'
+  DIRECTOR: 'director'
 };
 
 /**
@@ -85,26 +83,6 @@ const ROLE_PERMISSIONS = {
     PERMISSIONS.COMPLETE_SUBTASK,   // Solo completar subtareas asignadas
     PERMISSIONS.CREATE_REPORT,
     PERMISSIONS.VIEW_AREA_REPORTS
-  ],
-  
-  [ROLES.JEFE]: [
-    PERMISSIONS.CREATE_TASK,        // Puede crear tareas en su area
-    PERMISSIONS.EDIT_TASK,          // Puede editar tareas de su area
-    PERMISSIONS.VIEW_TASK,
-    PERMISSIONS.CHANGE_STATUS,
-    PERMISSIONS.CREATE_SUBTASK,
-    PERMISSIONS.EDIT_SUBTASK,
-    PERMISSIONS.DELETE_SUBTASK,
-    PERMISSIONS.COMPLETE_SUBTASK,
-    PERMISSIONS.CREATE_REPORT,
-    PERMISSIONS.VIEW_AREA_REPORTS
-  ],
-  
-  [ROLES.OPERATIVO]: [
-    PERMISSIONS.VIEW_TASK,
-    PERMISSIONS.CHANGE_STATUS,      // Solo sus tareas asignadas
-    PERMISSIONS.COMPLETE_SUBTASK,   // Solo subtareas asignadas
-    PERMISSIONS.CREATE_REPORT
   ]
 };
 
@@ -137,7 +115,7 @@ export function canReopenTask(user, task) {
     return { canReopen: true, reason: 'Admin puede reabrir tareas' };
   }
 
-  // Secretarios, Directores, Jefes y operativos NO pueden reabrir
+  // Secretarios y Directores NO pueden reabrir
   return { canReopen: false, reason: 'Solo el administrador puede reabrir tareas' };
 }
 
@@ -157,16 +135,7 @@ export function canEditTask(user, task) {
     return { canEdit: true, reason: 'Admin tiene permisos completos' };
   }
   
-  // Jefe puede editar tareas de su área
-  if (user.role === ROLES.JEFE) {
-    const isInUserArea = task.area === user.area || task.area === user.department;
-    if (isInUserArea) {
-      return { canEdit: true, reason: 'Jefe puede editar tareas de su área' };
-    }
-    return { canEdit: false, reason: 'Solo puedes editar tareas de tu área' };
-  }
-  
-  // Secretario, Director, Operativo NO pueden editar tareas
+  // Secretario, Director NO pueden editar tareas
   return { canEdit: false, reason: 'Solo el administrador puede modificar tareas' };
 }
 
@@ -267,15 +236,6 @@ export function canCreateSubtask(user, task) {
     return { canCreate: true, reason: 'Admin puede crear subtareas' };
   }
   
-  // Jefe puede crear subtareas en su área
-  if (user.role === ROLES.JEFE) {
-    const isInUserArea = task.area === user.area || task.area === user.department;
-    if (isInUserArea) {
-      return { canCreate: true, reason: 'Jefe puede crear subtareas en su área' };
-    }
-    return { canCreate: false, reason: 'Solo puedes crear subtareas en tu área' };
-  }
-  
   // Secretario puede crear subtareas en sus áreas
   if (user.role === ROLES.SECRETARIO) {
     // Usar mapeo oficial como fuente principal
@@ -298,7 +258,7 @@ export function canCreateSubtask(user, task) {
     return { canCreate: false, reason: 'Esta tarea no pertenece a tus áreas' };
   }
   
-  // Director y Operativo no pueden crear subtareas
+  // Director no puede crear subtareas
   return { canCreate: false, reason: 'No tienes permisos para crear subtareas' };
 }
 
@@ -349,14 +309,6 @@ export function canChangeTaskStatus(user, task) {
     }
   }
   
-  // Jefe puede cambiar status de tareas en su área
-  if (user.role === ROLES.JEFE) {
-    const isInUserArea = task.area === user.area || task.area === user.department;
-    if (isInUserArea) {
-      return { canChange: true, reason: 'Jefe puede gestionar tareas de su área' };
-    }
-  }
-  
   return { canChange: false, reason: 'No tienes permisos para cambiar el status de esta tarea' };
 }
 
@@ -394,14 +346,8 @@ export function canCreateTask(user) {
     return { canCreate: true, allowedAreas: 'all', reason: 'Admin puede crear tareas' };
   }
   
-  // Jefe puede crear tareas solo en su área
-  if (user.role === ROLES.JEFE) {
-    const areas = [user.area, user.department].filter(Boolean);
-    return { canCreate: true, allowedAreas: areas, reason: 'Jefe puede crear tareas en su área' };
-  }
-  
-  // Secretario, Director, Operativo NO pueden crear tareas
-  return { canCreate: false, allowedAreas: [], reason: 'Solo administradores y jefes pueden crear tareas' };
+  // Secretario y Director NO pueden crear tareas
+  return { canCreate: false, allowedAreas: [], reason: 'Solo administradores pueden crear tareas' };
 }
 
 /**
@@ -425,7 +371,7 @@ export function getPermissionsSummary(user) {
   
   return {
     canCreateTask: hasPermission(user, PERMISSIONS.CREATE_TASK),
-    canEditTasks: user.role === ROLES.ADMIN || user.role === ROLES.JEFE,
+    canEditTasks: user.role === ROLES.ADMIN,
     canDeleteTasks: user.role === ROLES.ADMIN,
     canDelegateTasks: user.role === ROLES.ADMIN || user.role === ROLES.SECRETARIO,
     canCreateSubtasks: hasPermission(user, PERMISSIONS.CREATE_SUBTASK),

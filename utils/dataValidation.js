@@ -39,7 +39,7 @@ const SCHEMAS = {
     required: ['email', 'role'],
     types: {
       email: 'string',
-      role: ['admin', 'secretario', 'director', 'jefe', 'operativo'],
+      role: ['admin', 'secretario', 'director'],
       area: 'string',
     }
   }

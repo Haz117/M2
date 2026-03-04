@@ -1,5 +1,5 @@
 // components/SuggestedOperativesPanel.js
-// Panel que muestra operativos sugeridos basado en directores seleccionados
+// Panel que muestra directores sugeridos basado en secretarios seleccionados
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -19,16 +19,21 @@ export default function SuggestedOperativesPanel({
   onAddUser = () => {},
   theme = {}
 }) {
-  const [suggestedOperatives, setSuggestedOperatives] = useState([]);
+  const [suggestedDirectors, setSuggestedDirectors] = useState([]);
   const [loading, setLoading] = useState(false);
   const { isDark } = useTheme();
 
-  // Cargar operativos sugeridos cuando cambien los usuarios seleccionados
+  const roleLabel = {
+    'director': '👤 Director',
+    'secretario': '🔑 Secretario'
+  };
+
+  // Cargar directores sugeridos cuando cambien los usuarios seleccionados
   useEffect(() => {
-    loadSuggestedOperatives();
+    loadSuggestedDirectors();
   }, [selectedUsers]);
 
-  const loadSuggestedOperatives = async () => {
+  const loadSuggestedDirectors = async () => {
     try {
       setLoading(true);
 
@@ -36,7 +41,7 @@ export default function SuggestedOperativesPanel({
       const directoresSeleccionados = selectedUsers.filter(u => u.role === 'director');
       
       if (directoresSeleccionados.length === 0) {
-        setSuggestedOperatives([]);
+        setSuggestedDirectors([]);
         return;
       }
 
@@ -48,50 +53,50 @@ export default function SuggestedOperativesPanel({
       );
 
       if (areasDeDirectores.size === 0) {
-        setSuggestedOperatives([]);
+        setSuggestedDirectors([]);
         return;
       }
 
-      // Obtener operativos de esas áreas
-      const operativosRef = collection(db, 'users');
+      // Obtener directores de esas áreas
+      const directoresRef = collection(db, 'users');
       const q = query(
-        operativosRef,
-        where('role', 'in', ['operativo', 'jefe']),
+        directoresRef,
+        where('role', 'in', ['director', 'secretario']),
         where('active', '==', true)
       );
       
       const snapshot = await getDocs(q);
-      const operatives = [];
+      const directors = [];
 
       snapshot.forEach(doc => {
         const userData = doc.data();
         // Filtrar por área
         if (areasDeDirectores.has(userData.area) || areasDeDirectores.has(userData.department)) {
-          operatives.push({ id: doc.id, ...userData });
+          directors.push({ id: doc.id, ...userData });
         }
       });
 
       // Filtrar los que ya están seleccionados
       const selectedEmails = new Set(selectedUsers.map(u => u.email?.toLowerCase()));
-      const unselectedOperatives = operatives.filter(
+      const unselectedDirectors = directors.filter(
         o => !selectedEmails.has(o.email?.toLowerCase())
       );
       
-      setSuggestedOperatives(unselectedOperatives);
+      setSuggestedDirectors(unselectedDirectors);
     } catch (error) {
-      console.error('Error cargando operativos sugeridos:', error);
-      setSuggestedOperatives([]);
+      console.error('Error cargando directores sugeridos:', error);
+      setSuggestedDirectors([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // No mostrar si no hay directores seleccionados
-  if (!selectedUsers.some(u => u.role === 'director')) {
+  // No mostrar si no hay secretarios seleccionados
+  if (!selectedUsers.some(u => ['secretario', 'admin'].includes(u.role))) {
     return null;
   }
 
-  if (suggestedOperatives.length === 0 && !loading) {
+  if (suggestedDirectors.length === 0 && !loading) {
     return null;
   }
 
@@ -100,7 +105,7 @@ export default function SuggestedOperativesPanel({
       <View style={styles.header}>
         <Ionicons name="bulb-outline" size={20} color={theme?.primary || '#9F2241'} />
         <Text style={[styles.headerText, { color: theme?.text || '#333' }]}>
-          Operativos sugeridos
+          Directores sugeridos
         </Text>
       </View>
 
@@ -115,15 +120,15 @@ export default function SuggestedOperativesPanel({
           style={styles.operativesScroll}
           contentContainerStyle={styles.operativesContainer}
         >
-          {suggestedOperatives.map(operative => (
-            <OperativeCard
-              key={operative.id}
-              operative={operative}
+          {suggestedDirectors.map(director => (
+            <DirectorCard
+              key={director.id}
+              director={director}
               onAdd={() => onAddUser({
-                email: operative.email,
-                displayName: operative.displayName,
-                role: operative.role,
-                area: operative.area || operative.department
+                email: director.email,
+                displayName: director.displayName,
+                role: director.role,
+                area: director.area || director.department
               })}
               theme={theme}
             />
@@ -134,8 +139,8 @@ export default function SuggestedOperativesPanel({
   );
 }
 
-// Tarjeta individual de operativo sugerido
-const OperativeCard = ({ operative, onAdd, theme }) => {
+// Tarjeta individual de director sugerido
+const DirectorCard = ({ director, onAdd, theme }) => {
   const { isDark } = useTheme();
   
   const getAbbreviation = (name) => {
@@ -146,25 +151,20 @@ const OperativeCard = ({ operative, onAdd, theme }) => {
     return name?.substring(0, 2).toUpperCase() || '?';
   };
 
-  const roleLabel = {
-    'jefe': '👥 Jefe',
-    'operativo': '👤 Operativo'
-  };
-
   return (
     <View style={[styles.operativeCard, { backgroundColor: isDark ? '#2A2A2A' : '#FFF' }]}>
       <View style={[styles.avatar, { backgroundColor: theme?.primary + '30' || '#9F224130' }]}>
         <Text style={[styles.avatarText, { color: theme?.primary || '#9F2241' }]}>
-          {getAbbreviation(operative.displayName)}
+          {getAbbreviation(director.displayName)}
         </Text>
       </View>
 
       <Text style={[styles.operativeName, { color: theme?.text || '#333' }]} numberOfLines={2}>
-        {operative.displayName}
+        {director.displayName}
       </Text>
 
       <Text style={[styles.operativeRole, { color: theme?.primary || '#9F2241' }]}>
-        {roleLabel[operative.role] || operative.role}
+        {roleLabel[director.role] || director.role}
       </Text>
 
       <TouchableOpacity

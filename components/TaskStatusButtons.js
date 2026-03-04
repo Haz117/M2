@@ -1,5 +1,5 @@
 // components/TaskStatusButtons.js
-// Botones para cambiar el estado de las tareas (solo para operativos)
+// Botones para cambiar el estado de las tareas (directors, secretarios y admins)
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

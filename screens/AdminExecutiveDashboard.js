@@ -14,6 +14,7 @@ import {
   Dimensions,
   Animated,
   Modal,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -44,6 +45,9 @@ export default function AdminExecutiveDashboard({ navigation }) {
   // Animaciones
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
+
+  // ⚠️ En web, useNativeDriver puede causar problemas
+  const useNativeDriver = Platform.OS !== 'web';
 
   // === MÉTRICAS CALCULADAS ===
   
@@ -179,7 +183,7 @@ export default function AdminExecutiveDashboard({ navigation }) {
 
   // Métricas por usuario (para cumplimiento)
   const userMetrics = useMemo(() => {
-    const directores = users.filter(u => u.role === 'director' || u.role === 'jefe');
+    const directores = users.filter(u => u.role === 'director');
     const now = new Date();
     
     return directores.map(user => {
@@ -314,10 +318,10 @@ export default function AdminExecutiveDashboard({ navigation }) {
 
   const getRoleLabel = (role) => {
     switch (role) {
+      case 'admin': return 'Admin';
       case 'secretario': return 'Secretario';
       case 'director': return 'Director';
-      case 'jefe': return 'Jefe de Área';
-      default: return 'Operativo';
+      default: return 'Director';
     }
   };
 

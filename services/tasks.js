@@ -148,9 +148,7 @@ export async function subscribeToTasks(callback) {
       console.log('📋 [TasksFilter] Rol:', userRole, '| Email:', userEmail, '| Áreas:', userAreasPermitidas);
       console.log('📋 [TasksFilter] Total tareas recibidas:', tasks.length);
       
-      if (userRole === 'operativo') {
-        filtered = tasks.filter(task => isTaskAssignedToUser(task, userEmail));
-      } else if (userRole === 'secretario') {
+      if (userRole === 'secretario') {
         filtered = tasks.filter(task => {
           const taskArea = (task.area || '').toLowerCase().trim();
           // Verificar si está en las áreas permitidas del secretario
@@ -182,25 +180,6 @@ export async function subscribeToTasks(callback) {
           // Solo si el área del director coincide exactamente
           if (taskArea === normalizedUserArea) return true;
           if (taskAreas.some(a => a?.toLowerCase().trim() === normalizedUserArea)) return true;
-          
-          // O si está asignado a él
-          if (isTaskAssignedToUser(task, userEmail)) return true;
-          
-          // O si la creó él
-          if (task.createdBy?.toLowerCase().trim() === userEmail?.toLowerCase().trim()) return true;
-          
-          return false;
-        });
-      } else if (userRole === 'jefe') {
-        // Jefe ve tareas de su departamento/área o asignadas a él
-        filtered = tasks.filter(task => {
-          const taskArea = (task.area || '').toLowerCase().trim();
-          const normalizedDept = userDepartment?.toLowerCase().trim();
-          const normalizedArea = userArea?.toLowerCase().trim();
-          
-          // Tareas de su departamento/área
-          if (normalizedDept && taskArea === normalizedDept) return true;
-          if (normalizedArea && taskArea === normalizedArea) return true;
           
           // O si está asignado a él
           if (isTaskAssignedToUser(task, userEmail)) return true;
@@ -255,17 +234,6 @@ export async function subscribeToTasks(callback) {
         );
       } else if (userRole === 'director') {
         // Director ve tareas de su área
-        tasksQuery = query(
-          collection(db, COLLECTION_NAME),
-          orderBy('createdAt', 'desc')
-        );
-      } else if (userRole === 'jefe') {
-        // Jefe ve todas las tareas, filtro local (para incluir tareas asignadas a él)
-        tasksQuery = query(
-          collection(db, COLLECTION_NAME),
-          orderBy('createdAt', 'desc')
-        );
-      } else if (userRole === 'operativo') {
         tasksQuery = query(
           collection(db, COLLECTION_NAME),
           orderBy('createdAt', 'desc')

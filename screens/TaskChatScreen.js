@@ -17,16 +17,16 @@ import ChatImageUpload from '../components/ChatImageUpload';
 // Helper function to check if a task is assigned to a user (supports both string and array formats)
 function isTaskAssignedToUser(task, userEmail) {
   if (!task.assignedTo) return false;
+  
+  const normalizedUserEmail = userEmail?.toLowerCase().trim() || '';
+  if (!normalizedUserEmail) return false;
+  
   if (Array.isArray(task.assignedTo)) {
-    // Normalize emails before comparing
-    const normalizedEmail = userEmail?.toLowerCase().trim() || '';
-    if (Array.isArray(task.assignedTo)) {
-      return task.assignedTo.some(email => email?.toLowerCase().trim() === normalizedEmail);
-    }
-    return (task.assignedTo?.toLowerCase().trim() || '') === normalizedEmail;
+    return task.assignedTo.some(email => email?.toLowerCase().trim() === normalizedUserEmail);
   }
+  
   // Backward compatibility: old string format
-  return task.assignedTo.toLowerCase() === userEmail.toLowerCase();
+  return (task.assignedTo?.toLowerCase().trim() || '') === normalizedUserEmail;
 }
 
 export default function TaskChatScreen({ route, navigation }) {
@@ -73,12 +73,6 @@ export default function TaskChatScreen({ route, navigation }) {
           
           if (userRole === 'admin') {
             console.log('[TaskChat] Access granted - admin');
-            setHasAccess(true);
-          } else if (userRole === 'jefe' && task.area === userDepartment) {
-            console.log('[TaskChat] Access granted - jefe in correct area');
-            setHasAccess(true);
-          } else if (userRole === 'operativo' && isTaskAssignedToUser(task, userEmail)) {
-            console.log('[TaskChat] Access granted - operativo assigned to task');
             setHasAccess(true);
           } else if (userRole === 'director') {
             console.log('[TaskChat] Access granted - director');

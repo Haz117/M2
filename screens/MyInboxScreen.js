@@ -217,20 +217,6 @@ export default function MyInboxScreen({ navigation }) {
           userTasks = [...userTasks, ...otherTasks];
         }
 
-        // Si es jefe, agregar tareas de su departamento
-        if (currentUser.role === 'jefe' && userTasks.length < 10) {
-          const deptTasks = tasks
-            .filter(task => 
-              task && 
-              task.id && 
-              task.area === currentUser.department &&
-              task.assignedTo !== currentUser.email && 
-              task.createdBy !== currentUser.email
-            )
-            .slice(0, 10 - userTasks.length);
-          userTasks = [...userTasks, ...deptTasks];
-        }
-
         // Por cada tarea, obtener los últimos 3 mensajes
         for (const task of userTasks.slice(0, 10)) { // Limitar a 10 tareas para no sobrecargar
           try {
@@ -313,8 +299,10 @@ export default function MyInboxScreen({ navigation }) {
       // Secretario ve tareas de su área Y de todas sus direcciones
       else if (userRole === 'secretario') {
         const misDirecciones = getDireccionesBySecretaria(userArea);
-        const isInMySecretaria = task.area === userArea;
-        const isInMyDirecciones = misDirecciones.includes(task.area);
+        const taskAreaLower = (task.area || '').toLowerCase().trim();
+        const userAreaLower = (userArea || '').toLowerCase().trim();
+        const isInMySecretaria = taskAreaLower === userAreaLower;
+        const isInMyDirecciones = misDirecciones.some(d => d?.toLowerCase().trim() === taskAreaLower);
         const isAssignedToMe = isTaskAssignedToUser(task, userEmail);
         const isCreatedByMe = task.createdBy?.toLowerCase() === userEmail;
         // El secretario ve: tareas de su secretaría, tareas de sus direcciones, tareas asignadas a él, o tareas que creó
@@ -322,20 +310,12 @@ export default function MyInboxScreen({ navigation }) {
       }
       // Director ve tareas de su área o asignadas a él
       else if (userRole === 'director') {
-        const isInMyArea = task.area === userArea;
+        const taskAreaLower = (task.area || '').toLowerCase().trim();
+        const userAreaLower = (userArea || '').toLowerCase().trim();
+        const isInMyArea = taskAreaLower === userAreaLower;
         const isAssignedToMe = isTaskAssignedToUser(task, userEmail);
         const isCreatedByMe = task.createdBy?.toLowerCase() === userEmail;
         if (!isInMyArea && !isAssignedToMe && !isCreatedByMe) return false;
-      }
-      // Jefe ve tareas de su departamento o asignadas a él
-      else if (userRole === 'jefe') {
-        const isInMyDepartment = task.area === (currentUser.department || userArea);
-        const isAssignedToMe = isTaskAssignedToUser(task, userEmail);
-        if (!isInMyDepartment && !isAssignedToMe) return false;
-      }
-      // Operativo solo ve sus tareas asignadas
-      else {
-        if (!isTaskAssignedToUser(task, userEmail)) return false;
       }
       
       // Filtro de búsqueda (título, descripción)
@@ -374,14 +354,13 @@ export default function MyInboxScreen({ navigation }) {
     const userArea = currentUser.area || currentUser.department || '';
     if (userRole === 'admin') return true;
     if (userRole === 'secretario') {
-      const misDirecciones = getDireccionesBySecretaria(userArea);
-      return task.area === userArea || misDirecciones.includes(task.area) || isTaskAssignedToUser(task, userEmail) || task.createdBy?.toLowerCase() === userEmail;
+      const taskAreaLower = (task.area || '').toLowerCase().trim();
+      const userAreaLower = (userArea || '').toLowerCase().trim();
+      const misDirecciones = getDireccionesBySecretaria(userAreaLower);
+      return taskAreaLower === userAreaLower || misDirecciones.some(d => d?.toLowerCase().trim() === taskAreaLower) || isTaskAssignedToUser(task, userEmail) || task.createdBy?.toLowerCase().trim() === userEmail;
     }
     if (userRole === 'director') {
       return task.area === userArea || isTaskAssignedToUser(task, userEmail) || task.createdBy?.toLowerCase() === userEmail;
-    }
-    if (userRole === 'jefe') {
-      return task.area === (currentUser.department || userArea) || isTaskAssignedToUser(task, userEmail);
     }
     return isTaskAssignedToUser(task, userEmail);
   });
@@ -802,8 +781,8 @@ export default function MyInboxScreen({ navigation }) {
   };
 
   const openDetail = (task) => {
-    // Admin, secretario, director y jefe pueden editar tareas
-    const canEdit = currentUser && ['admin', 'secretario', 'director', 'jefe'].includes(currentUser.role);
+    // Admin, secretario, y director pueden editar tareas
+    const canEdit = currentUser && ['admin', 'secretario', 'director'].includes(currentUser.role);
     if (!canEdit) {
       setToastMessage('No tienes permisos para editar tareas');
       setToastType('info');
@@ -816,10 +795,10 @@ export default function MyInboxScreen({ navigation }) {
   const openChat = (task) => navigation.navigate('TaskChat', { taskId: task.id, taskTitle: task.title });
   
   const goToCreate = () => {
-    // Solo admin y jefe pueden crear tareas principales
-    const canCreate = currentUser && ['admin', 'jefe'].includes(currentUser.role);
+    // Solo admin puede crear tareas principales
+    const canCreate = currentUser && ['admin'].includes(currentUser.role);
     if (!canCreate) {
-      setToastMessage('Solo administradores y jefes pueden crear tareas. Los secretarios y directores solo pueden crear subtareas.');
+      setToastMessage('Solo administradores pueden crear tareas. Los secretarios y directores solo pueden crear subtareas.');
       setToastType('warning');
       setToastVisible(true);
       return;

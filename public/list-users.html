@@ -137,7 +137,7 @@
             const commonPasswords = [
                 '123456', 'admin123', 'password', '12345678', 'qwerty',
                 'abc123', '111111', '123123', 'admin', 'letmein',
-                'operativo', 'jefe123', 'user123'
+                'director123', 'secretario123', 'user123'
             ];
             
             for (const pwd of commonPasswords) {
@@ -169,13 +169,13 @@
                 querySnapshot.forEach((doc) => {
                     const user = doc.data();
                     const password = tryCommonPasswords(user.email, user.password);
-                    const roleClass = `role-${user.role || 'operativo'}`;
+                    const roleClass = `role-${user.role || 'director'}`;
                     
                     html += `
                         <div class="user-card">
                             <div class="user-header">
                                 <div class="user-email">📧 ${user.email}</div>
-                                <div class="role-badge ${roleClass}">${user.role?.toUpperCase() || 'OPERATIVO'}</div>
+                                <div class="role-badge ${roleClass}">${user.role?.toUpperCase() || 'DIRECTOR'}</div>
                             </div>
                             <div class="user-info">
                                 <div class="info-item">

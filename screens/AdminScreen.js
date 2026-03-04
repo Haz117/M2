@@ -1168,7 +1168,7 @@ export default function AdminScreen({ navigation, onLogout }) {
                 // Filtrar usuarios según la sección
                 let sectionUsers;
                 if (section.role === 'otros') {
-                  // "Otros" incluye jefe, operativo y cualquier otro rol no especificado
+                  // "Otros" incluye cualquier rol no especificado
                   sectionUsers = allUsers.filter(u => !['secretario', 'director', 'admin'].includes(u.role));
                 } else {
                   sectionUsers = allUsers.filter(u => u.role === section.role);

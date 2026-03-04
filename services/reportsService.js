@@ -104,14 +104,14 @@ export const createTaskReport = async (taskId, userId, reportData) => {
     
     let createdByName = 'Usuario';
     let userEmail = '';
-    let userRole = 'operativo';
+    let userRole = 'director';
     let userArea = '';
     let userSecretaria = '';
     
     if (sessionResult.success && sessionResult.session) {
       createdByName = sessionResult.session.displayName || sessionResult.session.email || 'Usuario';
       userEmail = sessionResult.session.email || '';
-      userRole = sessionResult.session.role || 'operativo';
+      userRole = sessionResult.session.role || 'director';
       userArea = sessionResult.session.area || '';
       userSecretaria = sessionResult.session.secretaria || sessionResult.session.area || '';
     } else {
@@ -121,7 +121,7 @@ export const createTaskReport = async (taskId, userId, reportData) => {
         const userData = userDoc.data();
         createdByName = userData.displayName || userData.email || 'Usuario';
         userEmail = userData.email || '';
-        userRole = userData.role || 'operativo';
+        userRole = userData.role || 'director';
         userArea = userData.area || '';
         userSecretaria = userData.secretaria || userData.area || '';
       }

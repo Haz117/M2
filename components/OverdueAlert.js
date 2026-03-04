@@ -5,7 +5,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 
-export default function OverdueAlert({ tasks, currentUserEmail, role = 'operativo', onTaskPress }) {
+export default function OverdueAlert({ tasks, currentUserEmail, role = 'director', onTaskPress }) {
   // ✅ EARLY RETURNS MUST BE BEFORE ALL HOOKS
   if (!tasks || tasks.length === 0) return null;
 
@@ -18,8 +18,8 @@ export default function OverdueAlert({ tasks, currentUserEmail, role = 'operativ
     const overdue = [];
     const urgent = [];
 
-    // Admin, secretario, director y jefe ven todas sus tareas relevantes
-    const canSeeAll = ['admin', 'secretario', 'director', 'jefe'].includes(role);
+    // Admin, secretario y director ven todas sus tareas relevantes
+    const canSeeAll = ['admin', 'secretario', 'director'].includes(role);
     const applicable = canSeeAll
       ? tasks.filter(t => t.status !== 'cerrada')
       : tasks.filter(t => t.status !== 'cerrada' && t.assignedTo === currentUserEmail);

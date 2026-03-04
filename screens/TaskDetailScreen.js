@@ -20,7 +20,6 @@ import TaskStatusButtons from '../components/TaskStatusButtons';
 import MultiUserSelector from '../components/MultiUserSelector';
 import SuggestedDirectionsPanel from '../components/SuggestedDirectionsPanel';
 import SuggestedDirectorsPanel from '../components/SuggestedDirectorsPanel';
-import SuggestedOperativesPanel from '../components/SuggestedOperativesPanel';
 import SuggestedAreasPanel from '../components/SuggestedAreasPanel';
 import SubtasksList from '../components/SubtasksList';
 import AreaSelectorModal from '../components/AreaSelectorModal';
@@ -99,14 +98,6 @@ export default function TaskDetailScreen({ route, navigation }) {
           }
           if (Array.isArray(user.areasPermitidas)) {
             user.areasPermitidas.forEach(area => areasToAdd.add(area));
-          }
-        }
-        
-        // Para jefes/operativos: agregar su área y departamento
-        if (['jefe', 'operativo'].includes(user.role)) {
-          if (user.area) areasToAdd.add(user.area);
-          if (user.department && user.department !== user.area) {
-            areasToAdd.add(user.department);
           }
         }
       });
@@ -298,19 +289,6 @@ export default function TaskDetailScreen({ route, navigation }) {
       return [];
     }
     
-    // Jefe ve su área/departamento
-    if (currentUser.role === 'jefe') {
-      const jefeAreas = [];
-      if (currentUser.area) jefeAreas.push(currentUser.area);
-      if (currentUser.department && !jefeAreas.includes(currentUser.department)) {
-        jefeAreas.push(currentUser.department);
-      }
-      if (jefeAreas.length > 0) {
-        return AREAS.filter(area => jefeAreas.includes(area));
-      }
-    }
-    
-    // Operativo ve todas las áreas pero solo para ver (no crear)
     return AREAS;
   }, [currentUser]);
 
@@ -697,13 +675,7 @@ export default function TaskDetailScreen({ route, navigation }) {
       // NUEVO SISTEMA DE PERMISOS
       const user = result.session;
       
-      // Si es operativo y está viendo una tarea, modo solo lectura
-      if (role === 'operativo' && editingTask) {
-        setIsReadOnly(true);
-        setCanEdit(false);
-        setCanDelegate(false);
-        setCanAddSubtask(false);
-      } else if (editingTask) {
+      if (editingTask) {
         // Verificar permisos específicos para tarea existente
         const editPermission = canEditTask(user, editingTask);
         const delegatePermission = canDelegateTask(user, editingTask);
@@ -712,7 +684,7 @@ export default function TaskDetailScreen({ route, navigation }) {
         setCanEdit(editPermission.canEdit);
         setCanDelegate(delegatePermission.canDelegate);
         setCanAddSubtask(subtaskPermission.canCreate);
-        setIsReadOnly(role === 'operativo' || role === 'director');
+        setIsReadOnly(role === 'director');
         
         console.log('Permisos:', { 
           canEdit: editPermission.canEdit, 
@@ -721,7 +693,7 @@ export default function TaskDetailScreen({ route, navigation }) {
           reason: editPermission.reason 
         });
       } else {
-        // Creando nueva tarea - solo admin y jefe
+        // Creando nueva tarea - solo admin
         const createPermission = canCreateTask(user);
         setCanEdit(createPermission.canCreate);
         setCanDelegate(false);
@@ -934,25 +906,6 @@ export default function TaskDetailScreen({ route, navigation }) {
       // NUEVO SISTEMA DE PERMISOS
       // Verificar si puede editar usando el servicio centralizado
       const editPermission = canEditTask(currentUser, editingTask || {});
-      
-      // Operativos solo pueden actualizar status de sus tareas asignadas
-      if (currentUser.role === 'operativo' && editingTask) {
-        const statusPermission = canChangeTaskStatus(currentUser, editingTask);
-        if (!statusPermission.canChange) {
-          Alert.alert('Sin permisos', statusPermission.reason);
-          setIsSaving(false);
-          return;
-        }
-        // Actualizar solo el status
-        await updateTask(editingTask.id, { status });
-        await updateParentProgressIfNeeded(); // Actualizar progreso del padre si es subtarea
-        setIsSaving(false);
-        setToastMessage('Estado actualizado');
-        setToastType('success');
-        setToastVisible(true);
-        setTimeout(() => navigation.goBack(), 800);
-        return;
-      }
 
       // Secretarios solo pueden cambiar status, NO editar datos de la tarea
       if (currentUser.role === 'secretario' && editingTask) {
@@ -993,24 +946,11 @@ export default function TaskDetailScreen({ route, navigation }) {
         }
       }
 
-      // Solo admin y jefe pueden crear/editar tareas completas
+      // Solo admin y secretario pueden crear/editar tareas completas
       if (!editPermission.canEdit) {
         Alert.alert('Sin permisos', editPermission.reason);
         setIsSaving(false);
         return;
-      }
-
-      // Jefes solo pueden crear/editar tareas de su área
-      if (currentUser.role === 'jefe') {
-        const hasPermissionForAreas = selectedAreas.some(area => {
-          const taskDepartment = areaToDepMap[area] || area.toLowerCase();
-          return taskDepartment === currentUser.department;
-        });
-        if (!hasPermissionForAreas) {
-          Alert.alert('Sin permisos', 'Solo puedes crear/editar tareas de tu área');
-          setIsSaving(false);
-          return;
-        }
       }
 
       // Animación de presión
@@ -1231,8 +1171,6 @@ export default function TaskDetailScreen({ route, navigation }) {
     } else if (currentUser?.role === 'secretario') {
       // Secretario puede seleccionar áreas de su lista
       canSelectArea = canEdit && availableAreas.includes(a);
-    } else if (currentUser?.role === 'jefe') {
-      canSelectArea = canEdit && areaDep === currentUser?.department;
     }
     
     if (!canSelectArea) return;
@@ -1349,7 +1287,7 @@ export default function TaskDetailScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* Modal de detalles para operativos */}
+      {/* Modal de detalles en modo solo lectura */}
       {isReadOnly && editingTask && (
         <Modal
           visible={true}
@@ -1586,17 +1524,6 @@ export default function TaskDetailScreen({ route, navigation }) {
               }}
               theme={theme}
             />
-
-            {/* Panel de Operativos Sugeridos */}
-            <SuggestedOperativesPanel
-              selectedUsers={selectedAssignees}
-              onAddUser={(operative) => {
-                // Agregar el operativo a la lista de asignados y auto-seleccionar su área
-                const newAssignees = [...selectedAssignees, operative];
-                handleAssigneesChange(newAssignees);
-              }}
-              theme={theme}
-            />
             
             {/* Progreso de confirmaciones por asignado - Solo para tareas existentes con múltiples asignados */}
             {editingTask && assigneeConfirmations.length > 1 && (
@@ -1781,8 +1708,8 @@ export default function TaskDetailScreen({ route, navigation }) {
             </View>
 
             <Text style={styles.label}>FECHA COMPROMISO *</Text>
-            {/* Solo admin y jefe pueden cambiar fecha al editar */}
-            {editingTask && currentUser && !['admin', 'jefe'].includes(currentUser.role) ? (
+            {/* Solo admin puede cambiar fecha al editar */}
+            {editingTask && currentUser && !['admin'].includes(currentUser.role) ? (
               <View 
                 style={[styles.datePickerButton, { borderColor: theme.border, backgroundColor: isDark ? 'rgba(150,150,150,0.1)' : 'rgba(150,150,150,0.05)', opacity: 0.7 }]}
               >

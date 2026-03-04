@@ -35,13 +35,13 @@ export const confirmTaskCompletion = async (taskId, user) => {
     const completedBy = task.completedBy || [];
     
     // Verificar que el usuario está asignado
-    const userEmail = user.email.toLowerCase();
-    if (!assignedTo.map(e => e.toLowerCase()).includes(userEmail)) {
+    const userEmail = user.email?.toLowerCase().trim() || '';
+    if (!assignedTo.some(e => e?.toLowerCase().trim() === userEmail)) {
       throw new Error('No estás asignado a esta tarea');
     }
     
     // Verificar si ya confirmó
-    const alreadyConfirmed = completedBy.some(c => c.email.toLowerCase() === userEmail);
+    const alreadyConfirmed = completedBy.some(c => c.email?.toLowerCase().trim() === userEmail);
     if (alreadyConfirmed) {
       throw new Error('Ya confirmaste tu parte de esta tarea');
     }

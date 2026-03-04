@@ -34,13 +34,13 @@ async function createSecretarioUser() {
   const email = args[0] || 'secretario@todo.com';
   const password = args[1] || 'secretario123';
   const displayName = args[2] || 'Secretario';
-  const role = 'secretario'; // Rol secretario - puede delegar tareas a operativos
+  const role = 'secretario'; // Rol secretario - puede delegar tareas a directores
   
   console.log('📝 CREANDO USUARIO SECRETARIO:');
   console.log(`   Email: ${email}`);
   console.log(`   Contraseña: ${password}`);
   console.log(`   Nombre: ${displayName}`);
-  console.log(`   Rol: ${role} (puede delegar tareas a operativos)\n`);
+  console.log(`   Rol: ${role} (puede delegar tareas a directores)\n`);
 
   try {
     console.log('🔥 Creando usuario secretario en Firestore...\n');
@@ -87,7 +87,7 @@ async function createSecretarioUser() {
     console.log('═══════════════════════════════════════════');
     console.log('\n📌 PERMISOS DEL SECRETARIO:');
     console.log('   ✓ Puede ver todas las tareas');
-    console.log('   ✓ Puede crear y delegar tareas a operativos');
+    console.log('   ✓ Puede crear y delegar tareas a directores');
     console.log('   ✓ Puede editar tareas existentes');
     console.log('   ✗ NO puede administrar usuarios');
     console.log('   ✗ NO puede cambiar configuraciones del sistema\n');

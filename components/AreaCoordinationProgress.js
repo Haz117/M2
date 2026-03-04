@@ -88,7 +88,9 @@ export default function AreaCoordinationProgress({ parentTaskId, onSubtaskPress,
       <View style={styles.areasList}>
         {subtasks.map((subtask) => {
           const config = statusConfig[subtask.status] || statusConfig.pendiente;
-          const isCurrentArea = subtask.area === currentUserArea;
+          const subtaskAreaLower = (subtask.area || '').toLowerCase().trim();
+          const currentAreaLower = (currentUserArea || '').toLowerCase().trim();
+          const isCurrentArea = subtaskAreaLower === currentAreaLower;
           
           return (
             <TouchableOpacity 

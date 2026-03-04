@@ -255,9 +255,10 @@ export async function removeAssigneeFromTask(taskId, email) {
     if (!taskSnap.exists()) throw new Error('Tarea no encontrada');
     
     const taskData = taskSnap.data();
+    const normalizedEmail = email?.toLowerCase().trim() || '';
     
-    // Obtener nombre para remover del array
-    const assignment = taskData.assignments.find(a => a.email === email);
+    // Obtener nombre para remover del array (comparación case-insensitive)
+    const assignment = taskData.assignments?.find(a => a.email?.toLowerCase().trim() === normalizedEmail);
     const displayName = assignment?.name || email;
     
     await updateDoc(taskRef, {
@@ -634,19 +635,8 @@ export async function subscribeToTasksMultiple(callback) {
           if (isAssignedToUser(task)) return true;
           return false;
         });
-      } else if (role === 'jefe') {
-        const normalizedDept = department?.toLowerCase().trim() || '';
-        const normalizedArea = area?.toLowerCase().trim() || '';
-        tasks = tasks.filter(task => {
-          const taskArea = (task.area || '').toLowerCase().trim();
-          if (normalizedDept && taskArea === normalizedDept) return true;
-          if (normalizedArea && taskArea === normalizedArea) return true;
-          if (task.createdBy?.toLowerCase().trim() === userEmail) return true;
-          if (isAssignedToUser(task)) return true;
-          return false;
-        });
       } else {
-        // Operativo ve solo tareas asignadas a él o que creó
+        // Director ve solo tareas asignadas a él o que creó
         tasks = tasks.filter(task => {
           if (task.createdBy?.toLowerCase().trim() === userEmail) return true;
           if (isAssignedToUser(task)) return true;
