@@ -135,6 +135,48 @@ export default function TaskDetailScreen({ route, navigation }) {
   const [status, setStatus] = useState(editingTask ? editingTask.status : 'pendiente');
   const [dueAt, setDueAt] = useState(editingTask ? new Date(editingTask.dueAt) : getDefaultDate());
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  
+  // 🔥 Función para obtener los asignados actuales de la tarea original
+  const getOriginalAssignees = () => {
+    if (!editingTask) return [];
+    const original = editingTask.assignedTo || editingTask.assignments || [];
+    if (Array.isArray(original)) {
+      return original.map(item => 
+        typeof item === 'string' ? item : item.email || item
+      ).map(e => e?.toLowerCase().trim()).filter(Boolean);
+    }
+    return [];
+  };
+  
+  // 🔥 Función para detectar cambios en asignados
+  const detectAssigneeChanges = () => {
+    if (!editingTask) return null; // No es edición
+    
+    const originalAssignees = getOriginalAssignees();
+    const newAssignees = selectedAssignees
+      .map(u => u.email?.toLowerCase().trim())
+      .filter(Boolean);
+    
+    // Comparar arrays
+    const originalSet = new Set(originalAssignees);
+    const newSet = new Set(newAssignees);
+    
+    // Detectar si hubo cambios
+    const hasChanges = originalAssignees.length !== newAssignees.length || 
+                       ![...originalSet].every(a => newSet.has(a));
+    
+    if (hasChanges) {
+      return {
+        original: originalAssignees,
+        new: newAssignees,
+        removed: originalAssignees.filter(a => !newSet.has(a)),
+        added: newAssignees.filter(a => !originalSet.has(a))
+      };
+    }
+    
+    return null;
+  };
+  
   const [isRecurring, setIsRecurring] = useState(editingTask ? editingTask.isRecurring || false : false);
   const [recurrencePattern, setRecurrencePattern] = useState(editingTask ? editingTask.recurrencePattern || 'daily' : 'daily');
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -163,6 +205,10 @@ export default function TaskDetailScreen({ route, navigation }) {
   
   // Estado de confirmaciones por asignado
   const [assigneeConfirmations, setAssigneeConfirmations] = useState([]);
+  
+  // Modal de confirmación cuando hay cambios en asignados
+  const [showAssigneeChangeConfirm, setShowAssigneeChangeConfirm] = useState(false);
+  const [assigneeChangeData, setAssigneeChangeData] = useState(null);
   
   // Pomodoro & Tags state
   const [showPomodoroModal, setShowPomodoroModal] = useState(false);
@@ -818,6 +864,17 @@ export default function TaskDetailScreen({ route, navigation }) {
       setToastType('error');
       setToastVisible(true);
       return;
+    }
+
+    // 🔥 NUEVO: Detectar cambios en asignados al editar
+    if (editingTask) {
+      const changes = detectAssigneeChanges();
+      if (changes) {
+        // Mostrar modal de confirmación
+        setAssigneeChangeData(changes);
+        setShowAssigneeChangeConfirm(true);
+        return; // No continuar, esperar confirmación del usuario
+      }
     }
 
     // Validar que la fecha no sea demasiado en el pasado
@@ -2232,6 +2289,88 @@ export default function TaskDetailScreen({ route, navigation }) {
         </ScrollView>
       </Animated.View>
       
+      {/* 🔥 MODAL DE CONFIRMACIÓN DE CAMBIOS EN ASIGNADOS */}
+      <Modal
+        visible={showAssigneeChangeConfirm}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowAssigneeChangeConfirm(false)}
+      >
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+          <View style={[styles.confirmModalContent, { backgroundColor: theme.background }]}>
+            {/* Header */}
+            <View style={{ marginBottom: 20 }}>
+              <Text style={[styles.confirmModalTitle, { color: theme.text }]}>
+                ⚠️ Cambios en Asignados
+              </Text>
+              <Text style={[styles.confirmModalSubtitle, { color: theme.textSecondary }]}>
+                Se modificarán los responsables de esta tarea
+              </Text>
+            </View>
+            
+            {/* Contenido */}
+            <ScrollView style={{ maxHeight: 300, marginBottom: 20 }} showsVerticalScrollIndicator={false}>
+              {/* Asignados removidos */}
+              {assigneeChangeData?.removed && assigneeChangeData.removed.length > 0 && (
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={[styles.changeLabel, { color: '#FF6B6B' }]}>Quitar acceso:</Text>
+                  {assigneeChangeData.removed.map((email, idx) => (
+                    <View key={idx} style={[styles.changeItem, { borderLeftColor: '#FF6B6B' }]}>
+                      <Ionicons name="remove-circle" size={18} color="#FF6B6B" />
+                      <Text style={[styles.changeEmail, { color: theme.text, marginLeft: 10 }]}>
+                        {email}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+              
+              {/* Asignados agregados */}
+              {assigneeChangeData?.added && assigneeChangeData.added.length > 0 && (
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={[styles.changeLabel, { color: '#51CF66' }]}>Agregar acceso:</Text>
+                  {assigneeChangeData.added.map((email, idx) => (
+                    <View key={idx} style={[styles.changeItem, { borderLeftColor: '#51CF66' }]}>
+                      <Ionicons name="add-circle" size={18} color="#51CF66" />
+                      <Text style={[styles.changeEmail, { color: theme.text, marginLeft: 10 }]}>
+                        {email}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+              
+              {/* Mensaje de advertencia */}
+              <View style={[styles.warningBox, { backgroundColor: isDark ? '#333' : '#FFF9E6' }]}>
+                <Ionicons name="information-circle" size={20} color={isDark ? '#FFA500' : '#FF9800'} />
+                <Text style={[styles.warningText, { color: isDark ? '#FFB84D' : '#E65100', marginLeft: 10 }]}>
+                  Las personas removidas dejarán de ver esta tarea
+                </Text>
+              </View>
+            </ScrollView>
+            
+            {/* Botones */}
+            <View style={styles.confirmModalButtons}>
+              <TouchableOpacity
+                style={[styles.confirmButton, { backgroundColor: isDark ? '#444' : '#F0F0F0' }]}
+                onPress={() => setShowAssigneeChangeConfirm(false)}
+              >
+                <Text style={[styles.confirmButtonText, { color: theme.text }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmButton, { backgroundColor: theme.primary }]}
+                onPress={async () => {
+                  setShowAssigneeChangeConfirm(false);
+                  await proceedWithSave();
+                }}
+              >
+                <Text style={[styles.confirmButtonText, { color: '#FFF' }]}>Confirmar Cambios</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      
       <Toast 
         visible={toastVisible}
         message={toastMessage}
@@ -3540,5 +3679,73 @@ const createStyles = (theme, isDark) => StyleSheet.create({
   permissionBannerText: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  
+  // Estilos para modal de confirmación de cambios en asignados
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  confirmModalContent: {
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 500,
+  },
+  confirmModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  confirmModalSubtitle: {
+    fontSize: 13,
+    marginTop: 4,
+  },
+  changeLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  changeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderRadius: 8,
+  },
+  changeEmail: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  warningText: {
+    fontSize: 13,
+    fontWeight: '500',
+    flex: 1,
+  },
+  confirmModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  confirmButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
