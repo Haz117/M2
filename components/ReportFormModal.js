@@ -441,10 +441,8 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
   };
 
   const handleSubmit = async () => {
-    console.log('🚀 ReportFormModal: handleSubmit called');
     
     if (!validateForm()) {
-      console.log('❌ Form validation failed');
       return;
     }
 
@@ -452,7 +450,6 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
     const netState = await NetInfo.fetch();
     const hasInternet = netState.isConnected === true;
     
-    console.log('🌐 Connection status:', hasInternet ? 'ONLINE' : 'OFFLINE');
 
     // Si no hay internet, ofrecer guardar offline inmediatamente
     if (!hasInternet) {
@@ -495,21 +492,17 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
       return;
     }
 
-    console.log('✅ Form validated, starting submission...');
     setLoading(true);
     setUploadingImages(false);
     
     try {
       const result = await getCurrentSession();
-      console.log('📝 Session result:', result.success ? 'OK' : 'FAILED');
       
       if (!result.success || !result.session) {
         throw new Error('Usuario no autenticado');
       }
       const currentUser = result.session;
-      console.log('👤 Current user:', currentUser.email, 'Role:', currentUser.role);
 
-      console.log('📋 Creating report for taskId:', taskId);
       
       // PASO 1: Crear reporte SIN imágenes primero
       const reportId = await createTaskReport(taskId, currentUser.userId, {
@@ -520,12 +513,10 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
         images: [], // Vacío inicialmente
       });
       
-      console.log('✅ Report created successfully with ID:', reportId);
 
       // PASO 2: Subir imágenes - Esperar a que TODAS terminen
       if (images.length > 0) {
         setUploadingImages(true);
-        console.log('📸 Processing', images.length, 'images...');
         
         let failedImages = 0;
         let successfulImages = 0;
@@ -570,7 +561,6 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
               [imageId]: { status: 'success', progress: 100 }
             }));
 
-            console.log(`✅ Image ${idx + 1}/${images.length} processed:`, img.uri.substring(0, 50) + '...');
           } catch (imgError) {
             failedImages++;
             console.error(`⚠️ Error processing image ${idx + 1}:`, imgError);
@@ -585,7 +575,6 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
         setUploadingImages(false);
         
         // Log final del resultado
-        console.log(`📊 Upload Results: ${successfulImages}/${images.length} succeeded, ${failedImages} failed`);
 
         if (failedImages > 0) {
           // Si algunas fallaron, avisar pero permitir continuar

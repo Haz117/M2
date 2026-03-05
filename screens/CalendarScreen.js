@@ -1,10 +1,11 @@
 // screens/CalendarScreen.js
 // Vista de calendario mensual con tareas por día - GLASSMORPHISM UI
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Animated, Platform, Easing } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Animated, Platform, Easing, InteractionManager } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import EmptyState from '../components/EmptyState';
+import ShimmerEffect from '../components/ShimmerEffect';
 import SpringCard from '../components/SpringCard';
 import FadeInView from '../components/FadeInView';
 import CircularProgress from '../components/CircularProgress';
@@ -32,7 +33,7 @@ export default function CalendarScreen({ navigation }) {
   const { theme, isDark } = useTheme();
   const { width, isDesktop, isTablet, columns, padding } = useResponsive();
   // 🌍 USAR EL CONTEXT GLOBAL DE TAREAS
-  const { tasks } = useTasks();
+  const { tasks, isLoading } = useTasks();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -64,63 +65,33 @@ export default function CalendarScreen({ navigation }) {
     });
   }, []);
   
-  // Animar elementos de entrada con stagger effect
+  // Animar elementos de entrada
   useEffect(() => {
-    Animated.stagger(100, [
-      // Header con spring suave
-      Animated.parallel([
-        Animated.spring(headerSlide, {
-          toValue: 0,
-          friction: 10,
-          tension: 50,
-          useNativeDriver: true,
-        }),
-        Animated.timing(headerOpacity, {
-          toValue: 1,
-          duration: 400,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      ]),
-      // Calendario con efecto de bounce
-      Animated.parallel([
-        Animated.spring(calendarSlide, {
-          toValue: 0,
-          friction: 8,
-          tension: 45,
-          useNativeDriver: true,
-        }),
-        Animated.timing(calendarOpacity, {
-          toValue: 1,
-          duration: 500,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      ]),
-      // Leyenda con slide up
-      Animated.parallel([
-        Animated.spring(legendSlide, {
-          toValue: 0,
-          friction: 10,
-          tension: 50,
-          useNativeDriver: true,
-        }),
-        Animated.timing(legendOpacity, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start();
-    
-    // FAB con retraso y bounce
-    Animated.spring(fabScale, {
-      toValue: 1,
-      delay: 600,
-      friction: 5,
-      tension: 50,
-      useNativeDriver: true,
-    }).start();
+    const startAnimations = () => {
+      Animated.stagger(80, [
+        Animated.parallel([
+          Animated.spring(headerSlide, { toValue: 0, friction: 10, tension: 50, useNativeDriver: true }),
+          Animated.timing(headerOpacity, { toValue: 1, duration: 400, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.spring(calendarSlide, { toValue: 0, friction: 8, tension: 45, useNativeDriver: true }),
+          Animated.timing(calendarOpacity, { toValue: 1, duration: 500, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.spring(legendSlide, { toValue: 0, friction: 10, tension: 50, useNativeDriver: true }),
+          Animated.timing(legendOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+        ]),
+      ]).start();
+
+      Animated.spring(fabScale, { toValue: 1, delay: 100, friction: 5, tension: 50, useNativeDriver: true }).start();
+    };
+
+    if (Platform.OS !== 'web') {
+      const interaction = InteractionManager.runAfterInteractions(startAnimations);
+      return () => interaction.cancel();
+    } else {
+      startAnimations();
+    }
   }, []);
   
   // Animación de transición de mes
@@ -480,6 +451,34 @@ export default function CalendarScreen({ navigation }) {
   };
 
   const styles = React.useMemo(() => createStyles(theme, isDark, isDesktop, isTablet, width, padding), [theme, isDark, isDesktop, isTablet, width, padding]);
+
+  // Mostrar shimmer mientras se cargan las tareas
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <View style={[styles.contentWrapper, { maxWidth: isDesktop ? MAX_WIDTHS.content : '100%' }]}>
+          <LinearGradient
+            colors={isDark ? ['#2A1520', '#1A1A1A'] : ['#9F2241', '#7F1D35']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.headerGradientInner}
+          >
+            <View style={styles.header}>
+              <Text style={styles.heading}>Calendario</Text>
+            </View>
+          </LinearGradient>
+          <View style={{ flex: 1, padding: 16 }}>
+            <ShimmerEffect width="100%" height={60} style={{ marginBottom: 16, borderRadius: 12 }} />
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {[...Array(35)].map((_, i) => (
+                <ShimmerEffect key={i} width={isDesktop ? 60 : 40} height={isDesktop ? 60 : 40} style={{ borderRadius: 8 }} />
+              ))}
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  }
   
   // Estilos animados mejorados con glassmorphism
   const headerAnimatedStyle = {
@@ -821,13 +820,24 @@ export default function CalendarScreen({ navigation }) {
 const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) => StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: theme.background
+    backgroundColor: theme.background,
+    ...(Platform.OS === 'web' ? {
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100%',
+      overflow: 'hidden'
+    } : {})
   },
   contentWrapper: {
     flex: 1,
     alignSelf: 'center',
     width: '100%',
-    maxWidth: isDesktop ? 900 : '100%'
+    maxWidth: isDesktop ? 900 : '100%',
+    ...(Platform.OS === 'web' ? {
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden'
+    } : {})
   },
   // Header con glassmorphism
   headerGradient: {

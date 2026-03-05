@@ -8,7 +8,6 @@ import {
   ScrollView,
   TextInput,
   FlatList,
-  Animated,
   Dimensions,
   Platform
 } from 'react-native';
@@ -34,7 +33,6 @@ export default function AreaSelectorModal({
   isDark = false
 }) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [animValue] = useState(new Animated.Value(0));
 
   // Mapeo de áreas a tipo
   const areaTypeMap = useMemo(() => ({

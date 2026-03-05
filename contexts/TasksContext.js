@@ -1,7 +1,8 @@
 // contexts/TasksContext.js
 // Context global para sincronizar tareas entre todas las pantallas en tiempo real
+// ⚡ Optimizado con useMemo para evitar re-renders innecesarios
 
-import React, { createContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { subscribeToTasks } from '../services/tasks';
 import { getCurrentSession } from '../services/authFirestore';
 
@@ -59,25 +60,24 @@ export function TasksProvider({ children }) {
     saveDeletedTasks(permanentlyDeletedRef.current);
   }, []);
 
-  // 🔍 EFECTO 1: Monitorear disponibilidad de sesión
+  // 🔍 EFECTO 1: Verificar disponibilidad de sesión (con reintentos)
   useEffect(() => {
     let mounted = true;
     let checkCount = 0;
-    const MAX_CHECKS = 100; // 10 segundos a 100ms por check
+    const MAX_CHECKS = 30; // 3 segundos a 100ms por check
 
     const checkSession = async () => {
       while (mounted && checkCount < MAX_CHECKS) {
         const sessionResult = await getCurrentSession();
+        if (!mounted) return;
         if (sessionResult.success) {
-          if (mounted) {
-            setHasSession(true);
-            return; // Sesión encontrada, terminar loop
-          }
+          setHasSession(true);
+          return; // Sesión encontrada, terminar loop
         }
         checkCount++;
         await new Promise(resolve => setTimeout(resolve, 100));
       }
-      // Si se alcanza MAX_CHECKS sin sesión, asumir que no hay y marcar como listo
+      // Si se alcanza MAX_CHECKS sin sesión, marcar como listo
       if (mounted && !hasSession) {
         setIsLoading(false);
       }
@@ -99,21 +99,25 @@ export function TasksProvider({ children }) {
     let mounted = true;
     let retryCount = 0;
     const MAX_RETRIES = 5; // Más reintentos para mayor robustez
+    const hasLoadedOnce = { current: false };
 
     const setupSubscription = async () => {
       try {
         unsubscribeTasksRef.current = await subscribeToTasks((updatedTasks) => {
           if (!mounted) return;
-          
+
           // 🛡️ FILTRAR: No restaurar tareas que están siendo eliminadas O fueron eliminadas permanentemente
           const filteredTasks = updatedTasks.filter(task => {
             const isBeingDeleted = deletingTasksRef.current.has(task.id);
             const isPermanentlyDeleted = permanentlyDeletedRef.current.has(task.id);
             return !isBeingDeleted && !isPermanentlyDeleted;
           });
-          
+
           setTasks(filteredTasks);
-          setIsLoading(false);
+          if (!hasLoadedOnce.current) {
+            hasLoadedOnce.current = true;
+            setIsLoading(false);
+          }
           retryCount = 0; // Reset retry counter on success
         });
       } catch (error) {
@@ -152,7 +156,8 @@ export function TasksProvider({ children }) {
     };
   }, [hasSession]);
 
-  const value = {
+  // ⚡ Memoizar el valor del contexto para evitar re-renders innecesarios en los consumers
+  const value = useMemo(() => ({
     tasks,
     setTasks,
     isLoading,
@@ -161,7 +166,7 @@ export function TasksProvider({ children }) {
     clearDeletedTask,
     deletingTasksRef,
     permanentlyDeletedRef,
-  };
+  }), [tasks, isLoading]);
 
   return (
     <TasksContext.Provider value={value}>

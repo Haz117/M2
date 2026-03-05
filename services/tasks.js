@@ -144,10 +144,6 @@ export async function subscribeToTasks(callback) {
     const filterTasksByRole = (tasks) => {
       let filtered = tasks;
       
-      // 🔍 DEBUG: Mostrar info del usuario y tareas
-      console.log('📋 [TasksFilter] Rol:', userRole, '| Email:', userEmail, '| Áreas:', userAreasPermitidas);
-      console.log('📋 [TasksFilter] Total tareas recibidas:', tasks.length);
-      
       if (userRole === 'secretario') {
         filtered = tasks.filter(task => {
           const taskArea = (task.area || '').toLowerCase().trim();
@@ -158,37 +154,14 @@ export async function subscribeToTasks(callback) {
           // 🔥 NUEVO: Verificar si está asignado a la tarea
           const isAssigned = isTaskAssignedToUser(task, userEmail);
           
-          // 🔍 DEBUG: Log para cada tarea
-          if (isAssigned || isCreator || inArea) {
-            console.log('✅ [TasksFilter] Tarea incluida:', task.title, '| Area:', taskArea, '| inArea:', inArea, '| isCreator:', isCreator, '| isAssigned:', isAssigned);
-          } else {
-            // 🔍 DEBUG: Ver por qué se excluye
-            console.log('❌ [TasksFilter] Tarea EXCLUIDA:', task.title, '| Area:', taskArea, '| assignedTo:', JSON.stringify(task.assignedTo));
-          }
-          
           return inArea || isCreator || isAssigned;
         });
         
-        console.log('📋 [TasksFilter] Tareas filtradas para secretario:', filtered.length);
       } else if (userRole === 'director') {
-        // Director ve SOLO tareas de su área específica y las que le asignaron
-        filtered = tasks.filter(task => {
-          const taskArea = (task.area || '').toLowerCase().trim();
-          const taskAreas = task.areas || [task.area || ''];
-          const normalizedUserArea = userArea?.toLowerCase().trim();
-          
-          // Solo si el área del director coincide exactamente
-          if (taskArea === normalizedUserArea) return true;
-          if (taskAreas.some(a => a?.toLowerCase().trim() === normalizedUserArea)) return true;
-          
-          // O si está asignado a él
-          if (isTaskAssignedToUser(task, userEmail)) return true;
-          
-          // O si la creó él
-          if (task.createdBy?.toLowerCase().trim() === userEmail?.toLowerCase().trim()) return true;
-          
-          return false;
-        });
+        // 🔒 Director ve SOLO tareas asignadas directamente a él
+        // (ya sea desde admin o delegadas por secretario)
+        filtered = tasks.filter(task => isTaskAssignedToUser(task, userEmail));
+        
       }
       
       // Deduplicación

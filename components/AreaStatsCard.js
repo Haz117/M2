@@ -1,7 +1,8 @@
 // components/AreaStatsCard.js
 // Tarjeta de estadísticas mejorada para cada área con visual atractivo premium
+// ⚡ Optimizado con React.memo y reducción de animaciones loop
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, memo } from 'react';
 import {
   View,
   Text,
@@ -18,7 +19,7 @@ import { useTheme } from '../contexts/ThemeContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-export default function AreaStatsCard({
+const AreaStatsCard = memo(function AreaStatsCard({
   areaName,
   completed,
   total,
@@ -88,24 +89,21 @@ export default function AreaStatsCard({
       useNativeDriver: false,
     }).start();
     
-    // Efecto de shimmer continuo
-    Animated.loop(
-      Animated.timing(shimmerAnim, {
-        toValue: 1,
-        duration: 2000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    ).start();
+    // ⚡ Optimización: Remover shimmer loop infinito que consume CPU
+    // El efecto shimmer solo se ejecuta una vez en lugar de loop
+    Animated.timing(shimmerAnim, {
+      toValue: 1,
+      duration: 2000,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    }).start();
     
-    // Glow pulsante para áreas con buen rendimiento
+    // Glow pulsante solo una vez para áreas con buen rendimiento
     if (completionRate >= 85) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(glowAnim, { toValue: 1, duration: 1500, useNativeDriver: true }),
-          Animated.timing(glowAnim, { toValue: 0, duration: 1500, useNativeDriver: true }),
-        ])
-      ).start();
+      Animated.sequence([
+        Animated.timing(glowAnim, { toValue: 1, duration: 1500, useNativeDriver: true }),
+        Animated.timing(glowAnim, { toValue: 0.3, duration: 1500, useNativeDriver: true }),
+      ]).start();
     }
   }, [completed, total]);
   
@@ -372,7 +370,11 @@ export default function AreaStatsCard({
       </Animated.View>
     </TouchableOpacity>
   );
-}
+});
+
+AreaStatsCard.displayName = 'AreaStatsCard';
+
+export default AreaStatsCard;
 
 const styles = StyleSheet.create({
   touchable: {

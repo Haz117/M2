@@ -13,7 +13,8 @@ import {
   Platform,
   Animated,
   ActivityIndicator,
-  Alert
+  Alert,
+  InteractionManager
 } from 'react-native';
 const LineChart = React.lazy(() => import('react-native-chart-kit').then(module => ({ default: module.LineChart })));
 const BarChart = React.lazy(() => import('react-native-chart-kit').then(module => ({ default: module.BarChart })));
@@ -253,7 +254,6 @@ export default function ReportsScreen({ navigation }) {
       try {
         unsubscribe = await subscribeToTasks((updatedTasks) => {
           if (mounted) {
-            console.log('📊 [Reports] Tareas recibidas:', updatedTasks.length);
             setTasks(updatedTasks);
             // Forzar que se salga de loading aunque no haya tareas
             setLoading(false);
@@ -288,10 +288,8 @@ export default function ReportsScreen({ navigation }) {
   // Recalcular estadísticas cuando cambian las tareas O el usuario
   useEffect(() => {
     if (tasks.length > 0 && currentUser) {
-      console.log('📊 [Reports] Recalculando stats - Role:', currentUser.role, '| Tareas:', tasks.length);
       calculateStats(tasks);
     } else if (tasks.length === 0) {
-      console.log('📊 [Reports] Sin tareas para mostrar');
     }
   }, [tasks, currentUser]);
 
@@ -318,10 +316,9 @@ export default function ReportsScreen({ navigation }) {
     };
   }, []);
 
-  // Animations
+  // Animations — espera a que termine la transición de navegación
   useEffect(() => {
     if (!loading) {
-      // Reset all values to 0 first
       headerOpacity.setValue(0);
       headerSlide.setValue(-30);
       filterAnim.setValue(0);
@@ -332,33 +329,38 @@ export default function ReportsScreen({ navigation }) {
       emptyStateSlide.setValue(20);
       chartsOpacity.setValue(0);
       chartsSlide.setValue(20);
-      
-      // Then animate them in sequence
-      console.log('📊 [Reports] Iniciando animaciones de entrada');
-      Animated.stagger(100, [
-        Animated.parallel([
-          Animated.timing(headerOpacity, { toValue: 1, duration: 400, useNativeDriver }),
-          Animated.spring(headerSlide, { toValue: 0, tension: 50, friction: 8, useNativeDriver }),
-        ]),
-        Animated.parallel([
-          Animated.timing(filterAnim, { toValue: 1, duration: 400, useNativeDriver }),
-          Animated.timing(filterSlide, { toValue: 0, duration: 400, useNativeDriver }),
-        ]),
-        Animated.parallel([
-          Animated.timing(statsOpacity, { toValue: 1, duration: 400, useNativeDriver }),
-          Animated.timing(statsSlide, { toValue: 0, duration: 400, useNativeDriver }),
-        ]),
-        Animated.parallel([
-          Animated.timing(emptyStateAnim, { toValue: 1, duration: 400, useNativeDriver }),
-          Animated.timing(emptyStateSlide, { toValue: 0, duration: 400, useNativeDriver }),
-        ]),
-        Animated.parallel([
-          Animated.timing(chartsOpacity, { toValue: 1, duration: 400, useNativeDriver }),
-          Animated.timing(chartsSlide, { toValue: 0, duration: 400, useNativeDriver }),
-        ]),
-      ]).start(() => {
-        console.log('📊 [Reports] Animaciones completadas');
-      });
+
+      const startAnimations = () => {
+        Animated.stagger(60, [
+          Animated.parallel([
+            Animated.timing(headerOpacity, { toValue: 1, duration: 300, useNativeDriver }),
+            Animated.spring(headerSlide, { toValue: 0, tension: 50, friction: 8, useNativeDriver }),
+          ]),
+          Animated.parallel([
+            Animated.timing(filterAnim, { toValue: 1, duration: 300, useNativeDriver }),
+            Animated.timing(filterSlide, { toValue: 0, duration: 300, useNativeDriver }),
+          ]),
+          Animated.parallel([
+            Animated.timing(statsOpacity, { toValue: 1, duration: 300, useNativeDriver }),
+            Animated.timing(statsSlide, { toValue: 0, duration: 300, useNativeDriver }),
+          ]),
+          Animated.parallel([
+            Animated.timing(emptyStateAnim, { toValue: 1, duration: 300, useNativeDriver }),
+            Animated.timing(emptyStateSlide, { toValue: 0, duration: 300, useNativeDriver }),
+          ]),
+          Animated.parallel([
+            Animated.timing(chartsOpacity, { toValue: 1, duration: 300, useNativeDriver }),
+            Animated.timing(chartsSlide, { toValue: 0, duration: 300, useNativeDriver }),
+          ]),
+        ]).start();
+      };
+
+      if (Platform.OS !== 'web') {
+        const interaction = InteractionManager.runAfterInteractions(startAnimations);
+        return () => interaction.cancel();
+      } else {
+        startAnimations();
+      }
     }
   }, [loading]);
 
@@ -375,13 +377,13 @@ export default function ReportsScreen({ navigation }) {
       
       // Animación de entrada
       Animated.sequence([
-        Animated.delay(300),
+        Animated.delay(50),
         Animated.parallel([
           Animated.timing(hierarchyAnim, { toValue: 1, duration: 500, useNativeDriver }),
           Animated.spring(hierarchySlide, { toValue: 0, tension: 60, friction: 10, useNativeDriver }),
         ]),
         // Animación de tarjetas con escala
-        Animated.stagger(150, [
+        Animated.stagger(60, [
           Animated.spring(secretariaScale, { toValue: 1, tension: 80, friction: 8, useNativeDriver }),
           Animated.spring(direccionScale, { toValue: 1, tension: 80, friction: 8, useNativeDriver }),
         ]),
@@ -413,7 +415,6 @@ export default function ReportsScreen({ navigation }) {
   const calculateStats = (allTasks) => {
     // Esperar a que currentUser esté disponible
     if (!currentUser) {
-      console.log('Esperando usuario para calcular estadísticas...');
       return;
     }
     
@@ -432,7 +433,6 @@ export default function ReportsScreen({ navigation }) {
     } else if (currentUser.role === 'secretario') {
       // Secretario ve tareas de su secretaría, sus direcciones, o que haya creado
       const misDirecciones = getDireccionesBySecretaria(currentUser.area || '');
-      console.log('📊 [Reports] Secretario:', userEmail, '| Área:', currentUser.area, '| Direcciones:', misDirecciones);
       userTasks = allTasks.filter(t => {
         const taskArea = (t.area || '').toLowerCase().trim();
         if (t.createdBy?.toLowerCase().trim() === userEmail) return true;
@@ -445,7 +445,6 @@ export default function ReportsScreen({ navigation }) {
         }
         return false;
       });
-      console.log('📊 [Reports] Tareas visibles para secretario:', userTasks.length);
     } else if (currentUser.role === 'director') {
       // Director ve tareas de su área específica o asignadas a él
       userTasks = allTasks.filter(t => {

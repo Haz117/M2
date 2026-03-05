@@ -122,7 +122,7 @@ export default function AreaManagementScreen({ navigation }) {
             </Text>
             <Text style={[styles.areaType, { color: theme.textSecondary }]}>
               {area.tipo === 'secretaria' ? '📋 Secretaría' : '📁 Dirección'}
-              {area.jefeId && ' • Jefe asignado'}
+              {area.jefeId ? ' • Jefe asignado' : ''}
             </Text>
           </View>
         </View>

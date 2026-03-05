@@ -1,16 +1,17 @@
 // components/AnimatedBadge.js
 // Badge con contador animado y efectos de entrada
-import React, { useEffect, useRef } from 'react';
+// ⚡ Optimizado con React.memo
+import React, { useEffect, useRef, memo } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 
-const AnimatedBadge = ({ 
+const AnimatedBadge = memo(function AnimatedBadge({ 
   count = 0,
   color = '#FF3B30',
   textColor = '#FFFFFF',
   size = 24,
   style,
   showZero = false,
-}) => {
+}) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const prevCount = useRef(count);
@@ -88,7 +89,9 @@ const AnimatedBadge = ({
       </Text>
     </Animated.View>
   );
-};
+});
+
+AnimatedBadge.displayName = 'AnimatedBadge';
 
 const styles = StyleSheet.create({
   container: {

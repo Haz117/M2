@@ -90,28 +90,31 @@ const TaskItem = memo(function TaskItem({
 
   // Animación de pulso cuando se está borrando
   useEffect(() => {
-    if (isDeleteProp) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(deletePulseAnim, {
-            toValue: 1,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(deletePulseAnim, {
-            toValue: 0,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    }
+    if (!isDeleteProp) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(deletePulseAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(deletePulseAnim, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
   }, [isDeleteProp]);
   
+  // Optimización: Solo actualizar el tiempo cada 60 segundos y solo si la tarea no está cerrada
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 10000);
+    if (task.status === 'cerrada') return;
+    const t = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(t);
-  }, []);
+  }, [task.status]);
 
   const due = new Date(task.dueAt).getTime();
   const remaining = due - now;

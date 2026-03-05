@@ -48,40 +48,22 @@ export default function TaskChatScreen({ route, navigation }) {
 
   const loadCurrentUserAndCheckAccess = async () => {
     const result = await getCurrentSession();
-    console.log('[TaskChat] Session result:', result);
-    
+
     if (result.success) {
       const displayName = result.session.displayName || result.session.email || 'Usuario';
       setCurrentUser(displayName);
       setCurrentUserId(result.session.userId);
-      console.log('[TaskChat] Current user:', displayName, 'userId:', result.session.userId);
-      
-      // Cargar datos de la tarea para verificar acceso
+
       try {
         const taskDoc = await getDoc(doc(db, 'tasks', taskId));
         if (taskDoc.exists()) {
           const task = taskDoc.data();
           setTaskData(task);
-          console.log('[TaskChat] Task loaded, assignedTo:', task.assignedTo);
-          
-          // Verificar acceso según rol
+
           const userRole = result.session.role;
-          const userEmail = result.session.email;
-          const userDepartment = result.session.department;
-          
-          console.log('[TaskChat] Checking access - role:', userRole, 'email:', userEmail, 'dept:', userDepartment);
-          
-          if (userRole === 'admin') {
-            console.log('[TaskChat] Access granted - admin');
-            setHasAccess(true);
-          } else if (userRole === 'director') {
-            console.log('[TaskChat] Access granted - director');
-            setHasAccess(true);
-          } else if (userRole === 'secretario') {
-            console.log('[TaskChat] Access granted - secretario');
+          if (userRole === 'admin' || userRole === 'director' || userRole === 'secretario') {
             setHasAccess(true);
           } else {
-            console.log('[TaskChat] Access denied - no matching criteria');
             setHasAccess(false);
           }
         }
@@ -90,7 +72,6 @@ export default function TaskChatScreen({ route, navigation }) {
         setHasAccess(false);
       }
     } else {
-      console.log('[TaskChat] Session failed:', result);
       setCurrentUser('Usuario');
       setCurrentUserId(null);
       setHasAccess(false);
@@ -98,19 +79,12 @@ export default function TaskChatScreen({ route, navigation }) {
   };
 
   useEffect(() => {
-    // Solo escuchar mensajes si tiene acceso
-    if (!hasAccess) {
-      console.log('[TaskChat] Not loading messages - no access');
-      return;
-    }
-    
-    console.log('[TaskChat] Setting up message listener for taskId:', taskId);
-    // Listener en tiempo real de la colección de mensajes de la tarea
+    if (!hasAccess) return;
+
     const q = query(collection(db, 'tasks', taskId, 'messages'), orderBy('createdAt', 'asc'));
     const unsub = onSnapshot(q, (snap) => {
       const arr = [];
       snap.forEach(doc => arr.push({ id: doc.id, ...doc.data() }));
-      console.log('[TaskChat] Messages updated:', arr.length, 'messages');
       setMessages(arr);
     }, (err) => {
       console.error('[TaskChat] Error listening to messages:', err);
@@ -120,12 +94,8 @@ export default function TaskChatScreen({ route, navigation }) {
   }, [taskId, hasAccess]);
 
   const send = async () => {
-    if (!text.trim() || !hasAccess) {
-      console.log('[TaskChat] Send blocked - text.trim():', !!text.trim(), 'hasAccess:', hasAccess);
-      return;
-    }
-    
-    console.log('[TaskChat] Attempting to send message:', text.trim());
+    if (!text.trim() || !hasAccess) return;
+
     try {
       // 1. Enviar mensaje al chat
       const msgRef = await addDoc(collection(db, 'tasks', taskId, 'messages'), {
@@ -134,7 +104,6 @@ export default function TaskChatScreen({ route, navigation }) {
         author: currentUser || 'Usuario',
         createdAt: getServerTimestamp()
       });
-      console.log('[TaskChat] Message sent successfully:', msgRef.id);
       
       // 2. Actualizar lastMessageAt en la tarea para ordenar por actividad
       try {
@@ -173,12 +142,8 @@ export default function TaskChatScreen({ route, navigation }) {
   };
 
   const handleImageCapture = async (imageData) => {
-    if (!hasAccess) {
-      console.log('[TaskChat] Image upload blocked - hasAccess:', hasAccess);
-      return;
-    }
-    
-    console.log('[TaskChat] Attempting to upload image:', imageData.uri);
+    if (!hasAccess) return;
+
     setIsUploadingImage(true);
     try {
       // imageData should contain: { uri, type, name }
@@ -189,7 +154,6 @@ export default function TaskChatScreen({ route, navigation }) {
         author: currentUser || 'Usuario',
         createdAt: getServerTimestamp()
       });
-      console.log('[TaskChat] Image uploaded successfully:', imgRef.id);
       
       // Actualizar lastMessageAt en la tarea
       try {

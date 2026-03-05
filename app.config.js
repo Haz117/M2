@@ -32,7 +32,10 @@ module.exports = {
       permissions: [
         'NOTIFICATIONS',
         'RECEIVE_BOOT_COMPLETED',
-        'VIBRATE'
+        'VIBRATE',
+        'CAMERA',
+        'READ_MEDIA_IMAGES',
+        'READ_EXTERNAL_STORAGE'
       ]
     },
     web: {
@@ -61,7 +64,15 @@ module.exports = {
       scope: '/'
     },
     plugins: [
-      'expo-notifications'
+      'expo-notifications',
+      [
+        'expo-image-picker',
+        {
+          cameraPermission: 'Necesitamos acceso a tu cámara para enviar fotos.',
+          microphonePermission: false,
+          photosPermission: 'Necesitamos acceso a tu galería para enviar imágenes.'
+        }
+      ]
     ],
     updates: {
       enabled: false,

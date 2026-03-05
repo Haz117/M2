@@ -1,13 +1,14 @@
 // components/MetricCard.js
 // Tarjeta de métrica pequeña para mostrar en resumen rápido
 // ✨ Metricas rápidas del desempeño
+// ⚡ Optimizado con React.memo
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, memo } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 
-export default function MetricCard({
+const MetricCard = memo(function MetricCard({
   icon = 'checkmark-circle',
   iconColor = '#10B981',
   label = 'Completadas',
@@ -105,7 +106,7 @@ export default function MetricCard({
       </View>
     </Animated.View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrapper: {
@@ -179,3 +180,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
 });
+
+MetricCard.displayName = 'MetricCard';
+
+export default MetricCard;

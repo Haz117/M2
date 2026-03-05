@@ -67,7 +67,12 @@ export const getCachedTasks = async () => {
   try {
     const cached = await AsyncStorage.getItem(OFFLINE_TASKS_KEY);
     if (cached) {
-      return JSON.parse(cached);
+      const parsed = JSON.parse(cached);
+      // Validar que sea un array
+      if (Array.isArray(parsed)) {
+        // Filtrar tareas inválidas (sin id)
+        return parsed.filter(t => t && t.id);
+      }
     }
     return [];
   } catch (error) {

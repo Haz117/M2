@@ -6,14 +6,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 
 export default function OverdueAlert({ tasks, currentUserEmail, role = 'director', onTaskPress }) {
-  // ✅ EARLY RETURNS MUST BE BEFORE ALL HOOKS
-  if (!tasks || tasks.length === 0) return null;
-
-  // NOW call hooks after all early returns
+  // ⚠️ Hooks must be called unconditionally (React Rules of Hooks)
   const { theme, isDark } = useTheme();
 
-  // Categorizar tareas
+  // Categorizar tareas - memoized calculation
   const { overdue, urgent } = useMemo(() => {
+    // Return empty arrays if no tasks
+    if (!tasks || tasks.length === 0) {
+      return { overdue: [], urgent: [] };
+    }
     const now = Date.now();
     const overdue = [];
     const urgent = [];

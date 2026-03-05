@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getDatabase, ref, onValue, onDisconnect, set } from 'firebase/database';
@@ -8,7 +8,7 @@ import { useTheme } from '../contexts/ThemeContext';
 export default function ConnectionIndicator() {
   const [isOnline, setIsOnline] = useState(true);
   const [showIndicator, setShowIndicator] = useState(false);
-  const fadeAnim = useState(new Animated.Value(0))[0];
+  const fadeAnim = useRef(new Animated.Value(0)).current;
   const { theme } = useTheme();
 
   useEffect(() => {

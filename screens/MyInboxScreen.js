@@ -2,7 +2,7 @@
 // "Mi bandeja" - lista de tareas asignadas al usuario actual, ordenadas por fecha de vencimiento.
 // Acciones rápidas: marcar cerrada y posponer 1 día. Abre detalle y chat.
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, SectionList, Modal, ScrollView, TextInput, Animated, Easing, Platform } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, SectionList, Modal, ScrollView, TextInput, Animated, Easing, Platform, InteractionManager } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,7 +45,7 @@ export default function MyInboxScreen({ navigation }) {
   const { theme, isDark } = useTheme();
   const { width, isDesktop, isTablet, columns, padding } = useResponsive();
   // 🌍 USAR EL CONTEXT GLOBAL DE TAREAS
-  const { tasks, setTasks, markAsDeleting, unmarkAsDeleting } = useTasks();
+  const { tasks, setTasks, markAsDeleting, unmarkAsDeleting, isLoading: tasksLoading } = useTasks();
   const [currentUser, setCurrentUser] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
@@ -78,80 +78,38 @@ export default function MyInboxScreen({ navigation }) {
   const searchSlide = useRef(new Animated.Value(20)).current;
   const listOpacity = useRef(new Animated.Value(0)).current;
   const listSlide = useRef(new Animated.Value(30)).current;
+  const isMountedRef = useRef(true);
+  useEffect(() => { return () => { isMountedRef.current = false; }; }, []);
 
   // Stagger animations on mount
   useEffect(() => {
-    const staggerDelay = 100;
-    
-    // Header animation
-    Animated.parallel([
-      Animated.timing(headerOpacity, {
-        toValue: 1,
-        duration: 350,
-        useNativeDriver: true,
-        easing: Easing.out(Easing.cubic),
-      }),
-      Animated.spring(headerSlide, {
-        toValue: 0,
-        tension: 80,
-        friction: 12,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    // User card animation
-    setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(userCardOpacity, {
-          toValue: 1,
-          duration: 350,
-          useNativeDriver: true,
-          easing: Easing.out(Easing.cubic),
-        }),
-        Animated.spring(userCardSlide, {
-          toValue: 0,
-          tension: 80,
-          friction: 12,
-          useNativeDriver: true,
-        }),
+    const startAnimations = () => {
+      Animated.stagger(80, [
+        Animated.parallel([
+          Animated.timing(headerOpacity, { toValue: 1, duration: 300, useNativeDriver: true, easing: Easing.out(Easing.cubic) }),
+          Animated.spring(headerSlide, { toValue: 0, tension: 80, friction: 12, useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.timing(userCardOpacity, { toValue: 1, duration: 300, useNativeDriver: true, easing: Easing.out(Easing.cubic) }),
+          Animated.spring(userCardSlide, { toValue: 0, tension: 80, friction: 12, useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.timing(searchOpacity, { toValue: 1, duration: 300, useNativeDriver: true, easing: Easing.out(Easing.cubic) }),
+          Animated.spring(searchSlide, { toValue: 0, tension: 80, friction: 12, useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.timing(listOpacity, { toValue: 1, duration: 300, useNativeDriver: true, easing: Easing.out(Easing.cubic) }),
+          Animated.spring(listSlide, { toValue: 0, tension: 80, friction: 12, useNativeDriver: true }),
+        ]),
       ]).start();
-    }, staggerDelay);
+    };
 
-    // Search bar animation
-    setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(searchOpacity, {
-          toValue: 1,
-          duration: 350,
-          useNativeDriver: true,
-          easing: Easing.out(Easing.cubic),
-        }),
-        Animated.spring(searchSlide, {
-          toValue: 0,
-          tension: 80,
-          friction: 12,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }, staggerDelay * 2);
-
-    // List animation
-    setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(listOpacity, {
-          toValue: 1,
-          duration: 350,
-          useNativeDriver: true,
-          easing: Easing.out(Easing.cubic),
-        }),
-        Animated.spring(listSlide, {
-          toValue: 0,
-          tension: 80,
-          friction: 12,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }, staggerDelay * 3);
+    if (Platform.OS !== 'web') {
+      const interaction = InteractionManager.runAfterInteractions(startAnimations);
+      return () => interaction.cancel();
+    } else {
+      startAnimations();
+    }
   }, []);
 
   useEffect(() => {
@@ -172,7 +130,7 @@ export default function MyInboxScreen({ navigation }) {
     setRefreshing(true);
     hapticMedium();
     setTimeout(() => {
-      setRefreshing(false);
+      if (isMountedRef.current) setRefreshing(false);
     }, 1000);
   }, []);
 
@@ -360,7 +318,33 @@ export default function MyInboxScreen({ navigation }) {
       return taskAreaLower === userAreaLower || misDirecciones.some(d => d?.toLowerCase().trim() === taskAreaLower) || isTaskAssignedToUser(task, userEmail) || task.createdBy?.toLowerCase().trim() === userEmail;
     }
     if (userRole === 'director') {
-      return task.area === userArea || isTaskAssignedToUser(task, userEmail) || task.createdBy?.toLowerCase() === userEmail;
+      // 🔒 Director ve SOLO:
+      // 1. Tareas asignadas DIRECTAMENTE a él
+      // 2. Tareas de su área que NO están asignadas a otra persona
+      // 3. Tareas que él creó
+      const normalizedUserEmail = userEmail?.toLowerCase().trim();
+      const taskArea = (task.area || '').toLowerCase().trim();
+      const normalizedUserArea = userArea?.toLowerCase().trim();
+      
+      // ✅ Si está asignado directamente al director
+      if (isTaskAssignedToUser(task, userEmail)) return true;
+      
+      // ✅ Si la creó él
+      if (task.createdBy?.toLowerCase().trim() === normalizedUserEmail) return true;
+      
+      // 🔍 Verificar si el área coincide
+      if (taskArea === normalizedUserArea) {
+        // ⚠️ Si hay alguien asignado y NO es el director, NO mostrar
+        const hasAssignment = task.assignedTo && 
+          (Array.isArray(task.assignedTo) ? task.assignedTo.length > 0 : task.assignedTo.trim() !== '');
+        
+        if (hasAssignment && !isTaskAssignedToUser(task, userEmail)) {
+          return false;
+        }
+        return true;
+      }
+      
+      return false;
     }
     return isTaskAssignedToUser(task, userEmail);
   });
@@ -580,7 +564,7 @@ export default function MyInboxScreen({ navigation }) {
     // Esperar 600ms para que el usuario vea el INDICADOR ROJO
     // Luego remover de la lista UI
     setTimeout(() => {
-      setTasks(prevTasks => prevTasks.filter(t => t.id !== taskId));
+      if (isMountedRef.current) setTasks(prevTasks => prevTasks.filter(t => t.id !== taskId));
     }, 600);
     
     // 🔄 FASE 2: EJECUTAR DELETE EN FIREBASE EN BACKGROUND (fire-and-forget)
@@ -644,7 +628,7 @@ export default function MyInboxScreen({ navigation }) {
     // Esperar 800ms para que el usuario vea el INDICADOR ROJO con "ELIMINANDO"
     // Luego remover de la lista UI
     setTimeout(() => {
-      setTasks(prevTasks => prevTasks.filter(t => !selectedTaskIds.has(t.id)));
+      if (isMountedRef.current) setTasks(prevTasks => prevTasks.filter(t => !selectedTaskIds.has(t.id)));
     }, 800);
 
     // Eliminar todas en background
@@ -929,6 +913,43 @@ export default function MyInboxScreen({ navigation }) {
   };
 
   const styles = React.useMemo(() => createStyles(theme, isDark, isDesktop, isTablet, width, padding), [theme, isDark, isDesktop, isTablet, width, padding]);
+
+  // Mostrar shimmer mientras se cargan las tareas
+  if (tasksLoading && !currentUser) {
+    return (
+      <View style={styles.container}>
+        <View style={[styles.contentWrapper, { maxWidth: isDesktop ? MAX_WIDTHS.content : '100%' }]}>
+          <LinearGradient
+            colors={isDark ? ['#2A1520', '#1A1A1A'] : ['#9F2241', '#7F1D35']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.headerGradient}
+          >
+            <View style={styles.header}>
+              <View style={styles.headerLeft}>
+                <View style={styles.headerIconWrapper}>
+                  <Ionicons name="file-tray-full" size={22} color="#FFFFFF" />
+                </View>
+                <View>
+                  <Text style={styles.greeting}>Mi Bandeja</Text>
+                  <Text style={styles.heading}>Cargando...</Text>
+                </View>
+              </View>
+            </View>
+          </LinearGradient>
+          <View style={{ flex: 1, padding: 16 }}>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <View key={i} style={{ backgroundColor: theme.card, padding: 16, borderRadius: 12, marginBottom: 12 }}>
+                <ShimmerEffect width="70%" height={18} style={{ marginBottom: 8 }} />
+                <ShimmerEffect width="100%" height={14} style={{ marginBottom: 6 }} />
+                <ShimmerEffect width="40%" height={12} />
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

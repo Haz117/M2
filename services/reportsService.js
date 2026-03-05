@@ -82,7 +82,6 @@ const notifyAdminsOfNewReport = async (taskId, reportId, reportTitle, createdByN
       await addDoc(collection(db, 'notifications'), notification);
     }
 
-    console.log(`✅ Notificación enviada a ${notifications.length} usuario(s)`);
   } catch (error) {
     console.error('Error notificando a admins:', error);
     // No lanzar error para no interrumpir el flujo del reporte
@@ -213,11 +212,9 @@ export const uploadReportImage = async (taskId, reportId, imageData) => {
         }
       } else if (imageData.uri && !dataUrl) {
         // Convertir URI de imagen (expo-image-picker) a blob
-        console.log('📸 Converting URI to blob:', imageData.uri.substring(0, 50) + '...');
         try {
           const response = await fetch(imageData.uri);
           blob = await response.blob();
-          console.log('✅ URI converted to blob, size:', blob.size);
           
           // También crear dataUrl como fallback
           const reader = new FileReader();
@@ -236,10 +233,8 @@ export const uploadReportImage = async (taskId, reportId, imageData) => {
     // Intentar subir a Storage
     if (blob) {
       try {
-        console.log('📤 Uploading image to Storage:', storagePath);
         await uploadBytes(storageRef, blob);
         downloadURL = await getDownloadURL(storageRef);
-        console.log('✅ Image uploaded to Storage, URL:', downloadURL.substring(0, 60) + '...');
       } catch (storageError) {
         console.warn('⚠️ Storage upload failed:', storageError.message);
       }
@@ -247,7 +242,6 @@ export const uploadReportImage = async (taskId, reportId, imageData) => {
 
     // Si Storage falló, usar dataUrl como fallback (imágen embebida)
     if (!downloadURL && dataUrl) {
-      console.log('📦 Using embedded dataUrl as fallback (Storage unavailable)');
       downloadURL = dataUrl;
     }
 
@@ -265,7 +259,6 @@ export const uploadReportImage = async (taskId, reportId, imageData) => {
       updatedAt: serverTimestamp(),
     });
 
-    console.log('✅ Image saved to report');
     return downloadURL;
   } catch (error) {
     console.error('❌ Error uploading report image:', error);
@@ -432,7 +425,6 @@ export const deleteTaskReport = async (taskId, reportId) => {
       deletedAt: serverTimestamp(),
     });
     
-    console.log(`✅ Reporte ${reportId} marcado como eliminado`);
     return { success: true, message: 'Reporte eliminado correctamente' };
   } catch (error) {
     console.error('Error eliminando reporte:', error);
@@ -530,7 +522,6 @@ export const subscribeToAllReports = (callback) => {
           };
         }
       } catch (err) {
-        console.log('Error getting task info:', err);
       }
     }
 
@@ -587,7 +578,6 @@ export const getReportsGroupedByArea = async () => {
           };
         }
       } catch (err) {
-        console.log('Error getting task info:', err);
       }
     }
 
@@ -651,7 +641,6 @@ export const subscribeToAreaReports = (areas, callback) => {
           };
         }
       } catch (err) {
-        console.log('Error getting task info:', err);
       }
     }
 
@@ -720,7 +709,6 @@ export const subscribeToMyReports = (userEmail, callback) => {
           };
         }
       } catch (err) {
-        console.log('Error getting task info:', err);
       }
     }
 

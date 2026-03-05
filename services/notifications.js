@@ -499,11 +499,9 @@ export async function cancelNotifications(notificationIds = []) {
   
   try {
     if (!notificationIds || notificationIds.length === 0) {
-      console.log('No hay notificaciones para cancelar');
       return;
     }
     await Promise.all(notificationIds.map(id => Notifications.cancelScheduledNotificationAsync(id)));
-    console.log(`${notificationIds.length} notificaciones canceladas`);
   } catch (e) {
     console.error('Error cancelando notificaciones:', e);
   }
@@ -518,9 +516,7 @@ export async function getAllScheduledNotifications() {
   
   try {
     const notifications = await Notifications.getAllScheduledNotificationsAsync();
-    console.log(`Notificaciones programadas: ${notifications.length}`);
     notifications.forEach(notif => {
-      console.log(`- ID: ${notif.identifier}, Trigger: ${JSON.stringify(notif.trigger)}`);
     });
     return notifications;
   } catch (e) {
@@ -538,7 +534,6 @@ export async function cancelAllNotifications() {
   
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
-    console.log('Todas las notificaciones canceladas');
   } catch (e) {
     console.error('Error cancelando todas las notificaciones:', e);
   }
@@ -603,7 +598,6 @@ export async function scheduleHourlyReminders(task) {
       ids.push(id);
     }
 
-    console.log(`${ids.length} notificaciones horarias programadas para tarea urgente: ${task.title}`);
     return ids;
   } catch (e) {
     console.error('Error programando notificaciones horarias:', e);
@@ -675,7 +669,6 @@ export async function schedulePersistentNotification(task) {
     // Guardar tracking de notificación enviada
     await trackNotificationSent(task.id, id);
 
-    console.log(`Notificación persistente creada: ${id}`);
     return id;
   } catch (e) {
     console.error('Error creando notificación persistente:', e);
@@ -719,7 +712,6 @@ export async function confirmNotificationViewed(taskId) {
       data[taskId].confirmedAt = Date.now();
       data[taskId].viewCount += 1;
       await AsyncStorage.setItem(NOTIFICATION_TRACKING_KEY, JSON.stringify(data));
-      console.log(`Notificación confirmada para tarea: ${taskId}`);
     }
   } catch (e) {
     console.error('Error confirmando notificación:', e);
@@ -746,7 +738,6 @@ export async function checkUnconfirmedNotifications(tasks) {
         const task = tasks.find(t => t.id === taskId);
         
         if (task && task.status !== 'cerrada') {
-          console.log(`Reprogramando notificación no confirmada para: ${task.title}`);
           
           // Enviar notificación más agresiva
           await schedulePersistentNotification(task);
@@ -782,7 +773,6 @@ async function incrementEscalationLevel(taskId) {
     const currentLevel = await getEscalationLevel(taskId);
     const newLevel = Math.min(currentLevel + 1, 5); // Máximo nivel 5
     await AsyncStorage.setItem(`${ESCALATION_LEVEL_KEY}_${taskId}`, newLevel.toString());
-    console.log(`Nivel de escalado incrementado a ${newLevel} para tarea: ${taskId}`);
     return newLevel;
   } catch (e) {
     console.error('Error incrementando escalado:', e);
@@ -794,7 +784,6 @@ async function incrementEscalationLevel(taskId) {
 export async function resetEscalationLevel(taskId) {
   try {
     await AsyncStorage.removeItem(`${ESCALATION_LEVEL_KEY}_${taskId}`);
-    console.log(`Nivel de escalado reseteado para tarea: ${taskId}`);
   } catch (e) {
     console.error('Error reseteando escalado:', e);
   }
@@ -853,7 +842,6 @@ export async function scheduleEscalatedNotifications(task) {
       ids.push(id);
     }
     
-    console.log(`${ids.length} notificaciones escaladas (Nivel ${level}) programadas`);
     return ids;
   } catch (e) {
     console.error('Error programando notificaciones escaladas:', e);
@@ -869,7 +857,6 @@ export function setupNotificationResponseListener() {
     const { notification, actionIdentifier } = response;
     const { taskId, type } = notification.request.content.data;
     
-    console.log(`📩 Respuesta recibida - Acción: ${actionIdentifier}, Tarea: ${taskId}`);
     
     // Confirmar visualización
     if (taskId) {
@@ -878,13 +865,10 @@ export function setupNotificationResponseListener() {
     
     // Manejar acciones específicas
     if (actionIdentifier === 'COMPLETE') {
-      console.log(`✅ Usuario marcó tarea como completa desde notificación: ${taskId}`);
       // Aquí puedes agregar lógica para marcar la tarea como completa
     } else if (actionIdentifier === 'SNOOZE') {
-      console.log(`⏰ Usuario pospuso tarea 1 hora: ${taskId}`);
       // Reprogramar para 1 hora después
     } else if (actionIdentifier === 'VIEW') {
-      console.log(`👁️ Usuario quiere ver la tarea: ${taskId}`);
       // Navegar a la pantalla de la tarea
     }
   });

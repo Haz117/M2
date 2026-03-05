@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef } from 'react';
 import { TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -9,7 +9,7 @@ import { hapticMedium } from '../utils/haptics';
  */
 const ThemeToggle = ({ size = 28, style }) => {
   const { theme, toggleTheme } = useTheme();
-  const [scaleAnim] = useState(new Animated.Value(1));
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePress = () => {
     hapticMedium();

@@ -10,7 +10,7 @@ const PieChart = React.lazy(() => import('react-native-chart-kit').then(module =
 import { useTheme } from '../contexts/ThemeContext';
 import { getCurrentSession } from '../services/authFirestore';
 import { getGeneralMetrics, getTrendData, getAreaStats, getTopPerformers, formatCompletionTime } from '../services/analytics';
-import { subscribeToTasks } from '../services/tasks';
+import { useTasks } from '../contexts/TasksContext';
 import { exportTasksToCSV, exportStatsToCSV } from '../services/export';
 import { calculateProductivityStreak, calculateAverageCompletionTime, formatAverageTime } from '../services/productivity';
 import { getActivityHeatmap, getWeeklyProductivityChart, getEstimatedVsRealTime } from '../services/productivityAdvanced';
@@ -52,8 +52,8 @@ export default function DashboardScreen({ navigation }) {
   const [selectedPeriod, setSelectedPeriod] = useState('week');
   const [expandAreas, setExpandAreas] = useState(false);
   
-  // Estados adicionales del Report
-  const [tasks, setTasks] = useState([]);
+  // Usar el contexto global de tareas (evita suscripción duplicada a Firestore)
+  const { tasks } = useTasks();
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('success');
@@ -90,36 +90,26 @@ export default function DashboardScreen({ navigation }) {
 
   useEffect(() => {
     loadAllData();
-    // Suscribirse a tareas en tiempo real
-    let unsubscribe;
-    subscribeToTasks((updatedTasks) => {
-      console.log('📊 [Dashboard] Tareas recibidas:', updatedTasks.length);
-      setTasks(updatedTasks);
-      
-      // Suscribirse a progreso de las tareas
-      if (updatedTasks.length > 0) {
-        setProgressLoading(true);
-        const taskIds = updatedTasks.map(t => t.id);
-        const unsubscribeProgress = subscribeToMultipleTasksProgress(taskIds, (progressMap) => {
-          setTaskProgressData(progressMap);
-          setProgressLoading(false);
-        });
-        return unsubscribeProgress;
-      }
-    }).then((unsub) => {
-      unsubscribe = unsub;
+  }, []);
+
+  // Suscribirse al progreso de tareas — solo re-suscribir cuando cambian los IDs (no en cada update)
+  const taskIdsKey = useMemo(() => tasks.map(t => t.id).sort().join(','), [tasks]);
+  useEffect(() => {
+    if (!tasks || tasks.length === 0) return;
+    setProgressLoading(true);
+    const taskIds = tasks.map(t => t.id);
+    const unsubscribeProgress = subscribeToMultipleTasksProgress(taskIds, (progressMap) => {
+      setTaskProgressData(progressMap);
+      setProgressLoading(false);
     });
     return () => {
-      if (unsubscribe && typeof unsubscribe === 'function') {
-        unsubscribe();
-      }
+      if (typeof unsubscribeProgress === 'function') unsubscribeProgress();
     };
-  }, []);
+  }, [taskIdsKey]);
 
   // Animación de entrada escalonada
   useEffect(() => {
     if (!loading) {
-      console.log('📊 [Dashboard] Iniciando animaciones de entrada');
       Animated.stagger(120, [
         Animated.parallel([
           Animated.timing(headerOpacity, { toValue: 1, duration: 400, useNativeDriver }),
@@ -138,7 +128,6 @@ export default function DashboardScreen({ navigation }) {
           Animated.spring(chartsSlide, { toValue: 0, tension: 50, friction: 8, useNativeDriver }),
         ]),
       ]).start(() => {
-        console.log('📊 [Dashboard] Animaciones completadas');
       });
     }
   }, [loading]);
@@ -148,7 +137,6 @@ export default function DashboardScreen({ navigation }) {
       const session = await getCurrentSession();
       if (session.success) {
         setCurrentUser(session.session);
-        console.log('📊 [Dashboard] Usuario:', session.session.email, 'Rol:', session.session.role);
         
         const [metricsRes, trendRes, areasRes, performersRes] = await Promise.all([
           getGeneralMetrics(session.session.userId, session.session.role),
@@ -159,11 +147,9 @@ export default function DashboardScreen({ navigation }) {
 
         if (metricsRes.success) {
           setMetrics(metricsRes.metrics);
-          console.log('📊 [Dashboard] Métricas cargadas:', metricsRes.metrics);
         }
         if (trendRes.success) {
           setTrendData(trendRes.data);
-          console.log('📊 [Dashboard] Datos de tendencia:', trendRes.data?.length || 0);
         }
         if (areasRes.success) setAreaStats(areasRes.areas);
         if (performersRes.success) setPerformers(performersRes.performers);
@@ -756,7 +742,7 @@ export default function DashboardScreen({ navigation }) {
 
         {/* Distribución por estado - Con glassmorphism */}
         {statusPieData.length > 0 && (
-          <FadeInView duration={500} delay={400}>
+          <FadeInView duration={300} delay={100}>
             <View style={[styles.chartCard, { backgroundColor: isDark ? 'rgba(30, 30, 35, 0.95)' : 'rgba(255, 255, 255, 0.98)' }]}>
               <View style={styles.chartHeader}>
                 <View style={[styles.chartIconBadge, { backgroundColor: 'rgba(139, 92, 246, 0.15)' }]}>
@@ -785,7 +771,7 @@ export default function DashboardScreen({ navigation }) {
 
         {/* Top performers (solo admin) - Con glassmorphism */}
         {currentUser?.role === 'admin' && performers.length > 0 && (
-          <FadeInView duration={500} delay={500}>
+          <FadeInView duration={300} delay={150}>
             <View style={[styles.chartCard, { backgroundColor: isDark ? 'rgba(30, 30, 35, 0.95)' : 'rgba(255, 255, 255, 0.98)' }]}>
               <View style={styles.chartHeader}>
                 <View style={[styles.chartIconBadge, { backgroundColor: 'rgba(255, 215, 0, 0.2)' }]}>
@@ -821,11 +807,10 @@ export default function DashboardScreen({ navigation }) {
 
         {/* Estadísticas de Secretarios (solo admin) */}
         {currentUser?.role === 'admin' && (
-          <FadeInView duration={500} delay={550}>
+          <FadeInView duration={300} delay={200}>
             <SecretarioStatsCard 
               onSecretarioPress={(secretario) => {
                 // Navegar a detalle del secretario o mostrar modal
-                console.log('Secretario seleccionado:', secretario.displayName);
               }}
             />
           </FadeInView>
@@ -833,7 +818,7 @@ export default function DashboardScreen({ navigation }) {
 
         {/* Información de Áreas (Admin) - Colapsable con glassmorphism */}
         {currentUser?.role === 'admin' && (
-          <FadeInView duration={500} delay={600}>
+          <FadeInView duration={300} delay={200}>
             <View style={[styles.chartCard, { backgroundColor: isDark ? 'rgba(30, 30, 35, 0.95)' : 'rgba(255, 255, 255, 0.98)' }]}>
               
               {/* Header Colapsable */}
@@ -1004,7 +989,7 @@ export default function DashboardScreen({ navigation }) {
 
         {/* Heatmap de Actividad - Con glassmorphism */}
         {!loadingAdvanced && heatmapData.length > 0 && (
-          <FadeInView duration={500} delay={700}>
+          <FadeInView duration={300} delay={250}>
             <View style={[styles.chartCard, { backgroundColor: isDark ? 'rgba(30, 30, 35, 0.95)' : 'rgba(255, 255, 255, 0.98)' }]}>
               <View style={styles.chartHeader}>
                 <View style={[styles.chartIconBadge, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
@@ -1021,7 +1006,7 @@ export default function DashboardScreen({ navigation }) {
 
         {/* Estadísticas Pomodoro - Con glassmorphism */}
         {pomodoroStats && (
-          <FadeInView duration={500} delay={800}>
+          <FadeInView duration={300} delay={300}>
             <View style={[styles.chartCard, { backgroundColor: isDark ? 'rgba(30, 30, 35, 0.95)' : 'rgba(255, 255, 255, 0.98)' }]}>
               <View style={styles.chartHeader}>
                 <View style={[styles.chartIconBadge, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>

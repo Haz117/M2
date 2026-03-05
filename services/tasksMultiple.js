@@ -295,23 +295,16 @@ export async function addSubtask(taskId, subtask) {
       throw new Error('El título de la subtarea es requerido');
     }
 
-    // Obtener sesión para diagnóstico
+    // Obtener sesión
     const sessionResult = await getCurrentSession();
-    console.log('📋 Sesión actual:', {
-      success: sessionResult.success,
-      email: sessionResult.session?.email,
-      role: sessionResult.session?.role
-    });
 
     // Verificar que la tarea padre existe antes de crear subtarea
-    console.log('🔍 Verificando que tarea existe:', taskId);
     const taskRef = doc(db, TASKS_COLLECTION, taskId);
     const taskSnap = await getDoc(taskRef);
     
     if (!taskSnap.exists()) {
       throw new Error('La tarea padre no existe. Por favor, intenta nuevamente.');
     }
-    console.log('✅ Tarea padre encontrada');
 
     const subtasksRef = collection(db, TASKS_COLLECTION, taskId, SUBTASKS_SUBCOLLECTION);
     
@@ -324,11 +317,9 @@ export async function addSubtask(taskId, subtask) {
       completedAt: null
     };
     
-    console.log('📝 Intentando crear subtarea:', { taskId, subtaskData });
     
     // Intentar agregar con manejo de error específico
     const docRef = await addDoc(subtasksRef, subtaskData);
-    console.log('✅ Subtarea creada exitosamente:', docRef.id);
     
     // Recalcular progreso SIN ESPERAR pero SI con mejor manejo de errores
     recalculateTaskProgress(taskId).catch(err => {
@@ -560,7 +551,6 @@ export async function recalculateTaskProgress(taskId) {
       updatedAt: serverTimestamp()
     });
     
-    console.log(`✅ Progreso actualizado para tarea ${taskId}: ${progressPercentage}%`);
     
   } catch (error) {
     console.warn(`⚠️ Aviso al recalcular progreso para ${taskId}: ${error.message}`);
@@ -688,7 +678,6 @@ export async function assignSubtaskToUser(taskId, subtaskId, assignee) {
       updatedAt: serverTimestamp()
     });
 
-    console.log(`✅ Subtarea ${subtaskId} asignada a ${assignee.displayName}`);
   } catch (error) {
     console.error('Error asignando subtarea:', error);
     throw new Error(`Error al asignar subtarea: ${error.message}`);

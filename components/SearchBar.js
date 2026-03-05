@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -6,12 +6,13 @@ import { hapticLight } from '../utils/feedback';
 
 /**
  * SearchBar component with debounce functionality
+ * ⚡ Optimizado con React.memo
  * 
  * @param {function} onSearch - Callback when search text changes (debounced)
  * @param {string} placeholder - Placeholder text
  * @param {number} debounceMs - Debounce delay in milliseconds (default: 100)
  */
-const SearchBar = ({ onSearch, placeholder = 'Buscar tareas...', debounceMs = 100 }) => {
+const SearchBar = memo(function SearchBar({ onSearch, placeholder = 'Buscar tareas...', debounceMs = 100 }) {
   const { theme } = useTheme();
   const [searchText, setSearchText] = useState('');
   const [isFocused, setIsFocused] = useState(false);
@@ -60,7 +61,7 @@ const SearchBar = ({ onSearch, placeholder = 'Buscar tareas...', debounceMs = 10
       )}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -82,4 +83,6 @@ const styles = StyleSheet.create({
   },
 });
 
-export default React.memo(SearchBar);
+SearchBar.displayName = 'SearchBar';
+
+export default SearchBar;

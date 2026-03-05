@@ -33,7 +33,7 @@ export default function DateTimeSelector({
   const [currentHour, setCurrentHour] = useState(selectedDate.getHours());
   const [currentMinute, setCurrentMinute] = useState(selectedDate.getMinutes());
   const [showTimeSelector, setShowTimeSelector] = useState(false);
-  const [scaleAnim] = useState(new Animated.Value(1));
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   // Números de horas (0-23)
   const hours = Array.from({ length: 24 }, (_, i) => i);

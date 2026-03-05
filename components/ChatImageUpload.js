@@ -131,17 +131,23 @@ export default function ChatImageUpload({
       
       // Helper para convertir base64 a Blob
       const base64ToBlob = (base64, mimeType = 'image/jpeg') => {
-        const byteCharacters = atob(base64);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        try {
+          const byteCharacters = atob(base64);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          return new Blob([byteArray], { type: mimeType });
+        } catch (e) {
+          console.error('[ChatImageUpload] base64ToBlob error:', e);
+          throw e;
         }
-        const byteArray = new Uint8Array(byteNumbers);
-        return new Blob([byteArray], { type: mimeType });
       };
       
       // Verificar si Storage está disponible
       if (!storage) {
+        console.log('[ChatImageUpload] No storage, trying base64 fallback...');
         // Sin Storage, usar base64 como fallback (no recomendado)
         if (selectedImage.base64) {
           const imageUri = `data:image/jpeg;base64,${selectedImage.base64}`;
@@ -193,7 +199,7 @@ export default function ChatImageUpload({
       }
       
       setUploadProgress(50);
-      
+
       // Subir a Firebase Storage
       await uploadBytes(storageRef, blob);
       setUploadProgress(80);

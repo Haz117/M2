@@ -1,17 +1,18 @@
 // components/SpringCard.js
 // Card con animaciones de spring physics
-import React, { useRef } from 'react';
+// ⚡ Optimizado con React.memo
+import React, { useRef, memo } from 'react';
 import { Animated, TouchableOpacity, StyleSheet } from 'react-native';
 import { hapticLight } from '../utils/haptics';
 
-const SpringCard = ({ 
+const SpringCard = memo(function SpringCard({ 
   children,
   onPress,
   style,
   springConfig = { tension: 300, friction: 10 },
   scaleDown = 0.95,
   ...props
-}) => {
+}) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
@@ -82,6 +83,8 @@ const SpringCard = ({
       </Animated.View>
     </TouchableOpacity>
   );
-};
+});
+
+SpringCard.displayName = 'SpringCard';
 
 export default SpringCard;

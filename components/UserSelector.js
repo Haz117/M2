@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -31,7 +31,7 @@ export default function UserSelector({
 }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [scaleAnim] = useState(new Animated.Value(1));
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   // Filtrar usuarios basado en búsqueda
   const filteredUsers = useMemo(() => {

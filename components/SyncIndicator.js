@@ -1,6 +1,6 @@
 // components/SyncIndicator.js
 // Indicador de sincronización offline
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -11,7 +11,8 @@ const SyncIndicator = () => {
   const { theme } = useTheme();
   const [syncing, setSyncing] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
-  const [pulseAnim] = useState(new Animated.Value(1));
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const pulseLoopRef = useRef(null);
 
   useEffect(() => {
     // Cargar conteo inicial
@@ -29,7 +30,7 @@ const SyncIndicator = () => {
   useEffect(() => {
     if (syncing) {
       // Animación de pulso mientras sincroniza
-      Animated.loop(
+      pulseLoopRef.current = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
             toValue: 1.2,
@@ -42,10 +43,13 @@ const SyncIndicator = () => {
             useNativeDriver: true,
           }),
         ])
-      ).start();
+      );
+      pulseLoopRef.current.start();
     } else {
+      if (pulseLoopRef.current) pulseLoopRef.current.stop();
       pulseAnim.setValue(1);
     }
+    return () => { if (pulseLoopRef.current) pulseLoopRef.current.stop(); };
   }, [syncing]);
 
   const loadPendingCount = async () => {

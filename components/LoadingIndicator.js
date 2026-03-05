@@ -1,9 +1,10 @@
 // components/LoadingIndicator.js
 // Diferentes tipos de indicadores de carga
-import React, { useEffect, useRef } from 'react';
+// ⚡ Optimizado con React.memo
+import React, { useEffect, useRef, memo } from 'react';
 import { View, Animated, StyleSheet } from 'react-native';
 
-export default function LoadingIndicator({ 
+const LoadingIndicator = memo(function LoadingIndicator({ 
   type = 'dots', 
   color = '#007AFF',
   size = 10 
@@ -14,38 +15,40 @@ export default function LoadingIndicator({
   const spinValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    let loop;
     if (type === 'dots') {
-      const animateDots = () => {
-        Animated.loop(
-          Animated.sequence([
-            Animated.timing(dot1, { toValue: 1, duration: 400, useNativeDriver: true }),
-            Animated.timing(dot2, { toValue: 1, duration: 400, useNativeDriver: true }),
-            Animated.timing(dot3, { toValue: 1, duration: 400, useNativeDriver: true }),
-            Animated.parallel([
-              Animated.timing(dot1, { toValue: 0, duration: 400, useNativeDriver: true }),
-              Animated.timing(dot2, { toValue: 0, duration: 400, useNativeDriver: true }),
-              Animated.timing(dot3, { toValue: 0, duration: 400, useNativeDriver: true }),
-            ]),
-          ])
-        ).start();
-      };
-      animateDots();
+      loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(dot1, { toValue: 1, duration: 400, useNativeDriver: true }),
+          Animated.timing(dot2, { toValue: 1, duration: 400, useNativeDriver: true }),
+          Animated.timing(dot3, { toValue: 1, duration: 400, useNativeDriver: true }),
+          Animated.parallel([
+            Animated.timing(dot1, { toValue: 0, duration: 400, useNativeDriver: true }),
+            Animated.timing(dot2, { toValue: 0, duration: 400, useNativeDriver: true }),
+            Animated.timing(dot3, { toValue: 0, duration: 400, useNativeDriver: true }),
+          ]),
+        ])
+      );
+      loop.start();
     } else if (type === 'spinner') {
-      Animated.loop(
+      loop = Animated.loop(
         Animated.timing(spinValue, {
           toValue: 1,
           duration: 1000,
           useNativeDriver: true,
         })
-      ).start();
+      );
+      loop.start();
     } else if (type === 'pulse') {
-      Animated.loop(
+      loop = Animated.loop(
         Animated.sequence([
           Animated.timing(dot1, { toValue: 1, duration: 600, useNativeDriver: true }),
           Animated.timing(dot1, { toValue: 0, duration: 600, useNativeDriver: true }),
         ])
-      ).start();
+      );
+      loop.start();
     }
+    return () => { if (loop) loop.stop(); };
   }, [type]);
 
   const spin = spinValue.interpolate({
@@ -131,7 +134,11 @@ export default function LoadingIndicator({
   }
 
   return null;
-}
+});
+
+LoadingIndicator.displayName = 'LoadingIndicator';
+
+export default LoadingIndicator;
 
 const styles = StyleSheet.create({
   dotsContainer: {

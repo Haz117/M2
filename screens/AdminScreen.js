@@ -13,13 +13,14 @@ import { useTheme } from '../contexts/ThemeContext';
 import Toast from '../components/Toast';
 import OverdueAlert from '../components/OverdueAlert';
 import { hapticMedium, hapticLight } from '../utils/haptics';
-import { subscribeToTasks } from '../services/tasks';
+import { useTasks } from '../contexts/TasksContext';
 import { useResponsive } from '../utils/responsive';
 import { MAX_WIDTHS } from '../theme/tokens';
 
 export default function AdminScreen({ navigation, onLogout }) {
   const { isDark, toggleTheme, theme } = useTheme();
   const { isDesktop } = useResponsive();
+  const { tasks } = useTasks();
   const [notificationCount, setNotificationCount] = useState(0);
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -54,37 +55,37 @@ export default function AdminScreen({ navigation, onLogout }) {
 
   // Load data on mount
   useEffect(() => {
-    console.log('AdminScreen mounted, starting load');
     const loadData = async () => {
       try {
         setIsLoading(true);
         await loadCurrentUser();
         await loadNotificationCount();
         await loadAllUsers();
-        console.log('Admin data loaded successfully');
       } catch (error) {
-        console.error('Error loading admin data:', error);
         showToast('Error al cargar datos de administración', 'error');
       } finally {
         setIsLoading(false);
       }
     };
-    
     loadData();
-    
-    // Subscribe to urgent tasks (non-blocking)
-    let unsubscribe = null;
-    const setupUrgentTasks = async () => {
-      unsubscribe = await loadUrgentTasks();
-    };
-    setupUrgentTasks();
-    
-    return () => {
-      if (unsubscribe && typeof unsubscribe === 'function') {
-        unsubscribe();
-      }
-    };
   }, []);
+
+  // Detectar tareas urgentes desde el contexto global (sin suscripción extra)
+  useEffect(() => {
+    if (!tasks || tasks.length === 0) return;
+    const now = Date.now();
+    const sixHours = 6 * 60 * 60 * 1000;
+    const urgent = tasks.filter(task => {
+      if (task.status === 'cerrada' || !task.dueAt) return false;
+      const due = new Date(task.dueAt).getTime();
+      const timeLeft = due - now;
+      return timeLeft > 0 && timeLeft < sixHours;
+    });
+    if (urgent.length > 0) {
+      setUrgentTasks(urgent);
+      setShowUrgentModal(true);
+    }
+  }, [tasks]);
 
   const showToast = (message, type = 'success') => {
     setToastMessage(message);
@@ -94,44 +95,17 @@ export default function AdminScreen({ navigation, onLogout }) {
   
   // Removed duplicate useEffect - new one handles data loading
   
-  const loadUrgentTasks = async () => {
-    const unsubscribe = await subscribeToTasks((tasks) => {
-      const now = Date.now();
-      const sixHours = 6 * 60 * 60 * 1000;
-      const urgent = tasks.filter(task => {
-        if (task.status === 'cerrada' || !task.dueAt) return false;
-        const due = new Date(task.dueAt).getTime();
-        const timeLeft = due - now;
-        return timeLeft > 0 && timeLeft < sixHours;
-      });
-      
-      if (urgent.length > 0) {
-        setUrgentTasks(urgent);
-        setTimeout(() => {
-          setShowUrgentModal(true);
-        }, 1500);
-      }
-    });
-    return unsubscribe;
-  };
-
   const loadCurrentUser = async () => {
     try {
-      console.log('Loading current user...');
       const result = await getCurrentSession();
       if (result.success && result.session) {
-        console.log('Session found:', result.session.email);
         setCurrentUser(result.session);
         const adminStatus = await isAdmin();
         setIsUserAdmin(adminStatus);
-        console.log('Admin status:', adminStatus);
       } else {
-        console.warn('No user session found');
         showToast('No hay sesión activa. Inicia sesión primero', 'warning');
-        // No redirigir aquí, dejar que se muestre un estado apropiado
       }
     } catch (error) {
-      console.error('Error loading current user:', error);
       showToast('Error al cargar usuario', 'error');
     }
   };

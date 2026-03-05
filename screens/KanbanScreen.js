@@ -2,7 +2,7 @@
 // Tablero Kanban con columnas por estado. Implementa Drag & Drop para cambiar estado de tareas.
 // Estados: pendiente, en_proceso, en_revision, cerrada - Compatible con web
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, RefreshControl, Animated, Dimensions, Platform, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, RefreshControl, Animated, Dimensions, Platform, Modal, InteractionManager } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getGestureHandlerRootView } from '../utils/platformComponents';
@@ -50,7 +50,7 @@ export default function KanbanScreen({ navigation }) {
   const { theme, isDark } = useTheme();
   const { isDesktop } = useResponsive();
   // 🌍 USAR EL CONTEXT GLOBAL DE TAREAS
-  const { tasks, setTasks } = useTasks();
+  const { tasks, setTasks, isLoading } = useTasks();
   const [currentUserRole, setCurrentUserRole] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [filters, setFilters] = useState({ searchText: '', area: '', responsible: '', priority: '', overdue: false, dueToday: false, dueThisWeek: false });
@@ -83,7 +83,6 @@ export default function KanbanScreen({ navigation }) {
   // Animación para drag feedback
   const dragScaleAnim = useRef(new Animated.Value(1)).current;
   const dragOpacityAnim = useRef(new Animated.Value(1)).current;
-  const dragShadowAnim = useRef(new Animated.Value(4)).current;
   
   // Animación del FAB
   const fabScale = useRef(new Animated.Value(0)).current;
@@ -133,7 +132,7 @@ export default function KanbanScreen({ navigation }) {
     }
   };
 
-  const columnWidth = getColumnWidth();
+  const columnWidth = useMemo(() => getColumnWidth(), [dimensions.width]);
 
   // Obtener rol del usuario
   useEffect(() => {
@@ -147,47 +146,52 @@ export default function KanbanScreen({ navigation }) {
 
   // Animación de entrada
   useEffect(() => {
-    Animated.parallel([
-      Animated.spring(headerSlide, {
-        toValue: 0,
-        friction: 8,
-        tension: 40,
-        useNativeDriver: true,
-      }),
-      Animated.spring(columnsSlide, {
-        toValue: 0,
-        delay: 150,
-        friction: 8,
-        tension: 40,
-        useNativeDriver: true,
-      })
-    ]).start();
-    
-    // Animar columnas con retraso escalonado
-    const delays = [300, 400, 500, 600];
-    STATUSES.forEach((status, index) => {
-      Animated.timing(columnAnimations[status.key], {
+    const startAnimations = () => {
+      Animated.parallel([
+        Animated.spring(headerSlide, {
+          toValue: 0,
+          friction: 8,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+        Animated.spring(columnsSlide, {
+          toValue: 0,
+          friction: 8,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      const delays = [0, 60, 120, 180];
+      STATUSES.forEach((status, index) => {
+        Animated.timing(columnAnimations[status.key], {
+          toValue: 1,
+          duration: 280,
+          delay: delays[index],
+          useNativeDriver: true,
+        }).start();
+      });
+
+      Animated.spring(fabScale, {
         toValue: 1,
-        duration: 500,
-        delay: delays[index],
+        delay: 100,
+        friction: 6,
+        tension: 40,
         useNativeDriver: true,
       }).start();
-    });
-    
-    // Animar FAB con entrada spring
-    Animated.spring(fabScale, {
-      toValue: 1,
-      delay: 700,
-      friction: 6,
-      tension: 40,
-      useNativeDriver: true,
-    }).start();
+    };
+
+    if (Platform.OS !== 'web') {
+      const interaction = InteractionManager.runAfterInteractions(startAnimations);
+      return () => interaction.cancel();
+    } else {
+      startAnimations();
+    }
   }, []);
 
   // Suscribirse a cambios en tiempo real con debounce
   useEffect(() => {
     // Ya no necesitamos suscribirse, el TasksContext se encarga
-    console.log('📊 KANBAN: Usando contexto global de tareas');
   }, []);
 
   // Animación para colapso/expansión de filtros
@@ -209,12 +213,12 @@ export default function KanbanScreen({ navigation }) {
 
   const changeStatus = useCallback(async (taskId, newStatus) => {
     try {
-      // Verificar permisos
+      // Verificar permisos (ahora valida el newStatus específico para directores)
       const task = tasks.find(t => t.id === taskId);
       if (task) {
-        const statusPermission = canChangeTaskStatus(currentUser, task);
+        const statusPermission = canChangeTaskStatus(currentUser, task, newStatus);
         if (!statusPermission.canChange) {
-          setToastMessage(statusPermission.reason);
+          setToastMessage(statusPermission.reason || 'No tienes permisos para este cambio');
           setToastType('warning');
           setToastVisible(true);
           hapticWarning();
@@ -222,17 +226,7 @@ export default function KanbanScreen({ navigation }) {
         }
       }
       
-      hapticMedium(); // Haptic on status change
-      
-      // 🎨 ANIMACIÓN: Feedback visual de transición
-      Animated.sequence([
-        Animated.timing(new Animated.Value(0), {
-          toValue: 1,
-          duration: 0, // Imperceptible, solo para sincronización
-          useNativeDriver: false,
-        }),
-      ]).start();
-      
+      hapticMedium();
       await updateTask(taskId, { status: newStatus });
       setToastMessage('✨ Estado actualizado correctamente');
       setToastType('success');
@@ -651,6 +645,17 @@ export default function KanbanScreen({ navigation }) {
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <DraggableCard item={item} status={status} />}
           contentContainerStyle={{ paddingBottom: 8 }}
+          // ⚡ Optimizaciones de rendimiento
+          windowSize={5}
+          maxToRenderPerBatch={5}
+          removeClippedSubviews={true}
+          initialNumToRender={6}
+          updateCellsBatchingPeriod={100}
+          getItemLayout={(data, index) => ({
+            length: 120,
+            offset: 120 * index,
+            index,
+          })}
           ListEmptyComponent={() => (
             <FadeInView duration={400} delay={200} style={styles.emptyColumnState}>
               <View style={styles.emptyStateContent}>
@@ -684,6 +689,35 @@ export default function KanbanScreen({ navigation }) {
     transform: [{ scale: fabScale }],
     opacity: fabScale,
   };
+
+  // Mostrar shimmer mientras se cargan las tareas
+  if (isLoading) {
+    return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <View style={[styles.container, { backgroundColor: theme.background }]}>
+          <View style={[styles.contentWrapper, { maxWidth: isDesktop ? MAX_WIDTHS.content : '100%' }]}>
+            <View style={[styles.headerGradient, { backgroundColor: theme.primary }]}>
+              <View style={styles.header}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.heading}>Tablero Kanban</Text>
+                </View>
+              </View>
+            </View>
+            <View style={{ flex: 1, flexDirection: 'row', padding: 10, gap: 10 }}>
+              {STATUSES.map(status => (
+                <View key={status.key} style={{ flex: 1, borderRadius: 12, backgroundColor: theme.card, padding: 12, minWidth: 200 }}>
+                  <ShimmerEffect width="60%" height={20} style={{ marginBottom: 12 }} />
+                  <ShimmerEffect width="100%" height={80} style={{ marginBottom: 8, borderRadius: 8 }} />
+                  <ShimmerEffect width="100%" height={80} style={{ marginBottom: 8, borderRadius: 8 }} />
+                  <ShimmerEffect width="100%" height={80} style={{ borderRadius: 8 }} />
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+      </GestureHandlerRootView>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -894,9 +928,12 @@ export default function KanbanScreen({ navigation }) {
               <ScrollView style={styles.filterModalBody} showsVerticalScrollIndicator={false}>
                 {/* Búsqueda */}
                 <View style={styles.filterSection}>
-                  <Text style={[styles.filterSectionTitle, { color: theme.text }]}>
-                    <Ionicons name="search" size={16} color={theme.primary} /> Buscar tareas
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Ionicons name="search" size={16} color={theme.primary} />
+                    <Text style={[styles.filterSectionTitle, { color: theme.text }]}>
+                      Buscar tareas
+                    </Text>
+                  </View>
                   <View style={[styles.searchInputContainer, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
                     <Ionicons name="search-outline" size={20} color={theme.textSecondary} />
                     <View style={styles.searchInputWrapper}>
@@ -921,9 +958,12 @@ export default function KanbanScreen({ navigation }) {
 
                 {/* Prioridad */}
                 <View style={styles.filterSection}>
-                  <Text style={[styles.filterSectionTitle, { color: theme.text }]}>
-                    <Ionicons name="flag" size={16} color={theme.primary} /> Prioridad
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <Ionicons name="flag" size={16} color={theme.primary} />
+                    <Text style={[styles.filterSectionTitle, { color: theme.text }]}>
+                      Prioridad
+                    </Text>
+                  </View>
                   <View style={styles.priorityButtonsRow}>
                     {[
                       { key: 'alta', label: 'Urgente', color: '#EF4444', icon: 'flash' },
@@ -969,9 +1009,12 @@ export default function KanbanScreen({ navigation }) {
 
                 {/* Filtros rápidos */}
                 <View style={styles.filterSection}>
-                  <Text style={[styles.filterSectionTitle, { color: theme.text }]}>
-                    <Ionicons name="options" size={16} color={theme.primary} /> Filtros rápidos
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <Ionicons name="options" size={16} color={theme.primary} />
+                    <Text style={[styles.filterSectionTitle, { color: theme.text }]}>
+                      Filtros rápidos
+                    </Text>
+                  </View>
                   <View style={styles.quickFilterGrid}>
                     {/* Vencidas */}
                     {tasks.filter(t => t.dueAt < Date.now() && t.status !== 'cerrada').length > 0 && (
@@ -1352,6 +1395,11 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
     flex: 1,
     width: '100%',
     alignSelf: 'center',
+    ...(Platform.OS === 'web' ? {
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden'
+    } : {})
   },
   headerGradient: {
     paddingHorizontal: screenWidth > 768 ? 20 : 14,

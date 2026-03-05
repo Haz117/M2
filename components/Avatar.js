@@ -1,6 +1,7 @@
 // components/Avatar.js
 // Avatar con iniciales y color dinámico por usuario
-import React from 'react';
+// ⚡ Optimizado con React.memo para evitar re-renders innecesarios
+import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
 // Función para generar color basado en el nombre
@@ -31,7 +32,7 @@ const getInitials = (name = '') => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
-export default function Avatar({ 
+const Avatar = memo(function Avatar({ 
   name, 
   size = 40, 
   style,
@@ -71,7 +72,12 @@ export default function Avatar({
       </Text>
     </View>
   );
-}
+});
+
+// Comparador personalizado para evitar re-renders si el nombre no cambió
+Avatar.displayName = 'Avatar';
+
+export default Avatar;
 
 const styles = StyleSheet.create({
   container: {

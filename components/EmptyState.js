@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, memo } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -6,6 +6,7 @@ import { useTheme } from '../contexts/ThemeContext';
 /**
  * EmptyState component - Shows a friendly message when no data is available
  * ✨ Mejorado con animaciones fluidas, tips contextuales y CTAs
+ * ⚡ Optimizado con React.memo y reducción de animaciones loop
  * 
  * @param {string} icon - Ionicons icon name
  * @param {string} title - Main heading text
@@ -14,7 +15,7 @@ import { useTheme } from '../contexts/ThemeContext';
  * @param {Array<{icon: string, text: string}>} suggestions - Tips/sugerencias
  * @param {Object} quickAction - {label: string, icon: string, onPress: function}
  */
-const EmptyState = ({ 
+const EmptyState = memo(function EmptyState({ 
   icon = 'document-text-outline', 
   title = 'Sin tareas', 
   message = 'No hay tareas disponibles en este momento',
@@ -23,7 +24,7 @@ const EmptyState = ({
   suggestions = null, // Array de {icon, text}
   quickAction = null, // {label, icon, onPress}
   compact = false, // Modo compacto para listas
-}) => {
+}) {
   const { theme, isDark } = useTheme();
   const floatAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
@@ -54,41 +55,37 @@ const EmptyState = ({
       }),
     ]).start();
 
-    // 🌊 Animación flotante suave (más rápida)
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatAnim, {
-          toValue: 1,
-          duration: 1500,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(floatAnim, {
-          toValue: 0,
-          duration: 1500,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
+    // 🌊 Animación flotante suave - OPTIMIZADO: ejecutar solo una vez en lugar de loop
+    Animated.sequence([
+      Animated.timing(floatAnim, {
+        toValue: 1,
+        duration: 1500,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(floatAnim, {
+        toValue: 0,
+        duration: 1500,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-    // 💫 Pulso suave del círculo de fondo
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.1,
-          duration: 1200,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0.9,
-          duration: 1200,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
+    // 💫 Pulso suave del círculo de fondo - OPTIMIZADO: ejecutar solo una vez
+    Animated.sequence([
+      Animated.timing(pulseAnim, {
+        toValue: 1.05,
+        duration: 1200,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(pulseAnim, {
+        toValue: 1,
+        duration: 1200,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }),
+    ]).start();
   }, []);
 
   const getVariantStyles = () => {
@@ -203,7 +200,7 @@ const EmptyState = ({
       {action && <View style={styles.actionContainer}>{action}</View>}
     </Animated.View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -291,4 +288,6 @@ const styles = StyleSheet.create({
   },
 });
 
-export default React.memo(EmptyState);
+EmptyState.displayName = 'EmptyState';
+
+export default EmptyState;

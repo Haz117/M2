@@ -1,13 +1,14 @@
 // components/StatCard.js
 // Tarjeta de estadística mejorada con mejor diseño visual
 // ✨ Componente rediseñado para mejor UX/UI
+// ⚡ Optimizado con React.memo
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, memo } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 
-export default function StatCard({
+const StatCard = memo(function StatCard({
   icon = 'checkmark-circle',
   iconColor = '#10B981',
   label = 'Completadas',
@@ -162,7 +163,11 @@ export default function StatCard({
       </View>
     </Animated.View>
   );
-}
+});
+
+StatCard.displayName = 'StatCard';
+
+export default StatCard;
 
 const styles = StyleSheet.create({
   wrapper: {

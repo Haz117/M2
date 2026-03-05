@@ -17,7 +17,7 @@ import { ProgressBar } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
-export default function InsightsPanel({
+const InsightsPanel = React.memo(function InsightsPanel({
   monthlyComparative = null,
   bottlenecks = [],
   predictions = {},
@@ -99,9 +99,9 @@ export default function InsightsPanel({
                 }
               ]}
             >
-              {monthlyComparative.trend === 'improving' && '📈 Mejorando'}
-              {monthlyComparative.trend === 'declining' && '📉 Declinando'}
-              {monthlyComparative.trend === 'accelerating' && '🚀 Acelerando'}
+              {monthlyComparative.trend === 'improving' ? '📈 Mejorando' :
+               monthlyComparative.trend === 'declining' ? '📉 Declinando' :
+               monthlyComparative.trend === 'accelerating' ? '🚀 Acelerando' : ''}
             </Text>
           </View>
         </SpringCard>
@@ -238,7 +238,11 @@ export default function InsightsPanel({
       )}
     </ScrollView>
   );
-}
+});
+
+InsightsPanel.displayName = 'InsightsPanel';
+
+export default InsightsPanel;
 
 const styles = StyleSheet.create({
   container: {

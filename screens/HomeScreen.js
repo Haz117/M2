@@ -340,18 +340,10 @@ export default function HomeScreen({ navigation }) {
     try {
       const newStatus = task.status === 'cerrada' ? 'pendiente' : 'cerrada';
       
-      // Verificar permisos usando el nuevo sistema
-      const statusPermission = canChangeTaskStatus(currentUser, task);
+      // Verificar permisos usando el nuevo sistema (valida el newStatus específico)
+      const statusPermission = canChangeTaskStatus(currentUser, task, newStatus);
       if (!statusPermission.canChange) {
-        setToastMessage(statusPermission.reason);
-        setToastType('warning');
-        setToastVisible(true);
-        return;
-      }
-      
-      // Solo admin puede reabrir tareas cerradas
-      if (task.status === 'cerrada' && currentUser?.role !== 'admin') {
-        setToastMessage('Solo administradores pueden reabrir tareas completadas');
+        setToastMessage(statusPermission.reason || 'No tienes permisos para este cambio');
         setToastType('warning');
         setToastVisible(true);
         return;

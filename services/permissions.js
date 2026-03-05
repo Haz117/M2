@@ -79,7 +79,7 @@ const ROLE_PERMISSIONS = {
   
   [ROLES.DIRECTOR]: [
     PERMISSIONS.VIEW_TASK,
-    PERMISSIONS.CHANGE_STATUS,      // Solo cambiar status de sus tareas
+    // ❌ NO TIENE CHANGE_STATUS - Solo puede COMPLETAR tareas, no cambiar a cualquier status
     PERMISSIONS.COMPLETE_SUBTASK,   // Solo completar subtareas asignadas
     PERMISSIONS.CREATE_REPORT,
     PERMISSIONS.VIEW_AREA_REPORTS
@@ -266,26 +266,50 @@ export function canCreateSubtask(user, task) {
  * Verifica si el usuario puede cambiar el status de una tarea
  * @param {Object} user - Usuario actual
  * @param {Object} task - Tarea
- * @returns {Object} {canChange: boolean, reason: string}
+ * @param {string} newStatus - (Opcional) Nuevo status al que se quiere cambiar
+ * @returns {Object} {canChange: boolean, reason: string, allowedStatuses: string[]}
  */
-export function canChangeTaskStatus(user, task) {
+export function canChangeTaskStatus(user, task, newStatus = null) {
   if (!user || !user.role) {
-    return { canChange: false, reason: 'Usuario no autenticado' };
+    return { canChange: false, reason: 'Usuario no autenticado', allowedStatuses: [] };
   }
   
-  // Admin siempre puede
+  // Admin siempre puede cambiar a cualquier status
   if (user.role === ROLES.ADMIN) {
-    return { canChange: true, reason: 'Admin puede cambiar status' };
+    return { canChange: true, reason: 'Admin puede cambiar status', allowedStatuses: ['pendiente', 'en_proceso', 'en_revision', 'cerrada'] };
   }
   
-  // Todos los roles pueden cambiar status de tareas asignadas a ellos
   const assignedTo = task.assignedTo || [];
   const isAssigned = Array.isArray(assignedTo) 
-    ? assignedTo.includes(user.email?.toLowerCase())
-    : assignedTo?.toLowerCase() === user.email?.toLowerCase();
+    ? assignedTo.some(email => email?.toLowerCase().trim() === user.email?.toLowerCase().trim())
+    : assignedTo?.toLowerCase().trim() === user.email?.toLowerCase().trim();
   
-  if (isAssigned) {
-    return { canChange: true, reason: 'Puedes cambiar el status de tus tareas asignadas' };
+  // 🔒 DIRECTOR: Solo puede marcar como completada (cerrada) o enviar a revisión
+  // NO puede reabrir, NO puede crear, NO puede cambiar fechas
+  if (user.role === ROLES.DIRECTOR) {
+    if (!isAssigned) {
+      return { canChange: false, reason: 'Solo puedes gestionar tareas asignadas a ti', allowedStatuses: [] };
+    }
+    
+    const currentStatus = task.status || 'pendiente';
+    const allowedTransitions = {
+      'pendiente': ['en_proceso'],          // Puede iniciar tarea
+      'en_proceso': ['en_revision'],        // Puede enviar a revisión
+      'en_revision': ['cerrada'],           // Puede completar (si el admin/secretario la devuelve)
+      'cerrada': []                          // NO puede reabrir
+    };
+    
+    const allowed = allowedTransitions[currentStatus] || [];
+    
+    if (newStatus && !allowed.includes(newStatus)) {
+      return { canChange: false, reason: `No puedes cambiar de ${currentStatus} a ${newStatus}`, allowedStatuses: allowed };
+    }
+    
+    if (allowed.length === 0) {
+      return { canChange: false, reason: 'No puedes modificar esta tarea', allowedStatuses: [] };
+    }
+    
+    return { canChange: true, reason: 'Puedes avanzar el status de tu tarea', allowedStatuses: allowed };
   }
   
   // Secretario puede cambiar status de tareas en sus áreas
@@ -302,14 +326,14 @@ export function canChangeTaskStatus(user, task) {
     ])].filter(Boolean);
     
     const taskAreas = task.areas || [task.area];
-    const canChangeHere = taskAreas.some(ta => todasAreas.includes(ta));
+    const canChangeHere = taskAreas.some(ta => todasAreas.includes(ta)) || isAssigned;
     
     if (canChangeHere) {
-      return { canChange: true, reason: 'Secretario puede gestionar tareas de su área' };
+      return { canChange: true, reason: 'Secretario puede gestionar tareas de su área', allowedStatuses: ['pendiente', 'en_proceso', 'en_revision', 'cerrada'] };
     }
   }
   
-  return { canChange: false, reason: 'No tienes permisos para cambiar el status de esta tarea' };
+  return { canChange: false, reason: 'No tienes permisos para cambiar el status de esta tarea', allowedStatuses: [] };
 }
 
 /**

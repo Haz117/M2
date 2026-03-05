@@ -1,10 +1,11 @@
 // components/ProgressBar.js
 // Componente de barra de progreso reutilizable
-import React from 'react';
+// ⚡ Optimizado con React.memo
+import React, { memo, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-export default function ProgressBar({ 
+const ProgressBar = memo(function ProgressBar({ 
   progress = 0,
   size = 'medium',
   showLabel = true,
@@ -83,7 +84,11 @@ export default function ProgressBar({
       </View>
     </View>
   );
-}
+});
+
+ProgressBar.displayName = 'ProgressBar';
+
+export default ProgressBar;
 
 const styles = StyleSheet.create({
   container: {

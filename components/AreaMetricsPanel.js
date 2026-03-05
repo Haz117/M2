@@ -67,8 +67,6 @@ const AreaMetricsPanel = ({
         }))
         .filter(d => (d.area || '').toLowerCase().trim() === userAreaNorm);
       
-      console.log('📊 [AreaMetricsPanel] Directores del área', userArea, ':', directorsData.length);
-      
       setDirectors(directorsData);
     } catch (error) {
       console.error('Error loading directors:', error);
@@ -81,8 +79,6 @@ const AreaMetricsPanel = ({
     // Filtrar tareas del área (normalizar case-insensitive)
     const userAreaNorm = (userArea || '').toLowerCase().trim();
     const areaTasks = tasks.filter(t => (t.area || '').toLowerCase().trim() === userAreaNorm);
-    
-    console.log('📊 [AreaMetricsPanel] userArea:', userArea, '| Tareas del área:', areaTasks.length);
     
     const now = Date.now();
     const completed = areaTasks.filter(t => t.status === 'cerrada' || t.status === 'completada').length;

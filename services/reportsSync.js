@@ -17,7 +17,6 @@ import {
  */
 export const syncPendingReport = async (pendingReport) => {
   try {
-    console.log('🔄 Sincronizando reporte:', pendingReport.id);
     
     const session = await getCurrentSession();
     if (!session.success || !session.session) {
@@ -35,11 +34,9 @@ export const syncPendingReport = async (pendingReport) => {
       images: [],
     });
 
-    console.log('✅ Reporte creado en la nube:', cloudReportId);
 
     // 2. Subir imágenes si existen
     if (pendingReport.images && pendingReport.images.length > 0) {
-      console.log(`📸 Subiendo ${pendingReport.images.length} imágenes...`);
       
       for (let idx = 0; idx < pendingReport.images.length; idx++) {
         const imageUri = pendingReport.images[idx];
@@ -66,7 +63,6 @@ export const syncPendingReport = async (pendingReport) => {
             uploadedBy: userId,
           });
 
-          console.log(`✅ Imagen ${idx + 1}/${pendingReport.images.length} enviada`);
         } catch (imgError) {
           console.error(`⚠️ Error en imagen ${idx + 1}:`, imgError);
           // Continuar con las siguientes imágenes
@@ -77,7 +73,6 @@ export const syncPendingReport = async (pendingReport) => {
     // 3. Marcar como sincronizado
     await markReportAsSynced(pendingReport.id);
     
-    console.log('✅ Reporte sincronizado exitosamente');
     return {
       success: true,
       localId: pendingReport.id,
@@ -100,11 +95,9 @@ export const syncAllPendingReports = async (onProgress = null) => {
     const pending = await getPendingReports();
     
     if (pending.length === 0) {
-      console.log('ℹ️ No hay reportes pendientes para sincronizar');
       return { success: 0, failed: 0, errors: [] };
     }
 
-    console.log(`🔄 Sincronizando ${pending.length} reporte(s)...`);
     
     let successCount = 0;
     let failedCount = 0;
@@ -160,7 +153,6 @@ export const syncAllPendingReports = async (onProgress = null) => {
       await new Promise(resolve => setTimeout(resolve, 500));
     }
 
-    console.log(`📊 Sincronización completada: ${successCount} éxito(s), ${failedCount} fallo(s)`);
     
     return {
       success: successCount,
@@ -191,7 +183,6 @@ export const checkAndSyncPendingReports = async () => {
     }
 
     // Intentar sincronizar silenciosamente
-    console.log(`🔄 Verificando ${pending.length} reporte(s) pendiente(s)...`);
     const result = await syncAllPendingReports();
     
     return {
@@ -212,7 +203,6 @@ export const checkAndSyncPendingReports = async () => {
 export const cleanupFailedReports = async (maxAge = 7) => {
   try {
     await retryFailedReports();
-    console.log(`🔄 Se reintentaron reportes fallidos (antigüedad máxima: ${maxAge} días)`);
   } catch (error) {
     console.error('Error limpiando reportes fallidos:', error);
   }

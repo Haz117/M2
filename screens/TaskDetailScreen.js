@@ -78,7 +78,6 @@ export default function TaskDetailScreen({ route, navigation }) {
       const areasToAdd = new Set();
       
       newAssignees.forEach(user => {
-        console.log('[TaskDetail] 👤 Usuario seleccionado:', user.displayName, '| Rol:', user.role, '| Área:', user.area);
         
         // Para todos los roles: agregar su área principal
         if (user.area) {
@@ -106,7 +105,6 @@ export default function TaskDetailScreen({ route, navigation }) {
       if (areasToAdd.size > 0) {
         setSelectedAreas(prevAreas => {
           const newAreas = [...new Set([...prevAreas, ...Array.from(areasToAdd)])];
-          console.log('[TaskDetail] ✅ Áreas auto-agregadas:', Array.from(areasToAdd), '| Total:', newAreas);
           return newAreas;
         });
       }
@@ -423,7 +421,6 @@ export default function TaskDetailScreen({ route, navigation }) {
       if (JSON.stringify(newSelectedAreas) !== JSON.stringify(selectedAreas)) {
         setSelectedAreas(newSelectedAreas);
         
-        console.log('[TaskDetail] ✅ Áreas auto-seleccionadas de usuarios:', {
           usuarios: selectedAssignees.map(u => u.displayName || u.email),
           areasAgregadas: userAreas,
           areasActuales: newSelectedAreas
@@ -686,7 +683,6 @@ export default function TaskDetailScreen({ route, navigation }) {
         setCanAddSubtask(subtaskPermission.canCreate);
         setIsReadOnly(role === 'director');
         
-        console.log('Permisos:', { 
           canEdit: editPermission.canEdit, 
           canDelegate: delegatePermission.canDelegate,
           canAddSubtask: subtaskPermission.canCreate,
@@ -873,7 +869,6 @@ export default function TaskDetailScreen({ route, navigation }) {
       try {
         const { updateParentTaskProgress } = await import('../services/areaSubtasks');
         await updateParentTaskProgress(editingTask.parentTaskId);
-        console.log('[TaskDetail] Progreso del padre actualizado');
       } catch (error) {
         console.error('[TaskDetail] Error actualizando progreso del padre:', error);
       }
@@ -927,9 +922,9 @@ export default function TaskDetailScreen({ route, navigation }) {
         }
       }
       
-      // Directores solo pueden cambiar status de sus tareas
+      // Directores solo pueden cambiar status de sus tareas (solo completar, no reabrir)
       if (currentUser.role === 'director' && editingTask) {
-        const statusPermission = canChangeTaskStatus(currentUser, editingTask);
+        const statusPermission = canChangeTaskStatus(currentUser, editingTask, status);
         if (statusPermission.canChange) {
           await updateTask(editingTask.id, { status });
           await updateParentProgressIfNeeded(); // Actualizar progreso del padre si es subtarea
@@ -940,7 +935,7 @@ export default function TaskDetailScreen({ route, navigation }) {
           setTimeout(() => navigation.goBack(), 800);
           return;
         } else {
-          Alert.alert('Sin permisos', statusPermission.reason);
+          Alert.alert('Sin permisos', statusPermission.reason || 'Solo puedes avanzar la tarea hacia completado, no reabrir');
           setIsSaving(false);
           return;
         }
@@ -1075,7 +1070,6 @@ export default function TaskDetailScreen({ route, navigation }) {
         if (selectedAreas.length > 1) {
           setSaveProgress(80);
           const subtaskResult = await createAreaSubtasks(taskData, taskId);
-          console.log('[TaskDetail] Subtareas de coordinación creadas:', subtaskResult);
         }
         
         setSaveProgress(100);
@@ -1200,7 +1194,6 @@ export default function TaskDetailScreen({ route, navigation }) {
       try {
         const { updateParentTaskProgress } = await import('../services/areaSubtasks');
         await updateParentTaskProgress(editingTask.parentTaskId);
-        console.log('[TaskDetail] Progreso del padre actualizado');
       } catch (error) {
         console.error('[TaskDetail] Error actualizando progreso del padre:', error);
       }
@@ -1264,7 +1257,6 @@ export default function TaskDetailScreen({ route, navigation }) {
           assignedTo: newAssignees
         });
       } catch (notifError) {
-        console.log('Error enviando notificación:', notifError);
       }
       
       setToastMessage(`Tarea delegada a ${director.displayName}`);

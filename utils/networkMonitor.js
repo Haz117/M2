@@ -38,6 +38,7 @@ class NetworkQualityMonitor {
     
     this.monitoring = false;
     this.monitorInterval = null;
+    this.netInfoUnsubscribe = null;
     this.listeners = [];
   }
 
@@ -59,7 +60,7 @@ class NetworkQualityMonitor {
     }, MONITOR_INTERVAL);
 
     // Listener de cambios en estado de conexión
-    await NetInfo.addEventListener(state => {
+    this.netInfoUnsubscribe = NetInfo.addEventListener(state => {
       this.state.isOnline = state.isConnected;
       this.state.type = state.type;
       this.notifyListeners();
@@ -74,8 +75,11 @@ class NetworkQualityMonitor {
       clearInterval(this.monitorInterval);
       this.monitorInterval = null;
     }
+    if (this.netInfoUnsubscribe) {
+      this.netInfoUnsubscribe();
+      this.netInfoUnsubscribe = null;
+    }
     this.monitoring = false;
-    console.log('[NetworkMonitor] Stopped');
   }
 
   /**
@@ -122,9 +126,11 @@ class NetworkQualityMonitor {
       const abortController = new AbortController();
       const timeoutId = setTimeout(() => abortController.abort(), PING_TIMEOUT);
 
-      const response = await fetch('https://www.google.com/favicon.ico', {
+      // Use httpbin.org which supports CORS
+      const response = await fetch('https://httpbin.org/get', {
         signal: abortController.signal,
-        method: 'HEAD'
+        method: 'HEAD',
+        mode: 'cors'
       });
 
       clearTimeout(timeoutId);
@@ -144,8 +150,8 @@ class NetworkQualityMonitor {
    */
   async estimateDownloadSpeed() {
     try {
-      // Usar un pixel GIF como test (pequeño ~1KB)
-      const testUrl = 'https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png';
+      // Use CORS-compatible endpoint for speed test
+      const testUrl = 'https://httpbin.org/bytes/1024';
       const startTime = Date.now();
       const startBytes = 0;
 

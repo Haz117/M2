@@ -1,7 +1,7 @@
 // screens/AreaChiefDashboard.js
 // Dashboard para jefes de área - Ver tareas, progreso, equipo
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -35,17 +35,21 @@ export default function AreaChiefDashboard({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('all'); // all, pendiente, en_progreso, completed
 
-  const fadeAnim = new Animated.Value(0);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const unsubscribeRef = useRef(null);
 
   useEffect(() => {
     loadChiefData();
+    return () => {
+      if (unsubscribeRef.current) unsubscribeRef.current();
+    };
   }, []);
 
   const loadChiefData = async () => {
     try {
       setLoading(true);
       const sessionResult = await getCurrentSession();
-      
+
       if (!sessionResult.success) {
         setLoading(false);
         return;
@@ -54,12 +58,7 @@ export default function AreaChiefDashboard({ navigation }) {
       const session = sessionResult.session;
       setCurrentUser(session);
 
-      // Buscar área donde es jefe
-      // Nota: Esta es una simplificación. En producción, usar Firestore query
-      // por ahora mostrar todas las tareas del usuario
-      
-      const unsubscribe = subscribeToTasks((allTasks) => {
-        // Filtrar tareas donde el usuario es jefe o está asignado
+      const unsub = await subscribeToTasks((allTasks) => {
         const userTasks = allTasks.filter(
           (t) =>
             Array.isArray(t.assignedTo)
@@ -68,13 +67,10 @@ export default function AreaChiefDashboard({ navigation }) {
         );
 
         setTasks(userTasks);
-
-        // Calcular métricas
         calculateMetrics(userTasks);
         setLoading(false);
         setRefreshing(false);
 
-        // Animar entrada
         Animated.timing(fadeAnim, {
           toValue: 1,
           duration: 400,
@@ -82,9 +78,8 @@ export default function AreaChiefDashboard({ navigation }) {
         }).start();
       });
 
-      return () => unsubscribe();
+      unsubscribeRef.current = unsub;
     } catch (error) {
-      console.error('Error cargando dashboard jefe:', error);
       setLoading(false);
     }
   };

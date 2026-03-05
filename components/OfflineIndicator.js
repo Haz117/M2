@@ -1,6 +1,6 @@
 // components/OfflineIndicator.js
 // Indicador visual de estado de conexión y sincronización
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { 
@@ -14,8 +14,9 @@ export default function OfflineIndicator({ theme = {}, style = {} }) {
   const [pendingCount, setPendingCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showBanner, setShowBanner] = useState(false);
-  const [slideAnim] = useState(new Animated.Value(-100));
-  const [pulseAnim] = useState(new Animated.Value(1));
+  const slideAnim = useRef(new Animated.Value(-100)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const pulseLoopRef = useRef(null);
 
   useEffect(() => {
     // Suscribirse a cambios de conexión
@@ -45,30 +46,30 @@ export default function OfflineIndicator({ theme = {}, style = {} }) {
     });
 
     // Animación de pulso para sincronización
-    const pulseAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.2,
-          duration: 500,
-          useNativeDriver: true
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: true
-        })
-      ])
-    );
-
     if (isSyncing) {
-      pulseAnimation.start();
+      pulseLoopRef.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.2,
+            duration: 500,
+            useNativeDriver: true
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true
+          })
+        ])
+      );
+      pulseLoopRef.current.start();
     } else {
-      pulseAnimation.stop();
+      if (pulseLoopRef.current) pulseLoopRef.current.stop();
       pulseAnim.setValue(1);
     }
 
     return () => {
       unsubscribe();
+      if (pulseLoopRef.current) pulseLoopRef.current.stop();
     };
   }, [isSyncing]);
 
