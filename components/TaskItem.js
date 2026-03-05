@@ -14,6 +14,7 @@ import Avatar from './Avatar';
 import PulsingDot from './PulsingDot';
 import ProgressBar from './ProgressBar';
 import { subscribeToTaskProgress } from '../services/taskProgress';
+import { toMs } from '../utils/dateUtils';
 
 const Swipeable = getSwipeable();
 
@@ -116,7 +117,7 @@ const TaskItem = memo(function TaskItem({
     return () => clearInterval(t);
   }, [task.status]);
 
-  const due = new Date(task.dueAt).getTime();
+  const due = toMs(task.dueAt);
   const remaining = due - now;
 
   const handlePressIn = () => {
@@ -218,7 +219,7 @@ const TaskItem = memo(function TaskItem({
   };
 
   const getDueStatus = () => {
-    const due = new Date(task.dueAt).getTime();
+    const due = toMs(task.dueAt);
     const remaining = due - now;
     const oneDayMs = 24 * 60 * 60 * 1000;
 

@@ -3,6 +3,7 @@
 // Soporta tareas, subtareas, áreas, y eventos del sistema
 
 import * as Notifications from 'expo-notifications';
+import { toMs } from '../utils/dateUtils';
 import { Platform } from 'react-native';
 import {
   collection,
@@ -145,7 +146,7 @@ export const notifySubtaskCompleted = async (subtask, completedBy) => {
  */
 export const notifyTaskDueSoon = async (task) => {
   try {
-    const dueAtMs = task.dueAt?.seconds ? task.dueAt.seconds * 1000 : (typeof task.dueAt === 'number' ? task.dueAt : new Date(task.dueAt).getTime());
+    const dueAtMs = toMs(task.dueAt);
     const daysLeft = Math.ceil((dueAtMs - Date.now()) / (1000 * 60 * 60 * 24));
 
     await recordNotification({
@@ -386,8 +387,8 @@ export const getMyNotifications = async (limit = 50) => {
 
     // Ordenar por fecha descendente
     return notifications.sort((a, b) => {
-      const aTime = a.createdAt?.toMillis?.() || a.createdAt || 0;
-      const bTime = b.createdAt?.toMillis?.() || b.createdAt || 0;
+      const aTime = toMs(a.createdAt) || 0;
+      const bTime = toMs(b.createdAt) || 0;
       return bTime - aTime;
     }).slice(0, limit);
   } catch (error) {

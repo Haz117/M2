@@ -518,18 +518,24 @@ const AnalyticsScreen = ({ navigation }) => {
   };
 
   useEffect(() => {
+    let mounted = true;
+    let unsubTasksRef = null;
+
     const loadData = async () => {
       try {
         // Load report statistics
         const stats = await getReportStatistics();
+        if (!mounted) return;
         setReportStats(stats);
 
         // Load task metrics
         const metrics = await getOverallTaskMetrics();
+        if (!mounted) return;
         setTaskMetrics(metrics);
 
         // Subscribe to tasks for top performers
-        const unsubTasks = subscribeToTasks((allTasks) => {
+        const unsub = await subscribeToTasks((allTasks) => {
+          if (!mounted) return;
           // Get top 5 tasks with highest ratings
           const topTasks = allTasks
             .filter((t) => t.qualityRating)
@@ -537,20 +543,28 @@ const AnalyticsScreen = ({ navigation }) => {
             .slice(0, 5);
           setTasks(topTasks);
         });
+        unsubTasksRef = unsub;
 
+        if (!mounted) {
+          unsubTasksRef?.();
+          return;
+        }
         setLoading(false);
-        
+
         // ✨ Ejecutar animaciones de entrada
         setTimeout(() => runEntranceAnimations(), 100);
-
-        return () => unsubTasks?.();
       } catch (error) {
         console.error('Error loading analytics:', error);
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
     loadData();
+
+    return () => {
+      mounted = false;
+      unsubTasksRef?.();
+    };
   }, []);
 
   const getRatingDistribution = () => {

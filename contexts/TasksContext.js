@@ -6,7 +6,11 @@ import React, { createContext, useState, useEffect, useCallback, useRef, useMemo
 import { subscribeToTasks } from '../services/tasks';
 import { getCurrentSession } from '../services/authFirestore';
 
-export const TasksContext = createContext();
+// Usar globalThis para que React.lazy() bundles compartan la misma instancia de contexto
+if (!globalThis.__TASKS_CONTEXT__) {
+  globalThis.__TASKS_CONTEXT__ = createContext();
+}
+export const TasksContext = globalThis.__TASKS_CONTEXT__;
 
 // 💾 Set persistente de tareas eliminadas (se guarda en localStorage)
 const DELETED_TASKS_KEY = 'permanentlyDeletedTaskIds';
@@ -29,10 +33,34 @@ function loadDeletedTasks() {
   }
 }
 
+/**
+ * Filtra tareas según el rol del usuario:
+ * - admin: ve todas
+ * - secretario: solo las que el admin le asignó directamente a su email
+ * - director: solo las que le asignó el admin o delegó un secretario a su email
+ *
+ * En ambos casos la regla es idéntica: el email del usuario debe estar en assignedTo.
+ */
+function filterTasksByRole(allTasks, user) {
+  if (!user || user.role === 'admin') return allTasks;
+
+  const myEmail = user.email?.toLowerCase().trim();
+  if (!myEmail) return [];
+
+  return allTasks.filter(task => {
+    const assignedTo = task.assignedTo || [];
+    const assignees = Array.isArray(assignedTo)
+      ? assignedTo.map(e => (typeof e === 'string' ? e : e?.email || '')?.toLowerCase().trim())
+      : [(assignedTo || '').toLowerCase().trim()];
+    return assignees.includes(myEmail);
+  });
+}
+
 export function TasksProvider({ children }) {
   const [tasks, setTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasSession, setHasSession] = useState(false); // Track sesión disponibility
+  const [currentUser, setCurrentUser] = useState(null);
   const unsubscribeTasksRef = useRef(null);
   
   // 🛡️ Set global para rastrear tareas siendo eliminadas
@@ -71,6 +99,7 @@ export function TasksProvider({ children }) {
         const sessionResult = await getCurrentSession();
         if (!mounted) return;
         if (sessionResult.success) {
+          setCurrentUser(sessionResult.session);
           setHasSession(true);
           return; // Sesión encontrada, terminar loop
         }
@@ -90,6 +119,12 @@ export function TasksProvider({ children }) {
     };
   }, []);
 
+  // Ref para acceder al usuario actual dentro del listener sin recrear suscripción
+  const currentUserRef = useRef(null);
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
+
   // 🔍 EFECTO 2: Suscribirse al listener SOLO cuando hay sesión
   useEffect(() => {
     if (!hasSession) {
@@ -107,11 +142,14 @@ export function TasksProvider({ children }) {
           if (!mounted) return;
 
           // 🛡️ FILTRAR: No restaurar tareas que están siendo eliminadas O fueron eliminadas permanentemente
-          const filteredTasks = updatedTasks.filter(task => {
+          const withoutDeleted = updatedTasks.filter(task => {
             const isBeingDeleted = deletingTasksRef.current.has(task.id);
             const isPermanentlyDeleted = permanentlyDeletedRef.current.has(task.id);
             return !isBeingDeleted && !isPermanentlyDeleted;
           });
+
+          // 🔒 FILTRAR POR ROL: secretario/director solo ven lo que les corresponde
+          const filteredTasks = filterTasksByRole(withoutDeleted, currentUserRef.current);
 
           setTasks(filteredTasks);
           if (!hasLoadedOnce.current) {
@@ -161,12 +199,13 @@ export function TasksProvider({ children }) {
     tasks,
     setTasks,
     isLoading,
+    currentUser,
     markAsDeleting,
     unmarkAsDeleting,
     clearDeletedTask,
     deletingTasksRef,
     permanentlyDeletedRef,
-  }), [tasks, isLoading]);
+  }), [tasks, isLoading, currentUser]);
 
   return (
     <TasksContext.Provider value={value}>

@@ -3,6 +3,7 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
+import { toDate, toMs } from '../utils/dateUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { notifyTaskAssigned, notifyNewComment, notifyDeadlineApproaching } from './fcm';
 import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
@@ -71,7 +72,8 @@ export async function scheduleNotificationForTask(task, options = { minutesBefor
   }
   
   try {
-    const due = typeof task.dueAt === 'number' ? new Date(task.dueAt) : new Date(task.dueAt);
+    const due = toDate(task.dueAt);
+    if (!due) return null;
     const triggerDate = new Date(due.getTime() - options.minutesBefore * 60 * 1000);
 
     // Si el trigger ya pasó, no programamos
@@ -122,7 +124,8 @@ export async function scheduleDailyReminders(task, maxReminders = 3) {
 
     const ids = [];
     const now = new Date();
-    const due = typeof task.dueAt === 'number' ? new Date(task.dueAt) : new Date(task.dueAt);
+    const due = toDate(task.dueAt);
+    if (!due) return [];
     
     // Programar recordatorios cada 24 horas hasta la fecha de vencimiento (máximo 3)
     let reminderDate = new Date(now.getTime() + 24 * 60 * 60 * 1000); // +1 día
@@ -174,7 +177,8 @@ export async function scheduleEscalatedReminders(task) {
     }
 
     const now = new Date();
-    const due = typeof task.dueAt === 'number' ? new Date(task.dueAt) : new Date(task.dueAt);
+    const due = toDate(task.dueAt);
+    if (!due) return { scheduled: [], escalationLevel: 0 };
     const scheduled = [];
     
     // Intervalos de recordatorio: 24h, 12h, 2h antes
@@ -273,7 +277,7 @@ export async function notifyAssignment(task) {
     const localNotifId = await Notifications.scheduleNotificationAsync({
       content: {
         title: '📋 Nueva Tarea Asignada',
-        body: `Te asignaron: "${task.title}" - Vence: ${new Date(task.dueAt).toLocaleDateString()}`,
+        body: `Te asignaron: "${task.title}" - Vence: ${new Date(toMs(task.dueAt)).toLocaleDateString()}`,
         data: { 
           taskId: task.id, 
           type: 'assignment',
@@ -558,7 +562,7 @@ export async function scheduleHourlyReminders(task) {
 
     // Solo para tareas de alta prioridad o vencidas
     const isUrgent = task.priority === 'alta';
-    const isOverdue = task.dueAt && new Date(task.dueAt) < new Date();
+    const isOverdue = task.dueAt && toMs(task.dueAt) < Date.now();
     
     if (!isUrgent && !isOverdue) {
       return [];
@@ -576,7 +580,7 @@ export async function scheduleHourlyReminders(task) {
           title: `🚨 URGENTE: ${task.title}`,
           body: isOverdue 
             ? `⏰ Esta tarea está VENCIDA. Complétala ahora.`
-            : `⚡ Tarea de alta prioridad pendiente. Vence: ${new Date(task.dueAt).toLocaleDateString()}`,
+            : `⚡ Tarea de alta prioridad pendiente. Vence: ${new Date(toMs(task.dueAt)).toLocaleDateString()}`,
           data: { 
             taskId: task.id,
             type: 'hourly_urgent',
@@ -646,7 +650,7 @@ export async function schedulePersistentNotification(task) {
     const id = await Notifications.scheduleNotificationAsync({
       content: {
         title: `REQUIERE ACCIÓN: ${task.title}`,
-        body: `Esta tarea necesita tu atención inmediata. Vence: ${new Date(task.dueAt).toLocaleDateString()}`,
+        body: `Esta tarea necesita tu atención inmediata. Vence: ${new Date(toMs(task.dueAt)).toLocaleDateString()}`,
         data: { 
           taskId: task.id,
           type: 'persistent_action_required',

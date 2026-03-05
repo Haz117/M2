@@ -2,7 +2,6 @@
 // Sistema centralizado de permisos para gestión de tareas
 // Define qué acciones puede realizar cada rol
 
-import { getDireccionesBySecretaria, getSecretariaByDireccion } from '../config/areas';
 
 /**
  * Roles disponibles en orden de jerarquía
@@ -184,35 +183,33 @@ export function canDelegateTask(user, task) {
     return { canDelegate: true, reason: 'Admin puede delegar', allowedUsers: 'all' };
   }
   
-  // Secretario puede delegar a directores de sus áreas
+  // Secretario puede delegar solo tareas que le fueron asignadas directamente a él
   if (user.role === ROLES.SECRETARIO) {
-    // Obtener las direcciones que maneja este secretario
-    const direccionesPermitidas = user.direcciones || [];
-    const areasPermitidas = user.areasPermitidas || [];
-    
-    // Combinar todas las áreas del secretario
-    const todasAreas = [...new Set([
-      user.area,
-      ...direccionesPermitidas,
-      ...areasPermitidas
-    ])].filter(Boolean);
-    
-    // Verificar si la tarea pertenece a una de sus áreas
-    const taskAreas = task.areas || [task.area];
-    const canDelegateThisTask = taskAreas.some(ta => todasAreas.includes(ta));
-    
-    if (canDelegateThisTask) {
-      return { 
-        canDelegate: true, 
-        reason: 'Secretario puede delegar a directores de su área',
-        allowedAreas: todasAreas
+    const myEmail = user.email?.toLowerCase().trim();
+    const assignedTo = task.assignedTo || [];
+    const assignees = Array.isArray(assignedTo)
+      ? assignedTo.map(e => (typeof e === 'string' ? e : e?.email || '')?.toLowerCase().trim())
+      : [(assignedTo || '').toLowerCase().trim()];
+
+    if (!myEmail || !assignees.includes(myEmail)) {
+      return {
+        canDelegate: false,
+        reason: 'Solo puedes delegar tareas que te fueron asignadas directamente',
+        allowedAreas: []
       };
     }
-    
-    return { 
-      canDelegate: false, 
-      reason: 'Esta tarea no pertenece a tus áreas',
-      allowedAreas: []
+
+    // Las áreas del secretario definen qué directores puede ver en el selector
+    const todasAreas = [...new Set([
+      user.area,
+      ...(user.direcciones || []),
+      ...(user.areasPermitidas || []),
+    ])].filter(Boolean);
+
+    return {
+      canDelegate: true,
+      reason: 'Secretario puede delegar a sus directores adscritos',
+      allowedAreas: todasAreas
     };
   }
   
@@ -236,26 +233,18 @@ export function canCreateSubtask(user, task) {
     return { canCreate: true, reason: 'Admin puede crear subtareas' };
   }
   
-  // Secretario puede crear subtareas en sus áreas
+  // Secretario puede crear subtareas en tareas asignadas a él
   if (user.role === ROLES.SECRETARIO) {
-    // Usar mapeo oficial como fuente principal
-    const direccionesOficiales = getDireccionesBySecretaria(user.area || '');
-    const direccionesFirebase = user.direcciones || [];
-    const areasPermitidas = user.areasPermitidas || [];
-    const todasAreas = [...new Set([
-      user.area,
-      ...direccionesOficiales,
-      ...direccionesFirebase,
-      ...areasPermitidas
-    ])].filter(Boolean);
-    
-    const taskAreas = task.areas || [task.area];
-    const canCreateHere = taskAreas.some(ta => todasAreas.includes(ta));
-    
-    if (canCreateHere) {
-      return { canCreate: true, reason: 'Secretario puede crear subtareas en sus áreas' };
+    const myEmail = user.email?.toLowerCase().trim();
+    const assignedTo = task.assignedTo || [];
+    const assignees = Array.isArray(assignedTo)
+      ? assignedTo.map(e => (typeof e === 'string' ? e : e?.email || '')?.toLowerCase().trim())
+      : [(assignedTo || '').toLowerCase().trim()];
+
+    if (myEmail && assignees.includes(myEmail)) {
+      return { canCreate: true, reason: 'Secretario puede crear subtareas en tareas asignadas a él' };
     }
-    return { canCreate: false, reason: 'Esta tarea no pertenece a tus áreas' };
+    return { canCreate: false, reason: 'Solo puedes crear subtareas en tareas que te fueron asignadas' };
   }
   
   // Director no puede crear subtareas
@@ -312,25 +301,12 @@ export function canChangeTaskStatus(user, task, newStatus = null) {
     return { canChange: true, reason: 'Puedes avanzar el status de tu tarea', allowedStatuses: allowed };
   }
   
-  // Secretario puede cambiar status de tareas en sus áreas
+  // Secretario solo puede cambiar status de tareas asignadas a él
   if (user.role === ROLES.SECRETARIO) {
-    // Usar mapeo oficial como fuente principal
-    const direccionesOficiales = getDireccionesBySecretaria(user.area || '');
-    const direccionesFirebase = user.direcciones || [];
-    const areasPermitidas = user.areasPermitidas || [];
-    const todasAreas = [...new Set([
-      user.area,
-      ...direccionesOficiales,
-      ...direccionesFirebase,
-      ...areasPermitidas
-    ])].filter(Boolean);
-    
-    const taskAreas = task.areas || [task.area];
-    const canChangeHere = taskAreas.some(ta => todasAreas.includes(ta)) || isAssigned;
-    
-    if (canChangeHere) {
-      return { canChange: true, reason: 'Secretario puede gestionar tareas de su área', allowedStatuses: ['pendiente', 'en_proceso', 'en_revision', 'cerrada'] };
+    if (!isAssigned) {
+      return { canChange: false, reason: 'Solo puedes gestionar tareas asignadas a ti', allowedStatuses: [] };
     }
+    return { canChange: true, reason: 'Secretario puede gestionar sus tareas', allowedStatuses: ['pendiente', 'en_proceso', 'en_revision', 'cerrada'] };
   }
   
   return { canChange: false, reason: 'No tienes permisos para cambiar el status de esta tarea', allowedStatuses: [] };

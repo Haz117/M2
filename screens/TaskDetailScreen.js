@@ -18,6 +18,7 @@ import PomodoroTimer from '../components/PomodoroTimer';
 import TagInput from '../components/TagInput';
 import TaskStatusButtons from '../components/TaskStatusButtons';
 import MultiUserSelector from '../components/MultiUserSelector';
+import { toMs } from '../utils/dateUtils';
 import SuggestedDirectionsPanel from '../components/SuggestedDirectionsPanel';
 import SuggestedDirectorsPanel from '../components/SuggestedDirectorsPanel';
 import SuggestedAreasPanel from '../components/SuggestedAreasPanel';
@@ -29,7 +30,7 @@ import { confirmTaskCompletion, removeTaskConfirmation, hasUserConfirmed } from 
 import { useTheme } from '../contexts/ThemeContext';
 import { savePomodoroSession } from '../services/pomodoro';
 import { AREAS } from '../config/areas';
-import { getAreaType } from '../config/areas';
+import { getAreaType, getSecretariaByDireccion, SECRETARIAS } from '../config/areas';
 import { 
   canEditTask, 
   canDelegateTask, 
@@ -122,7 +123,7 @@ export default function TaskDetailScreen({ route, navigation }) {
   );
   const [priority, setPriority] = useState(editingTask ? editingTask.priority : 'media');
   const [status, setStatus] = useState(editingTask ? editingTask.status : 'pendiente');
-  const [dueAt, setDueAt] = useState(editingTask ? new Date(editingTask.dueAt) : getDefaultDate());
+  const [dueAt, setDueAt] = useState(editingTask ? new Date(toMs(editingTask.dueAt)) : getDefaultDate());
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   
   // 🔥 Función para obtener los asignados actuales de la tarea original
@@ -306,57 +307,38 @@ export default function TaskDetailScreen({ route, navigation }) {
     const userAreas = new Set();
     
     selectedAssignees.forEach(user => {
-      // Si es secretario, usar el mapeo oficial para obtener direcciones
+      // Agregar área principal
+      if (user.area) userAreas.add(user.area);
+      if (user.department && user.department !== user.area) userAreas.add(user.department);
+      
+      // Agregar areasPermitidas (campo clave para directores)
+      if (Array.isArray(user.areasPermitidas)) {
+        user.areasPermitidas.forEach(ap => userAreas.add(ap));
+      }
+      
       if (user.role === 'secretario') {
         const areaSecretario = user.area || '';
         
+        // Usar direcciones del propio usuario
+        if (Array.isArray(user.direcciones)) {
+          user.direcciones.forEach(dir => userAreas.add(dir));
+        }
+        
         // Obtener direcciones del mapeo oficial
         const direcciones = getDireccionesBySecretaria(areaSecretario);
-        
         if (direcciones.length > 0) {
-          // Agregar la secretaría
           userAreas.add(areaSecretario);
-          // Agregar todas sus direcciones
           direcciones.forEach(dir => userAreas.add(dir));
         } else {
-          // Búsqueda por coincidencia parcial
+          // Coincidencia parcial genérica
           for (const [secretaria, dirs] of Object.entries(SECRETARIAS_DIRECCIONES)) {
-            if (areaSecretario.includes('Desarrollo Económico') && secretaria.includes('Desarrollo Económico')) {
-              userAreas.add(secretaria);
-              dirs.forEach(dir => userAreas.add(dir));
-            } else if (areaSecretario.includes('Obras Públicas') && secretaria.includes('Obras Públicas')) {
-              userAreas.add(secretaria);
-              dirs.forEach(dir => userAreas.add(dir));
-            } else if (areaSecretario.includes('Bienestar') && secretaria.includes('Bienestar')) {
-              userAreas.add(secretaria);
-              dirs.forEach(dir => userAreas.add(dir));
-            } else if (areaSecretario.includes('General') && secretaria.includes('General')) {
-              userAreas.add(secretaria);
-              dirs.forEach(dir => userAreas.add(dir));
-            } else if (areaSecretario.includes('Tesorería') && secretaria.includes('Tesorería')) {
-              userAreas.add(secretaria);
-              dirs.forEach(dir => userAreas.add(dir));
-            } else if (areaSecretario.includes('Planeación') && secretaria.includes('Planeación')) {
-              userAreas.add(secretaria);
-              dirs.forEach(dir => userAreas.add(dir));
-            } else if (areaSecretario.includes('Seguridad') && secretaria.includes('Seguridad')) {
-              userAreas.add(secretaria);
-              dirs.forEach(dir => userAreas.add(dir));
-            } else if (areaSecretario.includes('Pueblos') && secretaria.includes('Pueblos')) {
+            // Extraer palabra clave de la secretaría para comparar
+            const keywords = secretaria.replace(/Secretaría\s+(de|del|General)\s*/gi, '').split(/[,\s]+/).filter(w => w.length > 4);
+            if (keywords.some(kw => areaSecretario.includes(kw))) {
               userAreas.add(secretaria);
               dirs.forEach(dir => userAreas.add(dir));
             }
           }
-        }
-      } else {
-        // Para otros roles, agregar área principal del usuario
-        if (user.area) {
-          userAreas.add(user.area);
-        }
-        
-        // Agregar department si existe y es diferente
-        if (user.department && user.department !== user.area) {
-          userAreas.add(user.department);
         }
       }
     });
@@ -375,37 +357,25 @@ export default function TaskDetailScreen({ route, navigation }) {
     
     // Recopilar TODAS las áreas de los usuarios seleccionados
     const userAreasSet = new Set();
-    const userAreasMap = {}; // Para debugging
     
     selectedAssignees.forEach(user => {
-      const userEmail = user.email?.toLowerCase() || '';
-      
       // Agregar área principal
       if (user.area) {
         userAreasSet.add(user.area);
-        userAreasMap[userEmail] = userAreasMap[userEmail] || [];
-        userAreasMap[userEmail].push(user.area);
       }
       
       // Agregar department/región
       if (user.department && user.department !== user.area) {
         userAreasSet.add(user.department);
-        userAreasMap[userEmail].push(user.department);
       }
       
       // Para secretarios, agregar todas sus direcciones permitidas
       if (user.role === 'secretario') {
         if (Array.isArray(user.direcciones)) {
-          user.direcciones.forEach(dir => {
-            userAreasSet.add(dir);
-            userAreasMap[userEmail].push(dir);
-          });
+          user.direcciones.forEach(dir => userAreasSet.add(dir));
         }
         if (Array.isArray(user.areasPermitidas)) {
-          user.areasPermitidas.forEach(area => {
-            userAreasSet.add(area);
-            userAreasMap[userEmail].push(area);
-          });
+          user.areasPermitidas.forEach(area => userAreasSet.add(area));
         }
       }
     });
@@ -420,11 +390,6 @@ export default function TaskDetailScreen({ route, navigation }) {
       // Solo actualizar si cambió algo (evitar re-renders innecesarios)
       if (JSON.stringify(newSelectedAreas) !== JSON.stringify(selectedAreas)) {
         setSelectedAreas(newSelectedAreas);
-        
-          usuarios: selectedAssignees.map(u => u.displayName || u.email),
-          areasAgregadas: userAreas,
-          areasActuales: newSelectedAreas
-        });
       }
     }
   }, [selectedAssignees]);
@@ -1147,6 +1112,51 @@ export default function TaskDetailScreen({ route, navigation }) {
 
   const styles = React.useMemo(() => createStyles(theme, isDark), [theme, isDark]);
 
+  // Helper: auto-asignar solo director del área + secretario padre
+  const autoAssignDirectorAndSecretario = useCallback(async (area) => {
+    try {
+      console.log('[AutoAssign] Buscando titulares para área:', area);
+      // Buscar titulares directos del área (director o secretario)
+      const titulares = await getTitularesByAreas([area]);
+      console.log('[AutoAssign] Titulares encontrados:', titulares.map(u => `${u.displayName} (${u.role}, area: ${u.area})`));
+      const director = titulares.find(u => u.role === 'director');
+      let secretario = titulares.find(u => u.role === 'secretario');
+
+      // Si el área es una dirección (no secretaría), buscar también al secretario padre
+      if (!secretario) {
+        const secretariaPadre = getSecretariaByDireccion(area);
+        console.log('[AutoAssign] Secretaría padre:', secretariaPadre);
+        if (secretariaPadre) {
+          const secretarios = await getTitularesByAreas([secretariaPadre]);
+          console.log('[AutoAssign] Secretarios encontrados:', secretarios.map(u => `${u.displayName} (${u.role}, area: ${u.area})`));
+          secretario = secretarios.find(u => u.role === 'secretario');
+        }
+      }
+
+      console.log('[AutoAssign] Director:', director?.displayName || 'NO ENCONTRADO', '| Secretario:', secretario?.displayName || 'NO ENCONTRADO');
+
+      const toAdd = [director, secretario].filter(Boolean);
+      if (toAdd.length > 0) {
+        setSelectedAssignees(prev => {
+          const existingEmails = new Set(prev.map(u => u.email?.toLowerCase()));
+          const newUsers = toAdd
+            .filter(u => !existingEmails.has(u.email?.toLowerCase()))
+            .map(u => ({
+              email: u.email,
+              displayName: u.displayName || u.email,
+              role: u.role,
+              area: u.area || u.department || '',
+              direcciones: u.direcciones || [],
+              areasPermitidas: u.areasPermitidas || [],
+            }));
+          return newUsers.length > 0 ? [...prev, ...newUsers] : prev;
+        });
+      }
+    } catch (error) {
+      console.error('[AutoAssign] Error:', error);
+    }
+  }, []);
+
   // Memoizar handlers para evitar recrearlos en cada render
   const toggleAreaSelection = useCallback((a) => {
     const areaDep = areaToDepMap[a] || a.toLowerCase();
@@ -1154,26 +1164,29 @@ export default function TaskDetailScreen({ route, navigation }) {
     // Determinar si puede seleccionar el área según el rol
     let canSelectArea = false;
     if (currentUser?.role === 'admin') {
-      // Admin puede seleccionar áreas de los usuarios seleccionados
       canSelectArea = canEdit && areasFromSelectedUsers.includes(a);
     } else if (currentUser?.role === 'secretario') {
-      // Secretario puede seleccionar áreas de su lista
       canSelectArea = canEdit && availableAreas.includes(a);
     }
     
     if (!canSelectArea) return;
     
     // Toggle: agregar o remover el área
+    let isAdding = false;
     setSelectedAreas(prev => {
       if (prev.includes(a)) {
-        // Remover, pero mantener al menos una área
         return prev.length > 1 ? prev.filter(area => area !== a) : prev;
       } else {
-        // Agregar
+        isAdding = true;
         return [...prev, a];
       }
     });
-  }, [canEdit, currentUser, areaToDepMap, availableAreas, areasFromSelectedUsers]);
+
+    // Auto-asignar director del área + secretario padre
+    if (isAdding) {
+      autoAssignDirectorAndSecretario(a);
+    }
+  }, [canEdit, currentUser, areaToDepMap, availableAreas, areasFromSelectedUsers, autoAssignDirectorAndSecretario]);
 
   const handlePriorityChange = useCallback((p) => {
     if (canEdit) setPriority(p);
@@ -1495,6 +1508,7 @@ export default function TaskDetailScreen({ route, navigation }) {
                 if (!canEdit) return;
                 if (!selectedAreas.includes(area)) {
                   setSelectedAreas([...selectedAreas, area]);
+                  autoAssignDirectorAndSecretario(area);
                 }
               }}
               theme={theme}
@@ -1624,7 +1638,14 @@ export default function TaskDetailScreen({ route, navigation }) {
             visible={showAreaModal}
             onClose={() => setShowAreaModal(false)}
             selectedAreas={selectedAreas}
-            onAreasChange={(areas) => { if (canEdit) setSelectedAreas(areas); }}
+            onAreasChange={(areas) => {
+              if (!canEdit) return;
+              const prevAreas = selectedAreas;
+              setSelectedAreas(areas);
+              // Auto-asignar director+secretario para cada área nueva
+              const added = areas.filter(a => !prevAreas.includes(a));
+              added.forEach(a => autoAssignDirectorAndSecretario(a));
+            }}
             allAreas={currentUser?.role === 'admin' ? areasFromSelectedUsers : availableAreas}
             theme={theme}
             isDark={isDark}
@@ -1638,6 +1659,7 @@ export default function TaskDetailScreen({ route, navigation }) {
               if (!canEdit) return;
               if (!selectedAreas.includes(area)) {
                 setSelectedAreas([...selectedAreas, area]);
+                autoAssignDirectorAndSecretario(area);
               }
             }}
             theme={theme}

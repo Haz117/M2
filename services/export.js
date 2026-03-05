@@ -3,6 +3,7 @@
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
+import { toMs } from '../utils/dateUtils';
 
 /**
  * Exportar tareas a formato CSV
@@ -20,8 +21,8 @@ export async function exportTasksToCSV(tasks, filename = 'tareas') {
       `"${task.area || ''}"`,
       `"${task.priority || ''}"`,
       `"${task.status || ''}"`,
-      task.dueAt ? new Date(task.dueAt).toLocaleString('es-ES') : '',
-      task.createdAt ? new Date(task.createdAt.toMillis ? task.createdAt.toMillis() : task.createdAt).toLocaleString('es-ES') : ''
+      task.dueAt ? new Date(toMs(task.dueAt)).toLocaleString('es-ES') : '',
+      task.createdAt ? new Date(toMs(task.createdAt)).toLocaleString('es-ES') : ''
     ]);
     
     const csvContent = [

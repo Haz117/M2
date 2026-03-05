@@ -25,7 +25,7 @@ const GestureHandlerRootView = getGestureHandlerRootView();
 import CircularProgress from '../components/CircularProgress';
 import PulsingDot from '../components/PulsingDot';
 import RippleButton from '../components/RippleButton';
-import { subscribeToTasks, updateTask } from '../services/tasks';
+import { updateTask } from '../services/tasks';
 import { useTasks } from '../contexts/TasksContext';
 import { getCurrentSession } from '../services/authFirestore';
 import { hapticMedium, hapticHeavy, hapticLight, hapticSuccess, hapticWarning } from '../utils/haptics';
@@ -33,7 +33,7 @@ import Toast from '../components/Toast';
 import TaskStatusButtons from '../components/TaskStatusButtons';
 import { useTheme } from '../contexts/ThemeContext';
 import { canChangeTaskStatus } from '../services/permissions';
-import { toMs } from '../utils/dateUtils';
+import { toMs, isOverdue } from '../utils/dateUtils';
 import HelpButton from '../components/HelpButton';
 import QuickTip, { TIPS } from '../components/QuickTip';
 import { useResponsive } from '../utils/responsive';
@@ -425,7 +425,7 @@ export default function KanbanScreen({ navigation }) {
               <View style={[styles.cardInfoItem, { backgroundColor: theme.surface }]}>
                 <Ionicons name="calendar-outline" size={11} color={status.color} />
                 <Text style={[styles.cardInfoText, { color: theme.textSecondary }]}>
-                  {new Date(item.dueAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                  {new Date(toMs(item.dueAt)).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
                 </Text>
               </View>
             </View>
@@ -509,8 +509,8 @@ export default function KanbanScreen({ navigation }) {
     } else {
       // Ordenar por fecha (más reciente primero)
       sorted.sort((a, b) => {
-        const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-        const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+        const dateA = new Date(toMs(a.createdAt));
+        const dateB = new Date(toMs(b.createdAt));
         return dateB - dateA;
       });
     }
@@ -1017,7 +1017,7 @@ export default function KanbanScreen({ navigation }) {
                   </View>
                   <View style={styles.quickFilterGrid}>
                     {/* Vencidas */}
-                    {tasks.filter(t => t.dueAt < Date.now() && t.status !== 'cerrada').length > 0 && (
+                    {tasks.filter(t => isOverdue(t)).length > 0 && (
                       <TouchableOpacity
                         onPress={() => {
                           setFilters({ ...filters, overdue: !filters.overdue });
@@ -1037,7 +1037,7 @@ export default function KanbanScreen({ navigation }) {
                         <View style={styles.quickFilterCardContent}>
                           <Text style={[styles.quickFilterCardTitle, { color: theme.text }]}>Vencidas</Text>
                           <Text style={[styles.quickFilterCardCount, { color: '#DC2626' }]}>
-                            {tasks.filter(t => t.dueAt < Date.now() && t.status !== 'cerrada').length} tareas
+                            {tasks.filter(t => isOverdue(t)).length} tareas
                           </Text>
                         </View>
                         {filters.overdue && (
@@ -1112,7 +1112,7 @@ export default function KanbanScreen({ navigation }) {
                         <Text style={[styles.quickFilterCardTitle, { color: theme.text }]}>Para hoy</Text>
                         <Text style={[styles.quickFilterCardCount, { color: '#F59E0B' }]}>
                           {tasks.filter(t => {
-                            const dueDate = new Date(t.dueAt);
+                            const dueDate = new Date(toMs(t.dueAt));
                             const today = new Date();
                             return dueDate.toDateString() === today.toDateString() && t.status !== 'cerrada';
                           }).length} tareas
@@ -1148,7 +1148,7 @@ export default function KanbanScreen({ navigation }) {
                         <Text style={[styles.quickFilterCardTitle, { color: theme.text }]}>Esta semana</Text>
                         <Text style={[styles.quickFilterCardCount, { color: '#3B82F6' }]}>
                           {tasks.filter(t => {
-                            const dueDate = new Date(t.dueAt);
+                            const dueDate = new Date(toMs(t.dueAt));
                             const today = new Date();
                             const weekEnd = new Date(today);
                             weekEnd.setDate(weekEnd.getDate() + 7);

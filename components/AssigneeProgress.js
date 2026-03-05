@@ -1,7 +1,7 @@
 // components/AssigneeProgress.js
 // Muestra el progreso de confirmación individual por cada asignado
 
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -375,4 +375,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AssigneeProgress;
+export default memo(AssigneeProgress);

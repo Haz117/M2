@@ -2,7 +2,7 @@
 // Sistema de subtareas automáticas por área
 // Cuando una tarea se asigna a múltiples áreas, se crean subtareas coordinadas
 
-import { collection, doc, addDoc, updateDoc, query, where, getDocs, Timestamp, writeBatch, onSnapshot } from 'firebase/firestore';
+import { collection, doc, getDoc, addDoc, updateDoc, query, where, getDocs, Timestamp, writeBatch, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 
 /**
@@ -223,13 +223,10 @@ export const completeAreaSubtask = async (subtaskId, user) => {
     });
     
     // Obtener la subtarea para saber el parentTaskId
-    const subtaskDoc = await getDocs(query(
-      collection(db, 'tasks'),
-      where('__name__', '==', subtaskId)
-    ));
-    
-    if (!subtaskDoc.empty) {
-      const subtask = subtaskDoc.docs[0].data();
+    const subtaskDoc = await getDoc(doc(db, 'tasks', subtaskId));
+
+    if (subtaskDoc.exists()) {
+      const subtask = subtaskDoc.data();
       if (subtask.parentTaskId) {
         // Actualizar progreso del padre
         await updateParentTaskProgress(subtask.parentTaskId);

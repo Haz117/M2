@@ -2,6 +2,7 @@
 // Servicio para calcular estadísticas de productividad
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
+import { toMs } from '../utils/dateUtils';
 
 const COLLECTION_NAME = 'tasks';
 
@@ -46,7 +47,7 @@ export async function calculateProductivityStreak(userEmail) {
     // Agrupar por día
     const tasksByDay = {};
     tasks.forEach(task => {
-      const date = new Date(task.updatedAt);
+      const date = new Date(toMs(task.updatedAt));
       const dayKey = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
       if (!tasksByDay[dayKey]) {
         tasksByDay[dayKey] = [];
@@ -124,8 +125,8 @@ export async function calculateAverageCompletionTime(userEmail) {
     const completionTimes = tasks
       .filter(task => task.createdAt && task.updatedAt)
       .map(task => {
-        const created = task.createdAt.toMillis ? task.createdAt.toMillis() : task.createdAt;
-        const updated = task.updatedAt.toMillis ? task.updatedAt.toMillis() : task.updatedAt;
+        const created = toMs(task.createdAt);
+        const updated = toMs(task.updatedAt);
         return updated - created;
       });
     
@@ -170,7 +171,7 @@ export async function getWeeklyProductivity(userEmail) {
       const dayEnd = new Date(date.setHours(23, 59, 59, 999)).getTime();
       
       const dayTasks = tasks.filter(task => {
-        const updated = task.updatedAt?.toMillis ? task.updatedAt.toMillis() : task.updatedAt;
+        const updated = toMs(task.updatedAt);
         return updated >= dayStart && updated <= dayEnd;
       });
       

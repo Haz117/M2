@@ -54,13 +54,20 @@ export default function SuggestedDirectorsPanel({
             const secretarioData = snapshot.docs[0].data();
             const areaSecretario = secretarioData.area || '';
             
-            // Usar el mapeo oficial de config/areas.js
-            const direcciones = getDireccionesBySecretaria(areaSecretario);
+            // Primero: usar las direcciones del propio secretario en Firestore
+            const secretarioDirecciones = secretarioData.direcciones || [];
+            if (secretarioDirecciones.length > 0) {
+              secretarioDirecciones.forEach(dir => direccionesDeSecretarios.add(dir));
+            }
             
+            // También: usar el mapeo oficial de config/areas.js
+            const direcciones = getDireccionesBySecretaria(areaSecretario);
             if (direcciones.length > 0) {
               direcciones.forEach(dir => direccionesDeSecretarios.add(dir));
-            } else {
-              // Búsqueda por coincidencia parcial
+            }
+            
+            // Fallback: si no encontramos nada, buscar por coincidencia parcial
+            if (direccionesDeSecretarios.size === 0) {
               for (const [secretaria, dirs] of Object.entries(SECRETARIAS_DIRECCIONES)) {
                 if (areaSecretario.includes('Desarrollo Económico') && secretaria.includes('Desarrollo Económico')) {
                   dirs.forEach(dir => direccionesDeSecretarios.add(dir));
@@ -106,9 +113,38 @@ export default function SuggestedDirectorsPanel({
 
       snapshotDirectores.forEach(doc => {
         const userData = doc.data();
-        // Verificar si el área del director coincide con alguna dirección del secretario
-        if (direccionesDeSecretarios.has(userData.area)) {
+        const directorArea = (userData.area || '').trim();
+        const directorAreasPermitidas = userData.areasPermitidas || [];
+        
+        // Verificar si el director pertenece a alguna dirección del secretario
+        // 1. Coincidencia por areasPermitidas (campo más confiable para directores)
+        const matchByPermitidas = directorAreasPermitidas.some(ap => {
+          if (direccionesDeSecretarios.has(ap)) return true;
+          // Coincidencia parcial/normalizada
+          return [...direccionesDeSecretarios].some(dir => 
+            ap.includes(dir) || dir.includes(ap)
+          );
+        });
+        
+        if (matchByPermitidas) {
           directors.push({ id: doc.id, ...userData });
+          return;
+        }
+        
+        // 2. Coincidencia directa por área
+        if (direccionesDeSecretarios.has(directorArea)) {
+          directors.push({ id: doc.id, ...userData });
+          return;
+        }
+        
+        // 3. Coincidencia parcial por área
+        if (directorArea && directorArea.length > 3) {
+          const matchFound = [...direccionesDeSecretarios].some(dir => 
+            directorArea.includes(dir) || dir.includes(directorArea)
+          );
+          if (matchFound) {
+            directors.push({ id: doc.id, ...userData });
+          }
         }
       });
       

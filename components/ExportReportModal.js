@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -27,7 +27,7 @@ const ExportReportModal = ({ visible, onClose, report, task, allReports = [] }) 
   const [toastMessage, setToastMessage] = useState('');
   const [stats, setStats] = useState(null);
 
-  const styles = StyleSheet.create({
+  const styles = useMemo(() => StyleSheet.create({
     container: {
       flex: 1,
       justifyContent: 'flex-end',
@@ -170,7 +170,7 @@ const ExportReportModal = ({ visible, onClose, report, task, allReports = [] }) 
     exportText: {
       color: '#fff',
     },
-  });
+  }), [isDark, theme]);
 
   useEffect(() => {
     if (allReports && allReports.length > 0) {

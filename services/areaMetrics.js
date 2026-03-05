@@ -2,6 +2,7 @@
 // Servicio mejorado para calcular y gestionar métricas por área
 
 import { getCurrentSession } from './authFirestore';
+import { toMs } from '../utils/dateUtils';
 
 // No importamos Firebase aquí porque areaMetrics solo calcula datos locales
 // Los datos ya vienen de otras funciones que sí usan Firebase
@@ -52,12 +53,8 @@ export const calculateDetailedAreaMetrics = (tasks = [], previousTasks = []) => 
       
       // Calcular tiempo de completación
       if (task.createdAt && task.completedAt) {
-        const createdTime = task.createdAt.seconds 
-          ? task.createdAt.seconds * 1000 
-          : new Date(task.createdAt).getTime();
-        const completedTime = task.completedAt.seconds 
-          ? task.completedAt.seconds * 1000 
-          : new Date(task.completedAt).getTime();
+        const createdTime = toMs(task.createdAt);
+        const completedTime = toMs(task.completedAt);
         const timeMs = completedTime - createdTime;
         const timeDays = Math.ceil(timeMs / (1000 * 60 * 60 * 24));
         byArea[area].completionTimes.push(timeDays);
@@ -70,9 +67,7 @@ export const calculateDetailedAreaMetrics = (tasks = [], previousTasks = []) => 
 
     // Contar tareas atrasadas
     if (task.dueDate) {
-      const dueDate = task.dueDate.seconds 
-        ? task.dueDate.seconds * 1000 
-        : new Date(task.dueDate).getTime();
+      const dueDate = toMs(task.dueDate);
       const now = Date.now();
       if (dueDate < now && (status !== 'cerrada' && status !== 'completada')) {
         byArea[area].overdue++;
@@ -135,9 +130,7 @@ export const getPreviousPeriodicTasks = async (tasks, periodDays) => {
   const periodEnd = now - (periodDays - 7) * 24 * 60 * 60 * 1000; // Una semana antes
 
   return tasks.filter((task) => {
-    const taskDate = task.createdAt?.seconds 
-      ? task.createdAt.seconds * 1000 
-      : new Date(task.createdAt).getTime();
+    const taskDate = toMs(task.createdAt);
     return taskDate >= periodStart && taskDate <= periodEnd;
   });
 };
@@ -193,9 +186,7 @@ export const getAreaTaskDistribution = (tasks, areaName) => {
     }
 
     if (task.dueDate) {
-      const dueDate = task.dueDate.seconds 
-        ? task.dueDate.seconds * 1000 
-        : new Date(task.dueDate).getTime();
+      const dueDate = toMs(task.dueDate);
       if (dueDate < Date.now() && (status !== 'cerrada' && status !== 'completada')) {
         distribution.overdue++;
       }

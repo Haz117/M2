@@ -1,6 +1,6 @@
 // screens/MyAreaReportsScreen.js
 // Pantalla para que secretarios y directores vean los reportes de sus áreas
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -33,21 +33,26 @@ const MyAreaReportsScreen = ({ navigation }) => {
   const [filter, setFilter] = useState('all'); // 'all', 'mine', 'team'
   const [toastMessage, setToastMessage] = useState('');
 
+  const unsubscribeRef = React.useRef(null);
+
   useEffect(() => {
     loadData();
+    return () => {
+      if (unsubscribeRef.current) unsubscribeRef.current();
+    };
   }, []);
 
   const loadData = async () => {
     const result = await getCurrentSession();
     if (result.success && result.session) {
       setCurrentUser(result.session);
-      
+
       const userRole = result.session.role;
       const userEmail = result.session.email;
-      const userAreas = result.session.areasPermitidas || [result.session.area];
-      
-      let unsubscribe;
-      
+
+      // Limpiar suscripción anterior
+      if (unsubscribeRef.current) unsubscribeRef.current();
+
       if (userRole === 'secretario') {
         // Secretario ve todos los reportes de sus áreas
         // Combinar áreas de Firebase con mapeo oficial
@@ -58,8 +63,8 @@ const MyAreaReportsScreen = ({ navigation }) => {
           ...direccionesOficiales,
           ...areasFirebase
         ])].filter(Boolean);
-        
-        unsubscribe = subscribeToAreaReports(todasAreas, (data) => {
+
+        unsubscribeRef.current = subscribeToAreaReports(todasAreas, (data) => {
           setReports(data);
           setLoading(false);
           setRefreshing(false);
@@ -67,22 +72,18 @@ const MyAreaReportsScreen = ({ navigation }) => {
       } else if (userRole === 'director') {
         // Director ve reportes de su área específica
         const directorArea = result.session.area;
-        unsubscribe = subscribeToAreaReports([directorArea], (data) => {
+        unsubscribeRef.current = subscribeToAreaReports([directorArea], (data) => {
           setReports(data);
           setLoading(false);
           setRefreshing(false);
         });
       } else {
-        unsubscribe = subscribeToMyReports(userEmail, (data) => {
+        unsubscribeRef.current = subscribeToMyReports(userEmail, (data) => {
           setReports(data);
           setLoading(false);
           setRefreshing(false);
         });
       }
-
-      return () => {
-        if (unsubscribe) unsubscribe();
-      };
     }
   };
 
@@ -208,7 +209,7 @@ const MyAreaReportsScreen = ({ navigation }) => {
             <Text style={[styles.reportTitle, { color: isDark ? '#fff' : '#000' }]} numberOfLines={1}>
               {item.title}
             </Text>
-            {item.rating && renderStars(item.rating)}
+            {item.rating > 0 && renderStars(item.rating)}
           </View>
           {isMyReport && (
             <View style={[styles.myBadge, { backgroundColor: theme.primary }]}>
@@ -720,7 +721,7 @@ const MyAreaReportsScreen = ({ navigation }) => {
     );
   }
 
-  const filteredReports = getFilteredReports();
+  const filteredReports = useMemo(() => getFilteredReports(), [reports, filter, currentUser]);
   const userEmail = currentUser?.email?.toLowerCase().trim() || '';
   const myReports = reports.filter(r => r.createdBy?.toLowerCase().trim() === userEmail).length;
   const teamReports = reports.length - myReports;
@@ -807,6 +808,11 @@ const MyAreaReportsScreen = ({ navigation }) => {
           }
           renderItem={renderReportCard}
           contentContainerStyle={{ paddingBottom: 20 }}
+          windowSize={5}
+          maxToRenderPerBatch={5}
+          initialNumToRender={6}
+          removeClippedSubviews={true}
+          updateCellsBatchingPeriod={100}
         />
       )}
 

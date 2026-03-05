@@ -5,12 +5,14 @@
 import {
   collection,
   doc,
+  getDoc,
   onSnapshot,
   query,
   getDocs,
   where
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { toMs } from '../utils/dateUtils';
 
 const TASKS_COLLECTION = 'tasks';
 const SUBTASKS_SUBCOLLECTION = 'subtasks';
@@ -119,8 +121,8 @@ function calculateProgress(taskData, subtasks) {
   let lastActivity = null;
   if (subtasks.length > 0) {
     const sorted = [...subtasks].sort((a, b) => {
-      const aTime = a.updatedAt?.toMillis?.() || a.updatedAt || 0;
-      const bTime = b.updatedAt?.toMillis?.() || b.updatedAt || 0;
+      const aTime = toMs(a.updatedAt) || 0;
+      const bTime = toMs(b.updatedAt) || 0;
       return bTime - aTime;
     });
     lastActivity = sorted[0];
@@ -146,13 +148,11 @@ function calculateProgress(taskData, subtasks) {
 export async function getTaskProgress(taskId) {
   try {
     const taskRef = doc(db, TASKS_COLLECTION, taskId);
-    const taskSnap = await getDocs(
-      query(collection(db, TASKS_COLLECTION), where('__name__', '==', taskId))
-    );
+    const taskSnap = await getDoc(taskRef);
 
-    if (taskSnap.empty) return null;
+    if (!taskSnap.exists()) return null;
 
-    const taskData = taskSnap.docs[0].data();
+    const taskData = taskSnap.data();
 
     // Obtener subtareas
     const subtasksRef = collection(db, TASKS_COLLECTION, taskId, SUBTASKS_SUBCOLLECTION);

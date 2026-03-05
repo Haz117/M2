@@ -1,6 +1,6 @@
 // screens/AdminReportsScreen.js
 // Pantalla para ver todos los reportes de directores y secretarios
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { subscribeToAllReports, rateTaskReport, deleteTaskReport } from '../services/reportsService';
+import { toMs } from '../utils/dateUtils';
 import { getCurrentSession } from '../services/authFirestore';
 import Toast from '../components/Toast';
 
@@ -83,7 +84,7 @@ const AdminReportsScreen = ({ navigation }) => {
         key = getRoleLabel(report.createdByRole);
       } else {
         // Por fecha
-        const date = report.createdAt?.toDate?.() || new Date(report.createdAt);
+        const date = new Date(toMs(report.createdAt));
         key = date.toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
       }
 
@@ -200,7 +201,7 @@ const AdminReportsScreen = ({ navigation }) => {
           <Text style={[styles.reportTitle, { color: isDark ? '#fff' : '#000' }]} numberOfLines={1}>
             {item.title}
           </Text>
-          {item.rating && renderStars(item.rating)}
+          {item.rating > 0 && renderStars(item.rating)}
         </View>
         <View style={[styles.roleBadge, { backgroundColor: getRoleBadgeColor(item.createdByRole) }]}>
           <Text style={styles.roleBadgeText}>
@@ -765,12 +766,15 @@ const AdminReportsScreen = ({ navigation }) => {
     );
   }
 
-  const groupedReports = getGroupedReports();
-  const pendingCount = reports.filter(r => !r.rating).length;
-  const ratedCount = reports.filter(r => r.rating).length;
-  const avgRating = ratedCount > 0 
-    ? (reports.filter(r => r.rating).reduce((sum, r) => sum + r.rating, 0) / ratedCount).toFixed(1)
-    : 0;
+  const groupedReports = useMemo(() => getGroupedReports(), [reports, filter, groupBy]);
+  const { pendingCount, ratedCount, avgRating } = useMemo(() => {
+    const rated = reports.filter(r => r.rating);
+    const pending = reports.filter(r => !r.rating);
+    const avg = rated.length > 0
+      ? (rated.reduce((sum, r) => sum + r.rating, 0) / rated.length).toFixed(1)
+      : 0;
+    return { pendingCount: pending.length, ratedCount: rated.length, avgRating: avg };
+  }, [reports]);
 
   return (
     <View style={styles.container}>
@@ -852,6 +856,11 @@ const AdminReportsScreen = ({ navigation }) => {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
+          windowSize={5}
+          maxToRenderPerBatch={4}
+          initialNumToRender={5}
+          removeClippedSubviews={true}
+          updateCellsBatchingPeriod={100}
           renderItem={({ item: [groupName, groupReports] }) => (
             <View>
               {renderGroupHeader(groupName, groupReports.length)}

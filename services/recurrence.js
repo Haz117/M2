@@ -48,6 +48,7 @@ export async function processRecurringTasks() {
     
     for (const taskDoc of snapshot.docs) {
       const task = taskDoc.data();
+      if (!task.dueAt || !task.recurrencePattern) continue;
       const lastCreated = task.lastRecurrenceCreated || task.createdAt;
       const nextDueDate = getNextRecurrenceDate(task.dueAt, task.recurrencePattern);
       

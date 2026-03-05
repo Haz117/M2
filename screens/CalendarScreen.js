@@ -12,7 +12,6 @@ import CircularProgress from '../components/CircularProgress';
 import PulsingDot from '../components/PulsingDot';
 import AnimatedBadge from '../components/AnimatedBadge';
 import RippleButton from '../components/RippleButton';
-import { subscribeToTasks } from '../services/tasks';
 import { useTasks } from '../contexts/TasksContext';
 import { hapticLight, hapticMedium, hapticSuccess, hapticWarning } from '../utils/haptics';
 import { useTheme } from '../contexts/ThemeContext';
@@ -137,7 +136,7 @@ export default function CalendarScreen({ navigation }) {
     
     tasks.forEach(task => {
       if (task.dueAt) {
-        const date = new Date(task.dueAt);
+        const date = new Date(toMs(task.dueAt));
         const dateKey = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
         
         if (!grouped[dateKey]) {
@@ -156,7 +155,7 @@ export default function CalendarScreen({ navigation }) {
     const month = currentDate.getMonth();
     const monthTasks = tasks.filter(task => {
       if (!task.dueAt) return false;
-      const taskDate = new Date(task.dueAt);
+      const taskDate = new Date(toMs(task.dueAt));
       return taskDate.getFullYear() === year && taskDate.getMonth() === month;
     });
     
@@ -168,7 +167,7 @@ export default function CalendarScreen({ navigation }) {
     
     // Días con tareas
     const daysWithTasks = new Set(monthTasks.map(t => {
-      const d = new Date(t.dueAt);
+      const d = new Date(toMs(t.dueAt));
       return `${d.getDate()}`;
     })).size;
     
@@ -398,7 +397,7 @@ export default function CalendarScreen({ navigation }) {
                   <View style={styles.modalTaskMetaItem}>
                     <Ionicons name="time-outline" size={13} color={theme.textSecondary} />
                     <Text style={[styles.modalTaskMetaText, { color: theme.textSecondary }]}>
-                      {new Date(task.dueAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(toMs(task.dueAt)).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
                     </Text>
                   </View>
                 </View>

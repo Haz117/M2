@@ -23,6 +23,7 @@ import {
 import { db } from '../firebase';
 import { getCurrentSession } from './authFirestore';
 import { notifySubtaskCompletion } from './subtaskNotifications';
+import { toMs } from '../utils/dateUtils';
 
 const TASKS_COLLECTION = 'tasks';
 const SUBTASKS_SUBCOLLECTION = 'subtasks';
@@ -474,9 +475,9 @@ export function subscribeToSubtasks(taskId, callback) {
             const subtasks = snapshot.docs.map(doc => ({
               id: doc.id,
               ...doc.data(),
-              createdAt: doc.data().createdAt?.toMillis?.() || doc.data().createdAt,
-              completedAt: doc.data().completedAt?.toMillis?.() || doc.data().completedAt,
-              updatedAt: doc.data().updatedAt?.toMillis?.() || doc.data().updatedAt
+              createdAt: toMs(doc.data().createdAt),
+              completedAt: toMs(doc.data().completedAt),
+              updatedAt: toMs(doc.data().updatedAt)
             }));
             
             callback(subtasks);
@@ -599,9 +600,9 @@ export async function subscribeToTasksMultiple(callback) {
       let tasks = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-        createdAt: doc.data().createdAt?.toMillis?.() || doc.data().createdAt,
-        updatedAt: doc.data().updatedAt?.toMillis?.() || doc.data().updatedAt,
-        dueAt: doc.data().dueAt?.toMillis?.() || doc.data().dueAt
+        createdAt: toMs(doc.data().createdAt),
+        updatedAt: toMs(doc.data().updatedAt),
+        dueAt: toMs(doc.data().dueAt)
       }));
       
       // Filtrar según rol

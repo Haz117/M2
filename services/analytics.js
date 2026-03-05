@@ -2,7 +2,7 @@
 // Servicio de análisis y estadísticas de tareas
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
-import { toMs } from '../utils/dateUtils';
+import { toMs, diffMs, isBefore } from '../utils/dateUtils';
 
 // ✅ OPTIMIZACIÓN: Cache simple con TTL
 const analyticsCache = new Map();
@@ -96,13 +96,7 @@ export const getGeneralMetrics = async (userId, userRole) => {
     const completedTasks = tasks.filter(t => t.status === 'cerrada' && t.completedAt && t.createdAt);
     const avgCompletionTime = completedTasks.length > 0
       ? completedTasks.reduce((sum, t) => {
-          const createdTime = t.createdAt.seconds 
-            ? t.createdAt.seconds * 1000 
-            : (typeof t.createdAt === 'number' ? t.createdAt : new Date(t.createdAt).getTime());
-          const completedTime = t.completedAt.seconds 
-            ? t.completedAt.seconds * 1000 
-            : (typeof t.completedAt === 'number' ? t.completedAt : new Date(t.completedAt).getTime());
-          return sum + (completedTime - createdTime);
+          return sum + diffMs(t.completedAt, t.createdAt);
         }, 0) / completedTasks.length
       : 0;
 
@@ -114,19 +108,19 @@ export const getGeneralMetrics = async (userId, userRole) => {
     };
 
     // Tareas creadas en periodos
-    const createdToday = tasks.filter(t => t.createdAt >= today).length;
-    const createdThisWeek = tasks.filter(t => t.createdAt >= weekAgo).length;
-    const createdThisMonth = tasks.filter(t => t.createdAt >= monthAgo).length;
+    const createdToday = tasks.filter(t => toMs(t.createdAt) >= today).length;
+    const createdThisWeek = tasks.filter(t => toMs(t.createdAt) >= weekAgo).length;
+    const createdThisMonth = tasks.filter(t => toMs(t.createdAt) >= monthAgo).length;
 
     // Tareas completadas en periodos
     const completedToday = tasks.filter(t => 
-      t.status === 'cerrada' && t.completedAt >= today
+      t.status === 'cerrada' && toMs(t.completedAt) >= today
     ).length;
     const completedThisWeek = tasks.filter(t => 
-      t.status === 'cerrada' && t.completedAt >= weekAgo
+      t.status === 'cerrada' && toMs(t.completedAt) >= weekAgo
     ).length;
     const completedThisMonth = tasks.filter(t => 
-      t.status === 'cerrada' && t.completedAt >= monthAgo
+      t.status === 'cerrada' && toMs(t.completedAt) >= monthAgo
     ).length;
 
     // Tasa de completitud
@@ -201,11 +195,11 @@ export const getTrendData = async (userId, userRole) => {
       nextDate.setDate(nextDate.getDate() + 1);
 
       const created = tasks.filter(t => 
-        t.createdAt >= date.getTime() && t.createdAt < nextDate.getTime()
+        toMs(t.createdAt) >= date.getTime() && toMs(t.createdAt) < nextDate.getTime()
       ).length;
 
       const completed = tasks.filter(t => 
-        t.completedAt >= date.getTime() && t.completedAt < nextDate.getTime()
+        toMs(t.completedAt) >= date.getTime() && toMs(t.completedAt) < nextDate.getTime()
       ).length;
 
       days.push({
@@ -251,13 +245,7 @@ export const getAreaStats = async () => {
       if (task.status === 'cerrada') {
         areas[area].completed++;
         if (task.completedAt && task.createdAt) {
-          const createdTime = task.createdAt.seconds 
-            ? task.createdAt.seconds * 1000 
-            : (typeof task.createdAt === 'number' ? task.createdAt : new Date(task.createdAt).getTime());
-          const completedTime = task.completedAt.seconds 
-            ? task.completedAt.seconds * 1000 
-            : (typeof task.completedAt === 'number' ? task.completedAt : new Date(task.completedAt).getTime());
-          areas[area].avgCompletionTime += (completedTime - createdTime);
+          areas[area].avgCompletionTime += diffMs(task.completedAt, task.createdAt);
         }
       } else {
         areas[area].pending++;
@@ -319,21 +307,15 @@ export const getTopPerformers = async () => {
         if (task.status === 'cerrada') {
           users[user].completed++;
           
-          if (task.completedAt >= weekAgo) {
+          if (toMs(task.completedAt) >= weekAgo) {
             users[user].completedThisWeek++;
           }
 
           if (task.completedAt && task.createdAt) {
-            const createdTime = task.createdAt.seconds 
-              ? task.createdAt.seconds * 1000 
-              : (typeof task.createdAt === 'number' ? task.createdAt : new Date(task.createdAt).getTime());
-            const completedTime = task.completedAt.seconds 
-              ? task.completedAt.seconds * 1000 
-              : (typeof task.completedAt === 'number' ? task.completedAt : new Date(task.completedAt).getTime());
-            users[user].avgCompletionTime += (completedTime - createdTime);
+            users[user].avgCompletionTime += diffMs(task.completedAt, task.createdAt);
           }
 
-          if (task.dueAt && task.completedAt <= task.dueAt) {
+          if (task.dueAt && task.completedAt && toMs(task.completedAt) <= toMs(task.dueAt)) {
             users[user].onTime++;
           }
         }
@@ -417,17 +399,17 @@ export const getSecretarioMetrics = async () => {
         t.createdBy?.toLowerCase().trim() === secEmail || t.createdBy === secId
       );
 
-      const tasksCreatedThisWeek = tasksCreated.filter(t => t.createdAt >= weekAgo);
-      const tasksCreatedThisMonth = tasksCreated.filter(t => t.createdAt >= monthAgo);
+      const tasksCreatedThisWeek = tasksCreated.filter(t => toMs(t.createdAt) >= weekAgo);
+      const tasksCreatedThisMonth = tasksCreated.filter(t => toMs(t.createdAt) >= monthAgo);
 
       // Tareas completadas de las que creó
       const tasksCompleted = tasksCreated.filter(t => t.status === 'cerrada');
-      const tasksCompletedThisWeek = tasksCompleted.filter(t => t.completedAt >= weekAgo);
-      const tasksCompletedThisMonth = tasksCompleted.filter(t => t.completedAt >= monthAgo);
+      const tasksCompletedThisWeek = tasksCompleted.filter(t => toMs(t.completedAt) >= weekAgo);
+      const tasksCompletedThisMonth = tasksCompleted.filter(t => toMs(t.completedAt) >= monthAgo);
 
       // Tareas pendientes y vencidas
       const tasksPending = tasksCreated.filter(t => t.status !== 'cerrada');
-      const tasksOverdue = tasksPending.filter(t => t.dueAt && t.dueAt < now);
+      const tasksOverdue = tasksPending.filter(t => t.dueAt && toMs(t.dueAt) < now);
 
       // Tareas en proceso y en revisión
       const tasksInProgress = tasksCreated.filter(t => t.status === 'en_proceso' || t.status === 'en-progreso' || t.status === 'en progreso');
@@ -437,19 +419,13 @@ export const getSecretarioMetrics = async () => {
       const completedWithTimes = tasksCompleted.filter(t => t.completedAt && t.createdAt);
       const avgCompletionTime = completedWithTimes.length > 0
         ? completedWithTimes.reduce((sum, t) => {
-            const createdTime = t.createdAt.seconds 
-              ? t.createdAt.seconds * 1000 
-              : (typeof t.createdAt === 'number' ? t.createdAt : new Date(t.createdAt).getTime());
-            const completedTime = t.completedAt.seconds 
-              ? t.completedAt.seconds * 1000 
-              : (typeof t.completedAt === 'number' ? t.completedAt : new Date(t.completedAt).getTime());
-            return sum + (completedTime - createdTime);
+            return sum + diffMs(t.completedAt, t.createdAt);
           }, 0) / completedWithTimes.length
         : 0;
 
       // Tareas completadas a tiempo
       const onTimeCompleted = tasksCompleted.filter(t => 
-        t.dueAt && t.completedAt && t.completedAt <= t.dueAt
+        t.dueAt && t.completedAt && toMs(t.completedAt) <= toMs(t.dueAt)
       ).length;
 
       // Tasa de efectividad
@@ -556,13 +532,13 @@ export const getSecretarioActivitySummary = async (secretarioEmail) => {
       nextDate.setDate(nextDate.getDate() + 1);
 
       const created = secretarioTasks.filter(t => 
-        t.createdAt >= date.getTime() && t.createdAt < nextDate.getTime()
+        toMs(t.createdAt) >= date.getTime() && toMs(t.createdAt) < nextDate.getTime()
       ).length;
 
       const completed = secretarioTasks.filter(t => 
         t.status === 'cerrada' && 
-        t.completedAt >= date.getTime() && 
-        t.completedAt < nextDate.getTime()
+        toMs(t.completedAt) >= date.getTime() && 
+        toMs(t.completedAt) < nextDate.getTime()
       ).length;
 
       days.push({

@@ -3,7 +3,11 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const ThemeContext = createContext();
+// Usar globalThis para que React.lazy() bundles compartan la misma instancia de contexto
+if (!globalThis.__THEME_CONTEXT__) {
+  globalThis.__THEME_CONTEXT__ = createContext();
+}
+const ThemeContext = globalThis.__THEME_CONTEXT__;
 
 export const useTheme = () => {
   const context = useContext(ThemeContext);

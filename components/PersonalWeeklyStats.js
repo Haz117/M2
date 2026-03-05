@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import AnimatedNumber from './AnimatedNumber';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { toMs } from '../utils/dateUtils';
 
 // Habilitar LayoutAnimation en Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -109,16 +110,16 @@ export default function PersonalWeeklyStats({ tasks = [], userId, userName = 'tu
     
     // Tareas completadas específicamente esta semana (para el cálculo de productividad)
     const completedThisWeek = completed.filter(t => {
-      const completedAt = t.completedAt ? new Date(t.completedAt) : 
-                         t.updatedAt ? new Date(t.updatedAt) : null;
+      const completedAt = t.completedAt ? new Date(toMs(t.completedAt)) : 
+                         t.updatedAt ? new Date(toMs(t.updatedAt)) : null;
       return completedAt && completedAt >= startOfWeek && completedAt < endOfWeek;
     });
     
     // Tareas a tiempo vs tarde
     const onTime = completedThisWeek.filter(t => {
       if (!t.dueAt) return true;
-      const completedAt = t.completedAt ? new Date(t.completedAt) : new Date(t.updatedAt);
-      return completedAt <= new Date(t.dueAt);
+      const completedAt = t.completedAt ? new Date(toMs(t.completedAt)) : new Date(toMs(t.updatedAt));
+      return completedAt <= new Date(toMs(t.dueAt));
     });
     
     // Tareas pendientes (activas)
@@ -131,13 +132,13 @@ export default function PersonalWeeklyStats({ tasks = [], userId, userName = 'tu
     // Tareas vencidas
     const overdue = pending.filter(t => {
       if (!t.dueAt) return false;
-      return new Date(t.dueAt) < now;
+      return new Date(toMs(t.dueAt)) < now;
     });
     
     // Tareas próximas (próximos 3 días)
     const upcoming = pending.filter(t => {
       if (!t.dueAt) return false;
-      const dueDate = new Date(t.dueAt);
+      const dueDate = new Date(toMs(t.dueAt));
       const in3Days = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
       return dueDate >= now && dueDate <= in3Days;
     });
@@ -147,7 +148,7 @@ export default function PersonalWeeklyStats({ tasks = [], userId, userName = 'tu
     completedThisWeek.forEach(t => {
       const date = (t.completedAt || t.updatedAt);
       if (date) {
-        const day = new Date(date).toDateString();
+        const day = new Date(toMs(date)).toDateString();
         dailyCompletions[day] = (dailyCompletions[day] || 0) + 1;
       }
     });
@@ -204,7 +205,7 @@ export default function PersonalWeeklyStats({ tasks = [], userId, userName = 'tu
     };
   }, [tasks, userId, userRole]);
 
-  const styles = createStyles(theme, isDark);
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
 
   // Obtener día de la semana
   const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];

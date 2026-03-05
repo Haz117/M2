@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -276,33 +276,35 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
     },
   });
 
+  const unsubReportsRef = useRef(null);
+  const unsubActivityRef = useRef(null);
+
   useEffect(() => {
+    let mounted = true;
     const loadData = async () => {
       try {
         const result = await getCurrentSession();
-        if (result.success && result.session) {
+        if (result.success && result.session && mounted) {
           setCurrentUser(result.session);
         }
+        if (!mounted) return;
 
-        // Subscribe to reports
-        const unsubReports = subscribeToTaskReports(taskId, setReports);
+        unsubReportsRef.current = subscribeToTaskReports(taskId, setReports);
+        unsubActivityRef.current = subscribeToTaskActivity(taskId, setActivities);
 
-        // Subscribe to activities
-        const unsubActivity = subscribeToTaskActivity(taskId, setActivities);
-
-        setLoading(false);
-
-        return () => {
-          unsubReports?.();
-          unsubActivity?.();
-        };
+        if (mounted) setLoading(false);
       } catch (error) {
         console.error('Error loading data:', error);
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
     loadData();
+    return () => {
+      mounted = false;
+      unsubReportsRef.current?.();
+      unsubActivityRef.current?.();
+    };
   }, [taskId]);
 
   const handleRateReport = async (reportId, rating) => {
@@ -371,7 +373,7 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
           <View style={styles.reportMeta}>
             <Ionicons name="time-outline" size={12} color={isDark ? '#888' : '#666'} />
             <Text style={styles.reportDate}>{formatDate(item.createdAt)}</Text>
-            {item.rating && (
+            {item.rating > 0 && (
               <View style={styles.ratingBadge}>
                 <Ionicons name="star" size={12} color="#FFD700" />
                 <Text style={styles.ratingText}>{item.rating}/5</Text>

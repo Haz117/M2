@@ -1,6 +1,6 @@
 // components/ProjectCard.js
 // Tarjeta de proyecto con progreso en tiempo real
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,7 @@ import { subscribeToTaskProgress } from '../services/taskProgress';
 
 const { width } = Dimensions.get('window');
 
-export default function ProjectCard({
+const ProjectCard = memo(function ProjectCard({
   task,
   onPress,
   showSubtaskCount = true,
@@ -164,7 +164,9 @@ export default function ProjectCard({
       </LinearGradient>
     </TouchableOpacity>
   );
-}
+});
+
+export default ProjectCard;
 
 const styles = StyleSheet.create({
   container: {

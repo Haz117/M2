@@ -248,7 +248,7 @@ export default function DashboardScreen({ navigation }) {
     
     completedTasks.forEach(task => {
       if (task.dueAt && task.completedAt) {
-        if (task.completedAt <= task.dueAt) {
+        if (toMs(task.completedAt) <= toMs(task.dueAt)) {
           onTime++;
         } else {
           Late++;

@@ -3,6 +3,7 @@
 // Requiere configurar SendGrid API Key en variables de entorno
 
 const SENDGRID_API_KEY = 'TU_API_KEY_DE_SENDGRID'; // Cambiar por tu key
+import { toMs } from '../utils/dateUtils';
 const FROM_EMAIL = 'noreply@todoapp.com'; // Cambiar por tu email verificado
 
 /**
@@ -109,7 +110,7 @@ export async function notifyTaskAssigned(task, assignedTo) {
         <p style="margin: 10px 0;">${task.description || 'Sin descripción'}</p>
         <p style="margin: 5px 0;"><strong>Área:</strong> ${task.area || 'Sin especificar'}</p>
         <p style="margin: 5px 0;"><strong>Prioridad:</strong> <span style="color: ${task.priority === 'alta' ? '#EF4444' : task.priority === 'media' ? '#F59E0B' : '#10B981'}; font-weight: 600;">${(task.priority || 'normal').toUpperCase()}</span></p>
-        <p style="margin: 5px 0;"><strong>Vence:</strong> ${task.dueAt ? new Date(task.dueAt).toLocaleString('es-ES') : 'Sin fecha'}</p>
+        <p style="margin: 5px 0;"><strong>Vence:</strong> ${task.dueAt ? new Date(toMs(task.dueAt)).toLocaleString('es-ES') : 'Sin fecha'}</p>
       </div>
     `;
     
@@ -142,7 +143,7 @@ export async function notifyTaskAssigned(task, assignedTo) {
  * Enviar email cuando una tarea está por vencer (24h)
  */
 export async function notifyTaskDueSoon(task, assignedTo) {
-  const dueAtMs = task.dueAt?.seconds ? task.dueAt.seconds * 1000 : (typeof task.dueAt === 'number' ? task.dueAt : new Date(task.dueAt).getTime());
+  const dueAtMs = toMs(task.dueAt);
   const hoursRemaining = Math.floor((dueAtMs - Date.now()) / (1000 * 60 * 60));
   
   const content = `

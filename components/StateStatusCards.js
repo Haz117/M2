@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   stateCardWrapperDesktop: {
-    maxWidth: 'calc(25% - 10px)',
+    maxWidth: '25%',
   },
   stateCard: {
     borderRadius: 14,

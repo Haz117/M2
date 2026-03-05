@@ -1,4 +1,4 @@
-import { collection, addDoc, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, getDoc, addDoc, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { getCurrentSession } from './authFirestore';
 
@@ -119,13 +119,8 @@ export async function verifySignature(signatureId) {
   try {
     // Por ahora solo verificamos que existe
     // En el futuro se puede agregar verificación criptográfica
-    const q = query(
-      collection(db, 'signatures'),
-      where('__name__', '==', signatureId)
-    );
-
-    const snapshot = await getDocs(q);
-    return !snapshot.empty && snapshot.docs[0].data().verified === true;
+    const sigSnap = await getDoc(doc(db, 'signatures', signatureId));
+    return sigSnap.exists() && sigSnap.data().verified === true;
   } catch (error) {
     return false;
   }

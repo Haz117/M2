@@ -6,7 +6,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { db } from '../firebase';
-import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, getDocs, deleteDoc, query, where, serverTimestamp } from 'firebase/firestore';
 import { getCurrentSession } from './authFirestore';
 
 /**
@@ -286,9 +286,6 @@ export const notifyReportRated = async (reportId, taskId, rating, submitterId, r
  */
 export const cleanupExpiredTokens = async () => {
   try {
-    const db = require('../firebase').db;
-    const { doc, collection, query, where, getDocs, deleteDoc } = require('firebase/firestore');
-
     const now = new Date();
     const q = query(
       collection(db, 'user_push_tokens'),
@@ -298,10 +295,10 @@ export const cleanupExpiredTokens = async () => {
     const snapshot = await getDocs(q);
     let deleted = 0;
 
-    snapshot.forEach(async (docSnapshot) => {
+    for (const docSnapshot of snapshot.docs) {
       await deleteDoc(doc(db, 'user_push_tokens', docSnapshot.id));
       deleted++;
-    });
+    }
 
     console.log(`Cleaned up ${deleted} expired tokens`);
     return deleted;

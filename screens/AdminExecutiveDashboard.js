@@ -27,6 +27,7 @@ import ProgressBar from '../components/ProgressBar';
 import Avatar from '../components/Avatar';
 import TrafficLightDashboard from '../components/TrafficLightDashboard';
 import HelpButton from '../components/HelpButton';
+import { toMs } from '../utils/dateUtils';
 
 const { width } = Dimensions.get('window');
 const chartWidth = Math.min(width - 48, 500);
@@ -64,14 +65,14 @@ export default function AdminExecutiveDashboard({ navigation }) {
     const completed = tasks.filter(t => t.status === 'completada' || t.status === 'cerrada');
     const overdue = tasks.filter(t => {
       if (t.status === 'completada' || t.status === 'cerrada') return false;
-      const dueDate = t.dueAt ? new Date(t.dueAt) : null;
+      const dueDate = t.dueAt ? new Date(toMs(t.dueAt)) : null;
       return dueDate && dueDate < now;
     });
     const coordination = tasks.filter(t => t.isCoordinationTask);
     
     const completedOnTime = completed.filter(t => {
       if (!t.dueAt || !t.completedAt) return true;
-      return new Date(t.completedAt) <= new Date(t.dueAt);
+      return toMs(t.completedAt) <= toMs(t.dueAt);
     });
     
     return {
@@ -129,12 +130,12 @@ export default function AdminExecutiveDashboard({ navigation }) {
       
       const completedInPeriod = tasks.filter(t => {
         if (t.status !== 'completada' && t.status !== 'cerrada') return false;
-        const completedAt = t.completedAt ? new Date(t.completedAt) : null;
+        const completedAt = t.completedAt ? new Date(toMs(t.completedAt)) : null;
         return completedAt && completedAt >= startDate && completedAt <= endDate;
       });
       
       const createdInPeriod = tasks.filter(t => {
-        const createdAt = t.createdAt ? new Date(t.createdAt) : null;
+        const createdAt = t.createdAt ? new Date(toMs(t.createdAt)) : null;
         return createdAt && createdAt >= startDate && createdAt <= endDate;
       });
       
@@ -157,13 +158,13 @@ export default function AdminExecutiveDashboard({ navigation }) {
     
     const thisMonthCompleted = tasks.filter(t => {
       if (t.status !== 'completada' && t.status !== 'cerrada') return false;
-      const completedAt = t.completedAt ? new Date(t.completedAt) : null;
+      const completedAt = t.completedAt ? new Date(toMs(t.completedAt)) : null;
       return completedAt && completedAt >= thisMonthStart;
     });
     
     const lastMonthCompleted = tasks.filter(t => {
       if (t.status !== 'completada' && t.status !== 'cerrada') return false;
-      const completedAt = t.completedAt ? new Date(t.completedAt) : null;
+      const completedAt = t.completedAt ? new Date(toMs(t.completedAt)) : null;
       return completedAt && completedAt >= lastMonthStart && completedAt <= lastMonthEnd;
     });
     
@@ -196,7 +197,7 @@ export default function AdminExecutiveDashboard({ navigation }) {
       const pending = userTasks.filter(t => t.status === 'pendiente');
       const overdue = userTasks.filter(t => {
         if (t.status === 'completada' || t.status === 'cerrada') return false;
-        const dueDate = t.dueAt ? new Date(t.dueAt) : null;
+        const dueDate = t.dueAt ? new Date(toMs(t.dueAt)) : null;
         return dueDate && dueDate < now;
       });
       
@@ -237,7 +238,7 @@ export default function AdminExecutiveDashboard({ navigation }) {
       const secCompleted = secTasks.filter(t => t.status === 'completada' || t.status === 'cerrada');
       const secOverdue = secTasks.filter(t => {
         if (t.status === 'completada' || t.status === 'cerrada') return false;
-        const dueDate = t.dueAt ? new Date(t.dueAt) : null;
+        const dueDate = t.dueAt ? new Date(toMs(t.dueAt)) : null;
         return dueDate && dueDate < now;
       });
       
@@ -261,14 +262,20 @@ export default function AdminExecutiveDashboard({ navigation }) {
   useEffect(() => {
     loadInitialData();
     
+    let mounted = true;
     let unsubscribeTasks = null;
-    
+
     const setupTasksSubscription = async () => {
-      unsubscribeTasks = await subscribeToTasks((updatedTasks) => {
+      const unsub = await subscribeToTasks((updatedTasks) => {
         setTasks(updatedTasks);
       });
+      if (mounted) {
+        unsubscribeTasks = unsub;
+      } else {
+        unsub?.();
+      }
     };
-    
+
     setupTasksSubscription();
 
     const usersRef = collection(db, 'users');
@@ -283,6 +290,7 @@ export default function AdminExecutiveDashboard({ navigation }) {
     ]).start();
 
     return () => {
+      mounted = false;
       if (typeof unsubscribeTasks === 'function') unsubscribeTasks();
       if (unsubscribeUsers) unsubscribeUsers();
     };

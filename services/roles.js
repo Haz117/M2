@@ -198,22 +198,52 @@ export const getTitularesByAreas = async (areas) => {
     const snapshot = await getDocs(q);
     const allUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
+    // Helper para normalizar nombres de área (quitar prefijos)
+    const normalizeArea = (name) => (name || '').trim()
+      .replace(/^(Secretaría|Dirección|Oficialía|Oficial)\s+(Técnica\s+)?(de|del|General)\s*/i, '')
+      .replace(/^(Secretaría|Dirección)\s+/i, '')
+      .trim().toLowerCase();
+    
+    // Helper para comparar dos nombres de área
+    const areasMatch = (a, b) => {
+      if (!a || !b) return false;
+      const aTrimmed = a.trim();
+      const bTrimmed = b.trim();
+      if (aTrimmed === bTrimmed) return true;
+      if (aTrimmed.length > 3 && bTrimmed.length > 3) {
+        if (aTrimmed.includes(bTrimmed) || bTrimmed.includes(aTrimmed)) return true;
+      }
+      const aNorm = normalizeArea(aTrimmed);
+      const bNorm = normalizeArea(bTrimmed);
+      if (aNorm && bNorm && aNorm.length > 3 && bNorm.length > 3) {
+        if (aNorm === bNorm || aNorm.includes(bNorm) || bNorm.includes(aNorm)) return true;
+      }
+      return false;
+    };
+
     // Filtrar usuarios que son titulares de las áreas seleccionadas
     const titulares = allUsers.filter(user => {
       // Solo considerar directores y secretarios
       const isTitular = ['director', 'secretario'].includes(user.role);
       if (!isTitular) return false;
       
-      // Verificar si el área del usuario coincide con alguna de las áreas seleccionadas
-      const userArea = user.area || user.department || '';
+      // Campos del usuario para matching
+      const userArea = (user.area || user.department || '').trim();
       const userDirecciones = user.direcciones || [];
+      const userAreasPermitidas = user.areasPermitidas || [];
       
       return areas.some(area => {
-        // Coincidencia directa con el área del usuario
-        if (userArea === area) return true;
+        const areaTrimmed = (area || '').trim();
+        if (!areaTrimmed) return false;
         
-        // Si el usuario tiene direcciones a cargo (secretarios)
-        if (userDirecciones.includes(area)) return true;
+        // 1. Coincidencia con el área principal del usuario
+        if (areasMatch(userArea, areaTrimmed)) return true;
+        
+        // 2. Coincidencia con areasPermitidas (campo clave para directores)
+        if (userAreasPermitidas.some(ap => areasMatch(ap, areaTrimmed))) return true;
+        
+        // 3. Coincidencia con direcciones a cargo (secretarios)
+        if (userDirecciones.some(dir => areasMatch(dir, areaTrimmed))) return true;
         
         return false;
       });

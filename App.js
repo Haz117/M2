@@ -59,7 +59,6 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { startAutoCacheCleanup, stopAutoCacheCleanup } from './utils/cacheManager';
 import * as productionLogger from './utils/productionLogger';
 import { startNetworkMonitoring, stopNetworkMonitoring } from './utils/networkMonitor';
-import networkMonitor from './utils/networkMonitor';
 
 // ✅ OPTIMIZACIÓN: Performance Monitoring
 if (Platform.OS === 'web') {
@@ -102,6 +101,7 @@ function MainTabs({ onLogout }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [overdueCount, setOverdueCount] = useState(0);
   const [urgentCount, setUrgentCount] = useState(0); // 🔔 Tareas urgentes (vencidas + próximas <24h)
+  const unsubPushRef = useRef(null);
 
   // Obtener sesión actual solo una vez al montar
   useEffect(() => {
@@ -112,16 +112,15 @@ function MainTabs({ onLogout }) {
         // Inicializar notificaciones locales
         const { configureNotifications } = require('./services/notificationsAdvanced');
         configureNotifications().catch(console.error);
-        
+
         // Registrar push notification token para FCM
         const { registerPushToken, setupPushNotificationListener } = require('./services/pushNotifications');
         registerPushToken(result.session.uid).catch((err) => {
           console.warn('Push token registration skipped (non-critical):', err.message);
         });
-        
+
         // Setup push notification listener
-        const unsubPush = setupPushNotificationListener((notification) => {
-          console.log('Push notification received:', notification);
+        unsubPushRef.current = setupPushNotificationListener((notification) => {
           // Toast de notificación
           Toast.show({
             type: 'success',
@@ -130,58 +129,60 @@ function MainTabs({ onLogout }) {
             position: 'top'
           });
         });
-        
-        return () => unsubPush?.();
       }
     });
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+      unsubPushRef.current?.();
+    };
   }, []);
 
   // Suscribirse a tareas solo cuando currentUser esté disponible
+  const unsubscribeTasksRef = useRef(null);
   useEffect(() => {
     if (!currentUser) return;
 
     let mounted = true;
     const { subscribeToTasks } = require('./services/tasks');
-    
-    const unsubscribe = subscribeToTasks((tasks) => {
+
+    subscribeToTasks((tasks) => {
       if (!mounted) return;
-      
+
       let userOverdue = [];
       const now = Date.now();
       const tomorrow = now + (24 * 60 * 60 * 1000); // 24 horas
-      
+
       if (currentUser.role === 'admin') {
         userOverdue = tasks.filter(t => toMs(t.dueAt) < now && t.status !== 'cerrada');
       } else {
-        userOverdue = tasks.filter(t => 
-          toMs(t.dueAt) < now && 
-          t.status !== 'cerrada' && 
+        userOverdue = tasks.filter(t =>
+          toMs(t.dueAt) < now &&
+          t.status !== 'cerrada' &&
           t.assignedTo === currentUser.email
         );
       }
-      
+
       // 🔔 Calcular tareas urgentes (vencidas + próximas a vencer en <24h)
       let urgentTasks = [];
       if (currentUser.role === 'admin') {
-        urgentTasks = tasks.filter(t => 
-          t.status !== 'cerrada' && 
+        urgentTasks = tasks.filter(t =>
+          t.status !== 'cerrada' &&
           toMs(t.dueAt) < tomorrow
         );
       } else {
-        urgentTasks = tasks.filter(t => 
-          t.status !== 'cerrada' && 
+        urgentTasks = tasks.filter(t =>
+          t.status !== 'cerrada' &&
           toMs(t.dueAt) < tomorrow &&
-          (Array.isArray(t.assignedTo) 
+          (Array.isArray(t.assignedTo)
             ? t.assignedTo.some(e => e?.toLowerCase().trim() === currentUser.email?.toLowerCase().trim())
             : (t.assignedTo?.toLowerCase().trim() === currentUser.email?.toLowerCase().trim()))
         );
       }
-      
+
       const newCount = userOverdue.length;
       setOverdueCount(newCount);
       setUrgentCount(urgentTasks.length);
-      
+
       // Actualizar badge de app (solo si cambió)
       try {
         const Notifications = require('expo-notifications');
@@ -189,13 +190,18 @@ function MainTabs({ onLogout }) {
       } catch (error) {
         // Ignorar si no está disponible
       }
-    });
+    }).then(unsub => {
+      if (mounted) {
+        unsubscribeTasksRef.current = unsub;
+      } else {
+        unsub?.();
+      }
+    }).catch(() => {});
 
     return () => {
       mounted = false;
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
-      }
+      unsubscribeTasksRef.current?.();
+      unsubscribeTasksRef.current = null;
     };
   }, [currentUser?.email, currentUser?.role]);
 

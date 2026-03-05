@@ -11,7 +11,7 @@ import { db } from '../firebase';
 import TaskItem from '../components/TaskItem';
 import EmptyState from '../components/EmptyState';
 import ShimmerEffect from '../components/ShimmerEffect';
-import { subscribeToTasks, updateTask, deleteTask as deleteTaskFirebase } from '../services/tasks';
+import { updateTask, deleteTask as deleteTaskFirebase } from '../services/tasks';
 import { scheduleNotificationForTask, cancelNotification } from '../services/notifications';
 import { getCurrentSession } from '../services/authFirestore';
 import { hapticMedium, hapticLight } from '../utils/haptics';
@@ -23,6 +23,7 @@ import { scheduleOverdueTasksNotification, scheduleMultipleDailyOverdueNotificat
 import OverdueAlert from '../components/OverdueAlert';
 import { useResponsive } from '../utils/responsive';
 import { SPACING, TYPOGRAPHY, RADIUS, SHADOWS, MAX_WIDTHS } from '../theme/tokens';
+import { isOverdue, toMs } from '../utils/dateUtils';
 import HelpButton from '../components/HelpButton';
 import { getDireccionesBySecretaria } from '../config/areas';
 
@@ -211,8 +212,8 @@ export default function MyInboxScreen({ navigation }) {
         // Ordenar por fecha y tomar los 5 más recientes
         messages.sort((a, b) => {
           try {
-            const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
-            const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
+            const timeA = toMs(a.createdAt) || 0;
+            const timeB = toMs(b.createdAt) || 0;
             return timeB - timeA;
           } catch {
             return 0;
@@ -294,14 +295,14 @@ export default function MyInboxScreen({ navigation }) {
       if (filters.area.length > 0 && !filters.area.includes(task.area)) return false;
       
       // Filtro de vencidas
-      if (filters.overdue && (task.dueAt >= Date.now() || task.status === 'cerrada')) return false;
+      if (filters.overdue && !isOverdue(task)) return false;
       
       return true;
     })
     .sort((a, b) => (a.dueAt || 0) - (b.dueAt || 0));
 
   // Contar tareas vencidas
-  const overdueTasks = filtered.filter(task => task.dueAt < Date.now() && task.status !== 'cerrada');
+  const overdueTasks = filtered.filter(task => isOverdue(task));
   const overdueCount = overdueTasks.length;
 
   // Conteo por estado para chips de filtro rápido (basado en tareas del usuario)
@@ -378,7 +379,7 @@ export default function MyInboxScreen({ navigation }) {
         lastScheduledRef.current = today;
       }
     }
-  }, [overdueCount > 0]); // Solo cuando cambia de 0 a >0 o viceversa
+  }, [overdueCount]); // Solo cuando cambia de 0 a >0 o viceversa
 
   // Mostrar modal de confirmación para cerrar tarea
   const askToClose = (task) => {
@@ -692,15 +693,15 @@ export default function MyInboxScreen({ navigation }) {
     const in48Hours = now + (48 * 60 * 60 * 1000);
 
     const activeTasks = filtered.filter(t => t.status !== 'cerrada');
-    const overdue = activeTasks.filter(t => t.dueAt && new Date(t.dueAt).getTime() < now);
+    const overdue = activeTasks.filter(t => t.dueAt && toMs(t.dueAt) < now);
     const dueToday = activeTasks.filter(t => {
       if (!t.dueAt) return false;
-      const due = new Date(t.dueAt).getTime();
+      const due = toMs(t.dueAt);
       return due >= todayStart.getTime() && due <= todayEnd.getTime();
     });
     const upcoming = activeTasks.filter(t => {
       if (!t.dueAt) return false;
-      const due = new Date(t.dueAt).getTime();
+      const due = toMs(t.dueAt);
       return due > todayEnd.getTime() && due <= in48Hours;
     });
     const completed = filtered.filter(t => t.status === 'cerrada');
@@ -735,7 +736,7 @@ export default function MyInboxScreen({ navigation }) {
       if (task.status === 'cerrada') {
         sections.completed.push(task);
       } else if (task.dueAt) {
-        const due = new Date(task.dueAt).getTime();
+        const due = toMs(task.dueAt);
         if (due < now) {
           sections.overdue.push(task);
         } else if (due >= todayStart.getTime() && due <= todayEnd.getTime()) {
@@ -992,14 +993,14 @@ export default function MyInboxScreen({ navigation }) {
               />
               
               {/* Badge vencidas */}
-              {filtered.filter(t => t.dueAt < Date.now() && t.status !== 'cerrada').length > 0 && (
+              {filtered.filter(t => isOverdue(t)).length > 0 && (
                 <TouchableOpacity 
                   style={styles.overdueBadge}
                   onPress={() => setFilters(prev => ({ ...prev, overdue: !prev.overdue }))}
                 >
                   <Ionicons name="warning" size={14} color="#FFFFFF" />
                   <Text style={styles.overdueBadgeText}>
-                    {filtered.filter(t => t.dueAt < Date.now() && t.status !== 'cerrada').length}
+                    {filtered.filter(t => isOverdue(t)).length}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -1616,7 +1617,7 @@ export default function MyInboxScreen({ navigation }) {
                             minute: '2-digit'
                           });
                         } else if (msg.createdAt?.seconds) {
-                          return new Date(msg.createdAt.seconds * 1000).toLocaleString('es-MX', {
+                          return new Date(toMs(msg.createdAt)).toLocaleString('es-MX', {
                             day: '2-digit',
                             month: '2-digit',
                             hour: '2-digit',
@@ -1641,6 +1642,11 @@ export default function MyInboxScreen({ navigation }) {
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
+        windowSize={5}
+        maxToRenderPerBatch={6}
+        initialNumToRender={8}
+        removeClippedSubviews={true}
+        updateCellsBatchingPeriod={100}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

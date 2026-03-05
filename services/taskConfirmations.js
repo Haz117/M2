@@ -3,6 +3,7 @@
 // Cada asignado puede marcar su parte como completada
 
 import { doc, updateDoc, arrayUnion, arrayRemove, getDoc, Timestamp } from 'firebase/firestore';
+import { toMs } from '../utils/dateUtils';
 import { db } from '../firebase';
 
 /**
@@ -217,8 +218,8 @@ export const getComplianceMetrics = (tasks, userEmail = null) => {
         metrics[emailLower].confirmed++;
         
         // Verificar si fue a tiempo
-        const dueAt = task.dueAt?.toMillis?.() || task.dueAt;
-        const completedAt = confirmation.completedAt?.toMillis?.() || confirmation.completedAt;
+        const dueAt = toMs(task.dueAt);
+        const completedAt = toMs(confirmation.completedAt);
         
         if (dueAt && completedAt && completedAt <= dueAt) {
           metrics[emailLower].onTime++;

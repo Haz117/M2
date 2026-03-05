@@ -16,6 +16,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { AREAS_CONFIG } from '../config/areas';
 import AnimatedNumber from './AnimatedNumber';
 import Tooltip from './Tooltip';
+import { toMs } from '../utils/dateUtils';
 
 const { width: screenWidth } = Dimensions.get('window');
 const isDesktop = screenWidth >= 768;
@@ -65,7 +66,7 @@ export default function TrafficLightDashboard({ tasks = [], onAreaPress, compact
         metrics[area].completed++;
         metrics[area].green++;
       } else if (task.dueAt) {
-        const dueDate = new Date(task.dueAt);
+        const dueDate = new Date(toMs(task.dueAt));
         
         if (dueDate < now) {
           metrics[area].red++;
@@ -370,7 +371,7 @@ const createStyles = (theme, isDark, compact) => StyleSheet.create({
     gap: 12,
   },
   areaCard: {
-    width: isDesktop ? 'calc(33.33% - 8px)' : '100%',
+    width: isDesktop ? '33%' : '100%',
     minWidth: isDesktop ? 280 : undefined,
     borderRadius: 12,
     padding: 14,

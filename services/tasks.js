@@ -4,6 +4,7 @@
 // 🚨 PRODUCCION: console.logs deshabilitados
 const __DEV__ = false; // Cambiar a true para depuración
 const log = __DEV__ ? console.log : () => {};
+import { toMs } from '../utils/dateUtils';
 
 import { 
   collection, 
@@ -225,9 +226,9 @@ export async function subscribeToTasks(callback) {
             return {
               id: doc.id,
               ...data,
-              createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : data.createdAt || Date.now(),
-              updatedAt: data.updatedAt?.toMillis ? data.updatedAt.toMillis() : data.updatedAt || Date.now(),
-              dueAt: data.dueAt?.toMillis ? data.dueAt.toMillis() : data.dueAt || Date.now()
+              createdAt: toMs(data.createdAt) || Date.now(),
+              updatedAt: toMs(data.updatedAt) || Date.now(),
+              dueAt: toMs(data.dueAt) || Date.now()
           };
         });
         

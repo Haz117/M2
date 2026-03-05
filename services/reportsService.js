@@ -15,6 +15,7 @@ import {
   writeBatch
 } from '../firebase';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { toMs } from '../utils/dateUtils';
 
 const storage = getStorage();
 
@@ -533,8 +534,8 @@ export const subscribeToAllReports = (callback) => {
 
     // Sort by creation date descending
     enrichedReports.sort((a, b) => {
-      const dateA = a.createdAt?.toMillis ? a.createdAt.toMillis() : a.createdAt || 0;
-      const dateB = b.createdAt?.toMillis ? b.createdAt.toMillis() : b.createdAt || 0;
+      const dateA = toMs(a.createdAt) || 0;
+      const dateB = toMs(b.createdAt) || 0;
       return dateB - dateA;
     });
 
@@ -658,8 +659,8 @@ export const subscribeToAreaReports = (areas, callback) => {
 
     // Sort by creation date descending
     enrichedReports.sort((a, b) => {
-      const dateA = a.createdAt?.toMillis ? a.createdAt.toMillis() : a.createdAt || 0;
-      const dateB = b.createdAt?.toMillis ? b.createdAt.toMillis() : b.createdAt || 0;
+      const dateA = toMs(a.createdAt) || 0;
+      const dateB = toMs(b.createdAt) || 0;
       return dateB - dateA;
     });
 
@@ -720,8 +721,8 @@ export const subscribeToMyReports = (userEmail, callback) => {
 
     // Sort by creation date descending
     enrichedReports.sort((a, b) => {
-      const dateA = a.createdAt?.toMillis ? a.createdAt.toMillis() : a.createdAt || 0;
-      const dateB = b.createdAt?.toMillis ? b.createdAt.toMillis() : b.createdAt || 0;
+      const dateA = toMs(a.createdAt) || 0;
+      const dateB = toMs(b.createdAt) || 0;
       return dateB - dateA;
     });
 

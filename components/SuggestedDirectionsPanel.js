@@ -57,14 +57,20 @@ export default function SuggestedDirectionsPanel({
             // Obtener el área principal del secretario (que debería ser una secretaría)
             const areaSecretario = secretarioData.area || '';
             
-            // Buscar las direcciones reales usando el mapeo de config/areas.js
-            const direccionesDeSecretaria = getDireccionesBySecretaria(areaSecretario);
+            // Primero: usar las direcciones del propio secretario en Firestore (fuente más confiable)
+            const secretarioDirecciones = secretarioData.direcciones || [];
+            if (secretarioDirecciones.length > 0) {
+              secretarioDirecciones.forEach(dir => direccionesEncontradas.add(dir));
+            }
             
+            // También: usar las direcciones del mapeo oficial para completar
+            const direccionesDeSecretaria = getDireccionesBySecretaria(areaSecretario);
             if (direccionesDeSecretaria.length > 0) {
-              // Usar las direcciones del mapeo oficial
               direccionesDeSecretaria.forEach(dir => direccionesEncontradas.add(dir));
-            } else {
-              // Si no hay mapeo, buscar secretarías que contengan parte del nombre
+            }
+            
+            // Si aún no encontramos nada, buscar por coincidencia parcial
+            if (direccionesEncontradas.size === 0) {
               for (const [secretaria, direcciones] of Object.entries(SECRETARIAS_DIRECCIONES)) {
                 // Coincidencia parcial (por si el nombre está abreviado)
                 if (areaSecretario.includes('Desarrollo Económico') && secretaria.includes('Desarrollo Económico')) {

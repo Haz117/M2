@@ -1,6 +1,7 @@
 // services/AreaAnalytics.js
 // Análisis avanzado con histórico, predicciones y detección de cuellos de botella
 // Optimizado: Usa caché local para no recalcular constantemente
+import { toMs, diffMs } from '../utils/dateUtils';
 
 let analyticsCache = {
   timestamp: 0,
@@ -22,9 +23,8 @@ export function calculateMonthlyComparative(allTasks) {
 
   const getTaskDate = (t) => {
     if (!t.createdAt) return new Date(0);
-    if (t.createdAt.seconds) return new Date(t.createdAt.seconds * 1000);
-    if (typeof t.createdAt === 'number') return new Date(t.createdAt);
-    return new Date(t.createdAt);
+    const ms = toMs(t.createdAt);
+    return ms !== null ? new Date(ms) : new Date(0);
   };
 
   const getCurrentMonthTasks = () => 
@@ -76,7 +76,7 @@ export function predictCompletionTrend(areaMetrics, allTasks, area) {
   const recentTasks = allTasks.filter(t => 
     t.area === area && 
     t.completedAt && 
-    t.completedAt > thirtyDaysAgo
+    toMs(t.completedAt) > thirtyDaysAgo
   );
 
   if (recentTasks.length < 3) return null;
@@ -84,7 +84,7 @@ export function predictCompletionTrend(areaMetrics, allTasks, area) {
   // Agrupar por semana
   const weeklyData = {};
   recentTasks.forEach(task => {
-    const week = Math.floor((Date.now() - task.completedAt) / (7 * 24 * 60 * 60 * 1000));
+    const week = Math.floor((Date.now() - toMs(task.completedAt)) / (7 * 24 * 60 * 60 * 1000));
     weeklyData[week] = (weeklyData[week] || 0) + 1;
   });
 
@@ -127,13 +127,7 @@ export function identifyBottlenecks(areaMetrics, allTasks) {
 
     // Convertir timestamps Firebase a milisegundos
     const completionTimes = completedTasks.map(t => {
-      const createdTime = t.createdAt.seconds 
-        ? t.createdAt.seconds * 1000 
-        : (typeof t.createdAt === 'number' ? t.createdAt : new Date(t.createdAt).getTime());
-      const completedTime = t.completedAt.seconds 
-        ? t.completedAt.seconds * 1000 
-        : (typeof t.completedAt === 'number' ? t.completedAt : new Date(t.completedAt).getTime());
-      return completedTime - createdTime;
+      return diffMs(t.completedAt, t.createdAt);
     });
 
     // Calcular tiempo promedio
@@ -239,13 +233,7 @@ function calculateAvgCompletionTime(tasks) {
   if (completedTasks.length === 0) return 0;
   
   const totalTime = completedTasks.reduce((sum, t) => {
-    const createdTime = t.createdAt.seconds 
-      ? t.createdAt.seconds * 1000 
-      : (typeof t.createdAt === 'number' ? t.createdAt : new Date(t.createdAt).getTime());
-    const completedTime = t.completedAt.seconds 
-      ? t.completedAt.seconds * 1000 
-      : (typeof t.completedAt === 'number' ? t.completedAt : new Date(t.completedAt).getTime());
-    return sum + (completedTime - createdTime);
+    return sum + diffMs(t.completedAt, t.createdAt);
   }, 0);
   const avgMs = totalTime / completedTasks.length;
   return Math.round(avgMs / (24 * 60 * 60 * 1000)); // Convertir a días

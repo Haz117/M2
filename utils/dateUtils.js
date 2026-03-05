@@ -8,7 +8,7 @@
  * @returns {number|null} Milisegundos desde epoch, o null si no hay valor
  */
 export const toMs = (timestamp) => {
-  if (!timestamp) return null;
+  if (timestamp === null || timestamp === undefined) return null;
   
   // Firebase Timestamp con método toMillis()
   if (typeof timestamp.toMillis === 'function') {

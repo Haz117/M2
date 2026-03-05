@@ -12,6 +12,7 @@ import { getCurrentSession, logoutUser, isAdmin, registerUser } from '../service
 import { useTheme } from '../contexts/ThemeContext';
 import Toast from '../components/Toast';
 import OverdueAlert from '../components/OverdueAlert';
+import { toMs } from '../utils/dateUtils';
 import { hapticMedium, hapticLight } from '../utils/haptics';
 import { useTasks } from '../contexts/TasksContext';
 import { useResponsive } from '../utils/responsive';
@@ -77,7 +78,7 @@ export default function AdminScreen({ navigation, onLogout }) {
     const sixHours = 6 * 60 * 60 * 1000;
     const urgent = tasks.filter(task => {
       if (task.status === 'cerrada' || !task.dueAt) return false;
-      const due = new Date(task.dueAt).getTime();
+      const due = toMs(task.dueAt);
       const timeLeft = due - now;
       return timeLeft > 0 && timeLeft < sixHours;
     });
@@ -377,7 +378,7 @@ export default function AdminScreen({ navigation, onLogout }) {
             </View>
             <ScrollView style={styles.urgentModalScroll}>
               {urgentTasks.map((task) => {
-                const timeLeft = new Date(task.dueAt).getTime() - Date.now();
+                const timeLeft = toMs(task.dueAt) - Date.now();
                 const hoursLeft = Math.floor(timeLeft / (1000 * 60 * 60));
                 const minutesLeft = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
                 

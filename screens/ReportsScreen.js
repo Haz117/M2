@@ -464,7 +464,7 @@ export default function ReportsScreen({ navigation }) {
     }
 
     // Weekly stats
-    const weeklyTasks = userTasks.filter(t => t.createdAt >= weekAgo);
+    const weeklyTasks = userTasks.filter(t => toMs(t.createdAt) >= weekAgo);
     const weeklyCompleted = weeklyTasks.filter(t => t.status === 'cerrada' || t.status === 'completada');
     
     setWeeklyStats({
@@ -477,7 +477,7 @@ export default function ReportsScreen({ navigation }) {
     });
 
     // Monthly stats
-    const monthlyTasks = userTasks.filter(t => t.createdAt >= monthAgo);
+    const monthlyTasks = userTasks.filter(t => toMs(t.createdAt) >= monthAgo);
     const monthlyCompleted = monthlyTasks.filter(t => t.status === 'cerrada' || t.status === 'completada');
     
     setMonthlyStats({
@@ -491,7 +491,7 @@ export default function ReportsScreen({ navigation }) {
 
     // Quarterly stats (90 days)
     const quarterAgo = now - 90 * 24 * 60 * 60 * 1000;
-    const quarterlyTasks = userTasks.filter(t => t.createdAt >= quarterAgo);
+    const quarterlyTasks = userTasks.filter(t => toMs(t.createdAt) >= quarterAgo);
     const quarterlyCompleted = quarterlyTasks.filter(t => t.status === 'cerrada' || t.status === 'completada');
     
     setQuarterlyStats({
@@ -532,8 +532,8 @@ export default function ReportsScreen({ navigation }) {
     // Count completions by day
     completedTasks.forEach(task => {
       const completedDate = task.completedAt 
-        ? new Date(task.completedAt.seconds * 1000)
-        : new Date(task.updatedAt?.seconds * 1000 || task.updatedAt);
+        ? new Date(toMs(task.completedAt))
+        : new Date(toMs(task.updatedAt));
       
       const dateStr = completedDate.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
       if (dateStr in dailyMap) {
@@ -707,12 +707,8 @@ export default function ReportsScreen({ navigation }) {
     if (completedTasks.length === 0) return 0;
 
     const totalTime = completedTasks.reduce((sum, task) => {
-      const created = task.createdAt.seconds 
-        ? task.createdAt.seconds * 1000 
-        : new Date(task.createdAt).getTime();
-      const completed = task.completedAt?.seconds 
-        ? task.completedAt.seconds * 1000 
-        : new Date(task.completedAt).getTime();
+      const created = toMs(task.createdAt);
+      const completed = toMs(task.completedAt);
       return sum + (completed - created);
     }, 0);
 

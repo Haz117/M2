@@ -3,6 +3,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { collection, addDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
+import { toMs } from '../utils/dateUtils';
 
 const POMODORO_KEY = '@pomodoro_sessions';
 
@@ -161,7 +162,7 @@ export async function getSessionsByDayOfWeek(userEmail) {
     };
     
     sessions.forEach(session => {
-      const date = new Date(session.createdAt);
+      const date = new Date(toMs(session.createdAt));
       const dayOfWeek = date.getDay();
       dayMap[dayOfWeek].sessions++;
     });

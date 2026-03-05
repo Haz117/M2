@@ -93,7 +93,7 @@ export default function SubtasksList({
       
       // Mostrar confirmación de éxito en segundo plano
       setTimeout(() => {
-        Alert.alert('Exito', 'Subtarea creada correctamente', [
+        Alert.alert('Éxito', 'Subtarea creada correctamente', [
           { text: 'OK', onPress: () => {} }
         ]);
       }, 500);

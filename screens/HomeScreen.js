@@ -13,6 +13,7 @@ import ConfettiCelebration from '../components/ConfettiCelebration';
 import Toast from '../components/Toast';
 import AnimatedBadge from '../components/AnimatedBadge';
 import QuickActionButton from '../components/QuickActionButton';
+import { isOverdue, toMs } from '../utils/dateUtils';
 import ShimmerEffect from '../components/ShimmerEffect';
 import SkeletonLoader from '../components/SkeletonLoader';
 import OverdueAlert from '../components/OverdueAlert';
@@ -221,7 +222,7 @@ export default function HomeScreen({ navigation }) {
         const sixHours = 6 * 60 * 60 * 1000;
         const urgent = tasks.filter(task => {
           if (task.status === 'cerrada') return false;
-          const due = new Date(task.dueAt).getTime();
+          const due = toMs(task.dueAt);
           const timeLeft = due - now;
           return timeLeft > 0 && timeLeft < sixHours;
         });
@@ -450,7 +451,7 @@ export default function HomeScreen({ navigation }) {
 
   const shareTask = useCallback(async (task) => {
     hapticLight();
-    const shareText = `Tarea: ${task.title}\nVence: ${new Date(task.dueAt).toLocaleDateString()}\nAsignado: ${task.assignedTo || 'Sin asignar'}\nÁrea: ${task.area || 'Sin área'}\nPrioridad: ${task.priority || 'media'}\nEstado: ${task.status || 'pendiente'}`;
+    const shareText = `Tarea: ${task.title}\nVence: ${new Date(toMs(task.dueAt)).toLocaleDateString()}\nAsignado: ${task.assignedTo || 'Sin asignar'}\nÁrea: ${task.area || 'Sin área'}\nPrioridad: ${task.priority || 'media'}\nEstado: ${task.status || 'pendiente'}`;
     
     try {
       await Clipboard.setStringAsync(shareText);
@@ -571,7 +572,7 @@ export default function HomeScreen({ navigation }) {
       }
       
       // Filter by overdue
-      if (advancedFilters.overdue && task.dueAt >= Date.now()) return false;
+      if (advancedFilters.overdue && !isOverdue(task)) return false;
       
       return true;
     });
@@ -581,12 +582,12 @@ export default function HomeScreen({ navigation }) {
   const statistics = useMemo(() => {
     const todayTasks = filteredTasks.filter(t => {
       const today = new Date().setHours(0,0,0,0);
-      const dueDate = t.dueAt ? new Date(t.dueAt).setHours(0,0,0,0) : null;
+      const dueDate = t.dueAt ? new Date(toMs(t.dueAt)).setHours(0,0,0,0) : null;
       return dueDate === today;
     });
 
     const highPriorityTasks = filteredTasks.filter(t => t.priority === 'alta' && t.status !== 'cerrada');
-    const overdueTasks = filteredTasks.filter(t => t.dueAt && t.dueAt < Date.now() && t.status !== 'cerrada');
+    const overdueTasks = filteredTasks.filter(t => isOverdue(t));
     const myTasks = filteredTasks.filter(t => t.assignedTo && t.status !== 'cerrada');
     
     const tasksByArea = filteredTasks.reduce((acc, task) => {
@@ -750,10 +751,10 @@ export default function HomeScreen({ navigation }) {
             </View>
             <ScrollView style={styles.urgentModalScroll}>
               {urgentTasks.filter(task => {
-                const timeLeft = new Date(task.dueAt).getTime() - Date.now();
+                const timeLeft = toMs(task.dueAt) - Date.now();
                 return timeLeft < 6 * 60 * 60 * 1000; // Menos de 6 horas
               }).map((task) => {
-                const timeLeft = new Date(task.dueAt).getTime() - Date.now();
+                const timeLeft = toMs(task.dueAt) - Date.now();
                 const hoursLeft = Math.floor(timeLeft / (1000 * 60 * 60));
                 const minutesLeft = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
                 

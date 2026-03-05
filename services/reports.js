@@ -3,6 +3,7 @@ import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
+import { toMs } from '../utils/dateUtils';
 import { getCurrentSession } from './authFirestore';
 
 /**
@@ -256,8 +257,8 @@ function calculateStatistics(tasks) {
 
       // Tiempo de completado
       if (task.completedAt && task.createdAt) {
-        const created = new Date(task.createdAt);
-        const completed = new Date(task.completedAt);
+        const created = new Date(toMs(task.createdAt));
+        const completed = new Date(toMs(task.completedAt));
         const days = Math.round((completed - created) / (1000 * 60 * 60 * 24));
         totalCompletionTime += days;
 
@@ -429,14 +430,14 @@ export const generateSecretarioReport = async () => {
       );
       const tasksCompleted = tasksCreated.filter(t => t.status === 'cerrada');
       const tasksPending = tasksCreated.filter(t => t.status !== 'cerrada');
-      const tasksOverdue = tasksPending.filter(t => t.dueAt && t.dueAt < now);
-      const tasksCreatedWeek = tasksCreated.filter(t => t.createdAt >= weekAgo);
-      const tasksCompletedWeek = tasksCompleted.filter(t => t.completedAt >= weekAgo);
-      const tasksCreatedMonth = tasksCreated.filter(t => t.createdAt >= monthAgo);
-      const tasksCompletedMonth = tasksCompleted.filter(t => t.completedAt >= monthAgo);
+      const tasksOverdue = tasksPending.filter(t => t.dueAt && toMs(t.dueAt) < now);
+      const tasksCreatedWeek = tasksCreated.filter(t => toMs(t.createdAt) >= weekAgo);
+      const tasksCompletedWeek = tasksCompleted.filter(t => toMs(t.completedAt) >= weekAgo);
+      const tasksCreatedMonth = tasksCreated.filter(t => toMs(t.createdAt) >= monthAgo);
+      const tasksCompletedMonth = tasksCompleted.filter(t => toMs(t.completedAt) >= monthAgo);
 
       const onTimeCompleted = tasksCompleted.filter(t => 
-        t.dueAt && t.completedAt && t.completedAt <= t.dueAt
+        t.dueAt && t.completedAt && toMs(t.completedAt) <= toMs(t.dueAt)
       ).length;
 
       const completionRate = tasksCreated.length > 0 

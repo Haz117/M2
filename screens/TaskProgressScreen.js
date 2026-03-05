@@ -22,6 +22,7 @@ import ProgressBar from '../components/ProgressBar';
 import LoadingIndicator from '../components/LoadingIndicator';
 import { useResponsive } from '../utils/responsive';
 import { MAX_WIDTHS } from '../theme/tokens';
+import { toMs } from '../utils/dateUtils';
 
 const { width } = Dimensions.get('window');
 
@@ -31,6 +32,10 @@ export default function TaskProgressScreen({ route, navigation }) {
   const { isDesktop } = useResponsive();
 
   const [expandedSubtask, setExpandedSubtask] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [progressData, setProgressData] = useState(null);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(100)).current;
@@ -362,12 +367,12 @@ export default function TaskProgressScreen({ route, navigation }) {
                         )}
                         {subtask.createdAt && (
                           <Text style={[styles.subtaskTimestamp, { color: theme.textTertiary }]}>
-                            Creada: {new Date(subtask.createdAt.toMillis?.() || subtask.createdAt).toLocaleDateString()}
+                            Creada: {new Date(toMs(subtask.createdAt)).toLocaleDateString()}
                           </Text>
                         )}
                         {isCompleted && subtask.completedAt && (
                           <Text style={[styles.subtaskTimestamp, { color: '#34C759' }]}>
-                            ✓ Completada: {new Date(subtask.completedAt.toMillis?.() || subtask.completedAt).toLocaleDateString()}
+                            ✓ Completada: {new Date(toMs(subtask.completedAt)).toLocaleDateString()}
                           </Text>
                         )}
                       </View>
@@ -398,8 +403,7 @@ export default function TaskProgressScreen({ route, navigation }) {
                 <Text style={[styles.activityTime, { color: theme.textSecondary }]}>
                   {progressData.lastActivity.updatedAt
                     ? new Date(
-                        progressData.lastActivity.updatedAt?.toMillis?.() ||
-                          progressData.lastActivity.updatedAt
+                        toMs(progressData.lastActivity.updatedAt)
                       ).toLocaleString('es-ES')
                     : 'Hace poco'}
                 </Text>

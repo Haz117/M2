@@ -23,6 +23,7 @@ import { db } from '../firebase';
 import { getDireccionesBySecretaria } from '../config/areas';
 import ProgressBar from '../components/ProgressBar';
 import Avatar from '../components/Avatar';
+import { toMs } from '../utils/dateUtils';
 
 const { width } = Dimensions.get('window');
 
@@ -106,39 +107,39 @@ export default function SecretarioDashboardScreen({ navigation }) {
     }
   };
 
-  const subscribeToAreaTasks = (user, direcciones, myDirectors) => {
+  const subscribeToAreaTasks = async (user, direcciones, myDirectors) => {
     // Limpiar suscripción anterior si existe
     if (unsubscribeRef.current && typeof unsubscribeRef.current === 'function') {
       unsubscribeRef.current();
     }
-    
-    const unsubscribe = subscribeToTasks((allTasks) => {
+
+    const unsubscribe = await subscribeToTasks((allTasks) => {
       // Filtrar solo tareas de las direcciones del secretario
       const areaTasks = allTasks.filter(task => {
         const taskArea = task.area || '';
         const taskAreas = task.areas || [taskArea];
-        
+
         // Tareas donde el área coincide con las direcciones del secretario
-        const isInMyArea = direcciones.some(dir => 
+        const isInMyArea = direcciones.some(dir =>
           taskAreas.includes(dir) || taskArea === dir
         );
-        
+
         // O tareas asignadas a sus directores
         const isAssignedToMyDirector = myDirectors.some(dir =>
           task.assignedTo?.includes(dir.email)
         );
-        
+
         // O tareas de coordinación que incluyen sus áreas
-        const isCoordinationWithMyArea = task.isCoordinationTask && 
+        const isCoordinationWithMyArea = task.isCoordinationTask &&
           taskAreas.some(area => direcciones.includes(area));
-        
+
         return isInMyArea || isAssignedToMyDirector || isCoordinationWithMyArea;
       });
-      
+
       setTasks(areaTasks);
       calculateMetrics(areaTasks, myDirectors);
     });
-    
+
     // Guardar referencia para cleanup
     unsubscribeRef.current = unsubscribe;
     return unsubscribe;
@@ -153,7 +154,7 @@ export default function SecretarioDashboardScreen({ navigation }) {
     const completedTasks = areaTasks.filter(t => t.status === 'completada' || t.status === 'cerrada');
     const overdueTasks = areaTasks.filter(t => {
       if (t.status === 'completada' || t.status === 'cerrada') return false;
-      const dueMs = t.dueAt?.seconds ? t.dueAt.seconds * 1000 : (typeof t.dueAt === 'number' ? t.dueAt : t.dueAt ? new Date(t.dueAt).getTime() : null);
+      const dueMs = toMs(t.dueAt);
       const dueDate = dueMs ? new Date(dueMs) : null;
       return dueDate && dueDate < now;
     });
@@ -180,7 +181,7 @@ export default function SecretarioDashboardScreen({ navigation }) {
       const areaInProgress = areaTasks_dir.filter(t => t.status === 'en_proceso' || t.status === 'en_progreso' || t.status === 'en-progreso');
       const areaOverdue = areaTasks_dir.filter(t => {
         if (t.status === 'completada' || t.status === 'cerrada') return false;
-        const dueMs = t.dueAt?.seconds ? t.dueAt.seconds * 1000 : (typeof t.dueAt === 'number' ? t.dueAt : t.dueAt ? new Date(t.dueAt).getTime() : null);
+        const dueMs = toMs(t.dueAt);
         const dueDate = dueMs ? new Date(dueMs) : null;
         return dueDate && dueDate < now;
       });
@@ -436,7 +437,7 @@ export default function SecretarioDashboardScreen({ navigation }) {
                 t.status !== 'completada' && t.status !== 'cerrada'
               );
               const overdue = directionTasks.filter(t => {
-                const dueDate = t.dueAt ? new Date(t.dueAt) : null;
+                const dueDate = t.dueAt ? new Date(toMs(t.dueAt)) : null;
                 return dueDate && dueDate < new Date();
               });
               

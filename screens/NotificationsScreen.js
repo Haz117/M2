@@ -18,6 +18,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../contexts/ThemeContext';
+import { toMs } from '../utils/dateUtils';
 import { getMyNotifications, markNotificationAsRead, deleteNotification } from '../services/notificationsAdvanced';
 import LoadingIndicator from '../components/LoadingIndicator';
 import Toast from '../components/Toast';
@@ -389,7 +390,7 @@ export default function NotificationsScreen({ navigation }) {
 const formatTime = (timestamp) => {
   if (!timestamp) return '';
 
-  const date = new Date(timestamp.toMillis?.() || timestamp);
+  const date = new Date(toMs(timestamp));
   const now = new Date();
   const diff = now - date;
 

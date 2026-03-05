@@ -1,6 +1,6 @@
 // components/CircularProgress.js
 // Anillo de progreso circular animado
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, memo } from 'react';
 import { View, StyleSheet, Animated, Text } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
@@ -88,4 +88,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default CircularProgress;
+export default memo(CircularProgress);

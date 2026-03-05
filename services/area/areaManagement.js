@@ -6,6 +6,7 @@ import {
   addDoc,
   updateDoc,
   doc,
+  getDoc,
   getDocs,
   query,
   where,
@@ -16,6 +17,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { getCurrentSession } from '../authFirestore';
+import { toMs } from '../../utils/dateUtils';
 
 const AREAS_COLLECTION = 'areas';
 const AUDIT_COLLECTION = 'area_audit';
@@ -240,16 +242,15 @@ export const deleteArea = async (areaId) => {
 export const getAreaById = async (areaId) => {
   try {
     const areaRef = doc(db, AREAS_COLLECTION, areaId);
-    const snapshot = await getDocs(query(collection(db, AREAS_COLLECTION), where('__name__', '==', areaId)));
-    
-    if (snapshot.empty) {
+    const areaSnap = await getDoc(areaRef);
+
+    if (!areaSnap.exists()) {
       return null;
     }
 
-    const doc = snapshot.docs[0];
     return {
-      id: doc.id,
-      ...doc.data(),
+      id: areaSnap.id,
+      ...areaSnap.data(),
     };
   } catch (error) {
     console.error('Error obteniendo área:', error);
@@ -397,7 +398,7 @@ export const getAreaAuditLog = async (areaId) => {
         id: doc.id,
         ...doc.data(),
       }))
-      .sort((a, b) => b.timestamp?.toMillis() - a.timestamp?.toMillis());
+      .sort((a, b) => (toMs(b.timestamp) || 0) - (toMs(a.timestamp) || 0));
   } catch (error) {
     console.error('Error obteniendo auditoría:', error);
     return [];

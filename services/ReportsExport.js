@@ -85,14 +85,14 @@ export async function exportAreaReport(areaMetrics, allTasks, period = 'month') 
     const overdueHeaders = ['ID', 'Título', 'Área', 'Asignado', 'Fecha Vencimiento', 'Días Retrasado'];
     const now = Date.now();
     const overdueRows = allTasks
-      .filter(t => t.dueAt && t.dueAt < now && t.status !== 'cerrada')
+      .filter(t => t.dueAt && toMs(t.dueAt) < now && t.status !== 'cerrada')
       .map(t => [
         t.id.substring(0, 8),
         t.title,
         t.area || 'N/A',
         t.assignedToNames?.join('; ') || 'No asignado',
-        new Date(t.dueAt).toLocaleDateString('es-MX'),
-        Math.floor((now - t.dueAt) / (1000 * 60 * 60 * 24))
+        new Date(toMs(t.dueAt)).toLocaleDateString('es-MX'),
+        Math.floor((now - toMs(t.dueAt)) / (1000 * 60 * 60 * 24))
       ])
       .sort((a, b) => b[5] - a[5]) // Ordenar por días retrasados
       .slice(0, 100); // Max 100 vencidas para no saturar

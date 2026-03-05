@@ -2,6 +2,7 @@
 // Servicio avanzado de productividad: heatmap, gráficas semanales, tiempo estimado vs real
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
+import { toMs, diffMs } from '../utils/dateUtils';
 
 // Helper function to check if a task is assigned to a user (supports both string and array formats)
 function isTaskAssignedToUser(task, userEmail) {
@@ -46,7 +47,7 @@ export async function getActivityHeatmap(userEmail, days = 90) {
     tasks.forEach(task => {
       if (!task.completedAt) return;
       
-      const date = new Date(task.completedAt);
+      const date = new Date(toMs(task.completedAt));
       const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
       
       if (!dayMap[dateKey]) {
@@ -110,7 +111,7 @@ export async function getWeeklyProductivityChart(userEmail) {
     const weekMap = {};
     
     tasks.forEach(task => {
-      const createdDate = new Date(task.createdAt);
+      const createdDate = new Date(toMs(task.createdAt));
       const weekStart = new Date(createdDate);
       weekStart.setDate(weekStart.getDate() - weekStart.getDay());
       const weekKey = `${weekStart.getFullYear()}-W${String(Math.ceil((weekStart.getDate()) / 7)).padStart(2, '0')}`;
@@ -132,13 +133,7 @@ export async function getWeeklyProductivityChart(userEmail) {
         weekMap[weekKey].tasksCompleted++;
         
         if (task.createdAt) {
-          const createdTime = task.createdAt.seconds 
-            ? task.createdAt.seconds * 1000 
-            : (typeof task.createdAt === 'number' ? task.createdAt : new Date(task.createdAt).getTime());
-          const completedTime = task.completedAt.seconds 
-            ? task.completedAt.seconds * 1000 
-            : (typeof task.completedAt === 'number' ? task.completedAt : new Date(task.completedAt).getTime());
-          const completionTime = completedTime - createdTime;
+          const completionTime = diffMs(task.completedAt, task.createdAt);
           weekMap[weekKey].totalCompletionTime += completionTime;
         }
       }
@@ -190,13 +185,7 @@ export async function getEstimatedVsRealTime(userEmail) {
     }
     
     const tasksWithComparison = tasks.map(task => {
-      const createdTime = task.createdAt.seconds 
-        ? task.createdAt.seconds * 1000 
-        : (typeof task.createdAt === 'number' ? task.createdAt : new Date(task.createdAt).getTime());
-      const completedTime = task.completedAt.seconds 
-        ? task.completedAt.seconds * 1000 
-        : (typeof task.completedAt === 'number' ? task.completedAt : new Date(task.completedAt).getTime());
-      const realHours = (completedTime - createdTime) / (1000 * 60 * 60);
+      const realHours = diffMs(task.completedAt, task.createdAt) / (1000 * 60 * 60);
       const estimated = task.estimatedHours || 0;
       const difference = realHours - estimated;
       const accuracyPercent = estimated > 0 ? Math.abs((difference / estimated) * 100) : 0;
@@ -258,7 +247,7 @@ export async function getProductivityByHour(userEmail) {
     
     tasks.forEach(task => {
       if (!task.completedAt) return;
-      const date = new Date(task.completedAt);
+      const date = new Date(toMs(task.completedAt));
       const hour = date.getHours();
       hourMap[hour]++;
     });

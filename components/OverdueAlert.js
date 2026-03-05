@@ -4,6 +4,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
+import { toMs } from '../utils/dateUtils';
 
 export default function OverdueAlert({ tasks, currentUserEmail, role = 'director', onTaskPress }) {
   // ⚠️ Hooks must be called unconditionally (React Rules of Hooks)
@@ -26,7 +27,7 @@ export default function OverdueAlert({ tasks, currentUserEmail, role = 'director
       : tasks.filter(t => t.status !== 'cerrada' && t.assignedTo === currentUserEmail);
 
     applicable.forEach(task => {
-      const diff = (new Date(task.dueAt).getTime() - now) / (1000 * 60 * 60);
+      const diff = (toMs(task.dueAt) - now) / (1000 * 60 * 60);
       if (diff < 0) overdue.push(task);
       else if (diff < 6) urgent.push(task);
     });
