@@ -682,12 +682,6 @@ export default function TaskDetailScreen({ route, navigation }) {
         setCanDelegate(delegatePermission.canDelegate);
         setCanAddSubtask(subtaskPermission.canCreate);
         setIsReadOnly(role === 'director');
-        
-          canEdit: editPermission.canEdit, 
-          canDelegate: delegatePermission.canDelegate,
-          canAddSubtask: subtaskPermission.canCreate,
-          reason: editPermission.reason 
-        });
       } else {
         // Creando nueva tarea - solo admin
         const createPermission = canCreateTask(user);
@@ -1498,7 +1492,7 @@ export default function TaskDetailScreen({ route, navigation }) {
               selectedUsers={selectedAssignees}
               selectedAreas={selectedAreas}
               onAddArea={(area) => {
-                // Agregar el área a la lista de áreas seleccionadas
+                if (!canEdit) return;
                 if (!selectedAreas.includes(area)) {
                   setSelectedAreas([...selectedAreas, area]);
                 }
@@ -1630,7 +1624,7 @@ export default function TaskDetailScreen({ route, navigation }) {
             visible={showAreaModal}
             onClose={() => setShowAreaModal(false)}
             selectedAreas={selectedAreas}
-            onAreasChange={setSelectedAreas}
+            onAreasChange={(areas) => { if (canEdit) setSelectedAreas(areas); }}
             allAreas={currentUser?.role === 'admin' ? areasFromSelectedUsers : availableAreas}
             theme={theme}
             isDark={isDark}
@@ -1641,7 +1635,7 @@ export default function TaskDetailScreen({ route, navigation }) {
             selectedUsers={selectedAssignees}
             selectedAreas={selectedAreas}
             onAddArea={(area) => {
-              // Agregar el área a la lista de áreas seleccionadas
+              if (!canEdit) return;
               if (!selectedAreas.includes(area)) {
                 setSelectedAreas([...selectedAreas, area]);
               }
