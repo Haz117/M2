@@ -109,16 +109,6 @@ export const isAdmin = async () => {
   }
 };
 
-// Verificar si el usuario es admin
-export const isAdmin = async () => {
-  try {
-    const profile = await getUserProfile();
-    return profile?.role === ROLES.ADMIN;
-  } catch (error) {
-    return false;
-  }
-};
-
 // Verificar si el usuario es secretario
 export const isSecretario = async () => {
   try {
