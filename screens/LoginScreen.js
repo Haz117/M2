@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { loginUser } from '../services/authFirestore';
 import Toast from 'react-native-toast-message';
 
-const BRAND = BRAND;
+const BRAND = '#9F2241';
 
 export default function LoginScreen({ onLogin }) {
   const [email, setEmail] = useState('');
