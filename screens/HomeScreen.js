@@ -18,6 +18,7 @@ import { isOverdue, toMs } from '../utils/dateUtils';
 import ShimmerEffect from '../components/ShimmerEffect';
 import SkeletonLoader from '../components/SkeletonLoader';
 import OverdueAlert from '../components/OverdueAlert';
+import OnboardingTour from '../components/OnboardingTour';
 import LoadingIndicator from '../components/LoadingIndicator';
 import Button from '../components/Button';
 import Card from '../components/Card';
@@ -715,16 +716,13 @@ export default function HomeScreen({ navigation }) {
           </LinearGradient>
         </Animated.View>
 
-        {/* Alerta de tareas urgentes dejada en el modal - comentada la alerta de tareas vencidas
-        <OverdueAlert 
-          tasks={tasks} 
+        {/* Banner de tareas vencidas / urgentes */}
+        <OverdueAlert
+          tasks={tasks}
           currentUserEmail={currentUser?.email}
           role={currentUser?.role}
-          onTaskPress={(task) => {
-            navigation.navigate('TaskDetail', { task });
-          }}
+          onTaskPress={(task) => navigation.navigate('TaskDetail', { task })}
         />
-        */}
 
         {/* Modal de Tareas Urgentes */}
         <Modal
@@ -1119,6 +1117,11 @@ export default function HomeScreen({ navigation }) {
         position="bottom"
         delay={2000}
       />
+
+      {/* Tour de onboarding — se muestra solo la primera vez por rol */}
+      {currentUser && (
+        <OnboardingTour userRole={currentUser.role} />
+      )}
     </View>
   );
 }
