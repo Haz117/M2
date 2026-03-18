@@ -18,6 +18,7 @@ import { getFocusTimeStats } from '../services/pomodoro';
 import { subscribeToMultipleTasksProgress } from '../services/taskProgress';
 import { hapticMedium } from '../utils/haptics';
 import LoadingIndicator from '../components/LoadingIndicator';
+import ShimmerEffect from '../components/ShimmerEffect';
 import EmptyState from '../components/EmptyState';
 import StatCard from '../components/StatCard';
 import StateStatusCards from '../components/StateStatusCards';
@@ -25,7 +26,7 @@ import StatColumn from '../components/StatColumn';
 import MetricCard from '../components/MetricCard';
 const Heatmap = React.lazy(() => import('../components/Heatmap'));
 import OverdueAlert from '../components/OverdueAlert';
-import Toast from '../components/Toast';
+import { useNotification } from '../contexts/NotificationContext';
 import FadeInView from '../components/FadeInView';
 import SpringCard from '../components/SpringCard';
 import RippleButton from '../components/RippleButton';
@@ -42,7 +43,9 @@ const { width } = Dimensions.get('window');
 export default function DashboardScreen({ navigation }) {
   const { theme, isDark } = useTheme();
   const { width: screenWidth, isDesktop, isTablet, columns, padding } = useResponsive();
+  const { showSuccess, showError } = useNotification();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [metrics, setMetrics] = useState(null);
   const [trendData, setTrendData] = useState([]);
@@ -54,9 +57,6 @@ export default function DashboardScreen({ navigation }) {
   
   // Usar el contexto global de tareas (evita suscripción duplicada a Firestore)
   const { tasks } = useTasks();
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState('success');
   const [isExporting, setIsExporting] = useState(false);
   const [heatmapData, setHeatmapData] = useState([]);
   const [weeklyData, setWeeklyData] = useState([]);
@@ -157,8 +157,9 @@ export default function DashboardScreen({ navigation }) {
         // Cargar métricas avanzadas
         loadAdvancedMetrics(session.session.email);
       }
-    } catch (error) {
-      console.error('❌ [Dashboard] Error cargando datos:', error);
+    } catch (err) {
+      if (__DEV__) console.error('❌ [Dashboard] Error cargando datos:', err);
+      setError('No se pudo cargar el dashboard. Verifica tu conexión.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -298,19 +299,14 @@ export default function DashboardScreen({ navigation }) {
     try {
       const result = await exportStatsToCSV(metrics, trendData);
       if (result.success) {
-        setToastMessage('Datos exportados correctamente');
-        setToastType('success');
+        showSuccess('Datos exportados correctamente');
       } else {
-        setToastMessage('Error al exportar datos');
-        setToastType('error');
+        showError('Error al exportar datos');
       }
     } catch (error) {
-      setToastMessage('Error al exportar');
-      setToastType('error');
+      showError('Error al exportar');
     } finally {
       setIsExporting(false);
-      setToastVisible(true);
-      setTimeout(() => setToastVisible(false), 3000);
     }
   }, [metrics, trendData]);
 
@@ -319,9 +315,66 @@ export default function DashboardScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <LoadingIndicator type="spinner" color={theme.primary} size={14} />
-        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Cargando estadísticas...</Text>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <View style={[styles.contentWrapper, { maxWidth: isDesktop ? MAX_WIDTHS.content : '100%' }]}>
+          {/* Shimmer header */}
+          <LinearGradient
+            colors={isDark ? ['#2A1520', '#1A1A1A'] : ['#9F2241', '#7F1D35']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.headerGradient, { borderRadius: 0 }]}
+          >
+            <View style={[styles.header, { paddingTop: 48, paddingBottom: 16 }]}>
+              <ShimmerEffect width={140} height={28} borderRadius={8} />
+            </View>
+          </LinearGradient>
+          {/* Shimmer body */}
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }} scrollEnabled={false}>
+            {/* 4 stat cards */}
+            <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
+              {[...Array(4)].map((_, i) => (
+                <ShimmerEffect key={i} width={(screenWidth - 52) / 2} height={90} borderRadius={14} />
+              ))}
+            </View>
+            {/* Wide metric bar */}
+            <ShimmerEffect width="100%" height={72} borderRadius={14} />
+            {/* 3 metric cards */}
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {[...Array(3)].map((_, i) => (
+                <ShimmerEffect key={i} width={(screenWidth - 52) / 3} height={80} borderRadius={14} />
+              ))}
+            </View>
+            {/* Chart placeholder */}
+            <ShimmerEffect width="100%" height={180} borderRadius={16} />
+            {/* List rows */}
+            {[...Array(4)].map((_, i) => (
+              <ShimmerEffect key={i} width="100%" height={56} borderRadius={12} />
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, styles.centered, { backgroundColor: theme.background }]}>
+        <Ionicons name="cloud-offline-outline" size={56} color={theme.textSecondary} />
+        <Text style={[styles.loadingText, { color: theme.text, fontWeight: '700', marginTop: 16 }]}>
+          Error al cargar
+        </Text>
+        <Text style={[{ color: theme.textSecondary, textAlign: 'center', marginTop: 8, paddingHorizontal: 32, fontSize: 14 }]}>
+          {error}
+        </Text>
+        <TouchableOpacity
+          style={[{ marginTop: 24, backgroundColor: theme.primary, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }]}
+          onPress={() => { setError(null); setLoading(true); loadAllData(); }}
+          accessibilityLabel="Reintentar carga"
+          accessibilityRole="button"
+        >
+          <Ionicons name="refresh" size={18} color="#FFF" />
+          <Text style={[{ color: '#FFF', fontWeight: '700', fontSize: 15 }]}>Reintentar</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -394,18 +447,20 @@ export default function DashboardScreen({ navigation }) {
                 <Text style={styles.heading}>Dashboard</Text>
               </View>
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                <RippleButton 
+                <RippleButton
                   style={styles.exportButton}
                   onPress={() => navigation.navigate('Notifications')}
                   rippleColor="rgba(255,255,255,0.3)"
+                  accessibilityLabel="Notificaciones"
                 >
                   <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
                 </RippleButton>
-                <RippleButton 
+                <RippleButton
                   style={styles.exportButton}
                   onPress={handleExport}
                   rippleColor="rgba(255,255,255,0.3)"
                   disabled={isExporting}
+                  accessibilityLabel="Exportar reporte"
                 >
                   {isExporting ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
@@ -430,8 +485,8 @@ export default function DashboardScreen({ navigation }) {
         {tasks.length > 0 && (
           <View style={styles.projectsSection}>
             <View style={styles.sectionHeaderContainer}>
-              <View style={[styles.sectionIconBadge, { backgroundColor: 'rgba(159, 34, 65, 0.15)' }]}>
-                <Ionicons name="folder-outline" size={20} color="#9F2241" />
+              <View style={[styles.sectionIconBadge, { backgroundColor: theme.primary + '26' }]}>
+                <Ionicons name="folder-outline" size={20} color={theme.primary} />
               </View>
               <View style={styles.sectionHeaderText}>
                 <Text style={[styles.sectionLabel, { color: theme.text }]}>
@@ -713,7 +768,7 @@ export default function DashboardScreen({ navigation }) {
                 </View>
                 <Text style={[styles.chartTitle, { color: theme.text }]}>Tendencia (últimos 7 días)</Text>
               </View>
-              <Suspense fallback={<ActivityIndicator color={theme.primary} />}>
+              <Suspense fallback={<ShimmerEffect width={screenWidth - 64} height={220} borderRadius={8} />}>
                 <LineChart
                   data={lineData}
                   width={screenWidth - 64}
@@ -750,7 +805,7 @@ export default function DashboardScreen({ navigation }) {
                 </View>
                 <Text style={[styles.chartTitle, { color: theme.text }]}>Distribución por Estado</Text>
               </View>
-              <Suspense fallback={<ActivityIndicator color={theme.primary} />}>
+              <Suspense fallback={<ShimmerEffect width={screenWidth - 64} height={220} borderRadius={8} />}>
                 <PieChart
                   data={statusPieData}
                   width={screenWidth - 64}
@@ -822,10 +877,13 @@ export default function DashboardScreen({ navigation }) {
             <View style={[styles.chartCard, { backgroundColor: isDark ? 'rgba(30, 30, 35, 0.95)' : 'rgba(255, 255, 255, 0.98)' }]}>
               
               {/* Header Colapsable */}
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => setExpandAreas(!expandAreas)}
                 activeOpacity={0.7}
                 style={styles.chartHeaderCollapsible}
+                accessibilityLabel={expandAreas ? "Colapsar tareas por área" : "Expandir tareas por área"}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: expandAreas }}
               >
                 <View style={styles.chartHeaderLeft}>
                   <Ionicons name="layers" size={20} color={theme.text} />
@@ -997,7 +1055,7 @@ export default function DashboardScreen({ navigation }) {
                 </View>
                 <Text style={[styles.chartTitle, { color: theme.text }]}>Actividad (Últimos 90 días)</Text>
               </View>
-              <Suspense fallback={<ActivityIndicator color={theme.primary} />}>
+              <Suspense fallback={<ShimmerEffect width={screenWidth - 64} height={150} borderRadius={8} />}>
                 <Heatmap data={heatmapData} />
               </Suspense>
             </View>
@@ -1040,15 +1098,6 @@ export default function DashboardScreen({ navigation }) {
       </ScrollView>
       </View>
 
-      {/* Toast de Exportación */}
-      {toastVisible && (
-        <Toast 
-          message={toastMessage}
-          type={toastType}
-          visible={toastVisible}
-          onDismiss={() => setToastVisible(false)}
-        />
-      )}
     </View>
   );
 }

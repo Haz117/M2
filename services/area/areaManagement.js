@@ -19,6 +19,8 @@ import { db } from '../../firebase';
 import { getCurrentSession } from '../authFirestore';
 import { toMs } from '../../utils/dateUtils';
 
+const log = __DEV__ ? console.log : () => {};
+
 const AREAS_COLLECTION = 'areas';
 const AUDIT_COLLECTION = 'area_audit';
 
@@ -83,7 +85,7 @@ export const createArea = async (areaData) => {
     // Registrar en auditoría
     await logAreaAudit(docRef.id, 'created', null, { ...areaData }, session.uid);
 
-    console.log(`✅ Área creada: ${docRef.id}`);
+    log(`✅ Área creada: ${docRef.id}`);
     return {
       success: true,
       areaId: docRef.id,
@@ -160,7 +162,7 @@ export const updateArea = async (areaId, updates) => {
     // Auditoría
     await logAreaAudit(areaId, 'updated', oldAreaData, updates, session.uid);
 
-    console.log(`✅ Área actualizada: ${areaId}`);
+    log(`✅ Área actualizada: ${areaId}`);
     return { success: true };
   } catch (error) {
     console.error('❌ Error editando área:', error);
@@ -223,7 +225,7 @@ export const deleteArea = async (areaId) => {
     // Auditoría
     await logAreaAudit(areaId, 'deleted', oldAreaData, { activa: false }, session.uid);
 
-    console.log(`✅ Área eliminada: ${areaId}`);
+    log(`✅ Área eliminada: ${areaId}`);
     return { success: true };
   } catch (error) {
     console.error('❌ Error eliminando área:', error);
@@ -351,7 +353,7 @@ export const assignAreaChief = async (areaId, userId) => {
     // Auditoría
     await logAreaAudit(areaId, 'chief_assigned', oldData, { jefeId: userId }, session.uid);
 
-    console.log(`✅ Jefe asignado a área: ${areaId}`);
+    log(`✅ Jefe asignado a área: ${areaId}`);
     return { success: true };
   } catch (error) {
     console.error('Error asignando jefe:', error);

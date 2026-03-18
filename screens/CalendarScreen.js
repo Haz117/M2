@@ -15,7 +15,7 @@ import RippleButton from '../components/RippleButton';
 import { useTasks } from '../contexts/TasksContext';
 import { hapticLight, hapticMedium, hapticSuccess, hapticWarning } from '../utils/haptics';
 import { useTheme } from '../contexts/ThemeContext';
-import Toast from '../components/Toast';
+import { useNotification } from '../contexts/NotificationContext';
 import OverdueAlert from '../components/OverdueAlert';
 import { getCurrentSession } from '../services/authFirestore';
 import { useResponsive } from '../utils/responsive';
@@ -36,9 +36,7 @@ export default function CalendarScreen({ navigation }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState('success');
+  const { showSuccess, showInfo } = useNotification();
   const [currentUser, setCurrentUser] = useState(null);
   const [monthDirection, setMonthDirection] = useState(0); // -1 prev, 1 next
   const [compactTaskView, setCompactTaskView] = useState(false); // Vista compacta de tareas
@@ -253,9 +251,7 @@ export default function CalendarScreen({ navigation }) {
               hapticLight();
               openDayDetail(date);
             } else {
-              setToastMessage('No hay tareas para este día');
-              setToastType('info');
-              setToastVisible(true);
+              showInfo('No hay tareas para este día');
             }
           }}
           scaleDown={isDesktop ? 0.96 : 0.92}
@@ -537,9 +533,7 @@ export default function CalendarScreen({ navigation }) {
                   hapticMedium();
                   animateMonthChange(0);
                   setCurrentDate(new Date());
-                  setToastMessage('✨ ¡Vista actualizada a hoy!');
-                  setToastType('success');
-                  setToastVisible(true);
+                  showSuccess('✨ ¡Vista actualizada a hoy!');
                   hapticSuccess();
                 }}
                 rippleColor="rgba(255,255,255,0.3)"
@@ -559,27 +553,29 @@ export default function CalendarScreen({ navigation }) {
         {/* Controles de mes con glassmorphism */}
         <Animated.View style={[styles.monthControlsWrapper, calendarAnimatedStyle]}>
           <View style={[styles.monthControls, { backgroundColor: theme.glass }]}>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => {
                 hapticLight();
                 previousMonth();
-              }} 
-              style={[styles.monthButton, { backgroundColor: isDark ? 'rgba(159, 34, 65, 0.9)' : '#9F2241' }]}
+              }}
+              style={[styles.monthButton, { backgroundColor: theme.primary }]}
               activeOpacity={0.8}
+              accessibilityLabel="Mes anterior"
+              accessibilityRole="button"
             >
               <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
             </TouchableOpacity>
             
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.monthDisplay}
               onPress={() => {
                 hapticMedium();
                 setCurrentDate(new Date());
-                setToastMessage('📅 Regresando al mes actual');
-                setToastType('info');
-                setToastVisible(true);
+                showInfo('📅 Regresando al mes actual');
               }}
               activeOpacity={0.7}
+              accessibilityLabel="Ir al mes actual"
+              accessibilityRole="button"
             >
               <Text style={[styles.monthText, { color: theme.text }]}>
                 {MONTHS[currentDate.getMonth()]}
@@ -589,13 +585,15 @@ export default function CalendarScreen({ navigation }) {
               </Text>
             </TouchableOpacity>
             
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => {
                 hapticLight();
                 nextMonth();
-              }} 
-              style={[styles.monthButton, { backgroundColor: isDark ? 'rgba(159, 34, 65, 0.9)' : '#9F2241' }]}
+              }}
+              style={[styles.monthButton, { backgroundColor: theme.primary }]}
               activeOpacity={0.8}
+              accessibilityLabel="Mes siguiente"
+              accessibilityRole="button"
             >
               <Ionicons name="chevron-forward" size={22} color="#FFFFFF" />
             </TouchableOpacity>
@@ -688,12 +686,14 @@ export default function CalendarScreen({ navigation }) {
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.modalCloseButton}
                 onPress={() => {
                   hapticLight();
                   setModalVisible(false);
                 }}
+                accessibilityLabel="Cerrar"
+                accessibilityRole="button"
               >
                 <Ionicons name="close" size={24} color={theme.textSecondary} />
               </TouchableOpacity>
@@ -806,12 +806,6 @@ export default function CalendarScreen({ navigation }) {
       </Modal>
       </View>
 
-      <Toast
-        visible={toastVisible}
-        message={toastMessage}
-        type={toastType}
-        onHide={() => setToastVisible(false)}
-      />
     </View>
   );
 }
@@ -986,7 +980,7 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     alignItems: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: '#9F2241',
+        shadowColor: theme.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.35,
         shadowRadius: 10,
@@ -1053,7 +1047,7 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     color: isDark ? 'rgba(255,255,255,0.85)' : '#6B7280',
   },
   weekDayWeekend: {
-    color: isDark ? '#9F2241' : '#9F2241',
+    color: theme.primary,
     fontWeight: '800',
   },
   calendar: {
@@ -1511,7 +1505,7 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
   modalTaskStatusText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#9F2241',
+    color: theme.primary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },

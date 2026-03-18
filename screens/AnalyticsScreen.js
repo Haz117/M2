@@ -1,19 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Dimensions,
-  ActivityIndicator,
   TouchableOpacity,
-  FlatList,
   Animated,
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../contexts/ThemeContext';
+import ShimmerEffect from '../components/ShimmerEffect';
 import { getReportStatistics } from '../services/reportsService';
 import { getOverallTaskMetrics, subscribeToTasks } from '../services/tasks';
 
@@ -24,6 +23,8 @@ const AnalyticsScreen = ({ navigation }) => {
   const [reportStats, setReportStats] = useState(null);
   const [taskMetrics, setTaskMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [tasks, setTasks] = useState([]);
   
@@ -52,7 +53,7 @@ const AnalyticsScreen = ({ navigation }) => {
     new Animated.Value(1),
   ]);
 
-  const styles = StyleSheet.create({
+  const styles = useMemo(() => StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: isDark ? '#0A0A0F' : '#F8FAFC',
@@ -419,8 +420,8 @@ const AnalyticsScreen = ({ navigation }) => {
       right: 0,
       height: 300,
     },
-  });
-  
+  }), [isDark, theme]);
+
   // ✨ Función para ejecutar animaciones de entrada
   const runEntranceAnimations = () => {
     // Reset animaciones
@@ -512,7 +513,7 @@ const AnalyticsScreen = ({ navigation }) => {
       setTaskMetrics(metrics);
       runEntranceAnimations();
     } catch (error) {
-      console.error('Error refreshing:', error);
+      if (__DEV__) console.error('Error refreshing:', error);
     }
     setRefreshing(false);
   };
@@ -554,8 +555,8 @@ const AnalyticsScreen = ({ navigation }) => {
         // ✨ Ejecutar animaciones de entrada
         setTimeout(() => runEntranceAnimations(), 100);
       } catch (error) {
-        console.error('Error loading analytics:', error);
-        if (mounted) setLoading(false);
+        if (__DEV__) console.error('Error loading analytics:', error);
+        if (mounted) { setLoading(false); setLoadError(true); }
       }
     };
 
@@ -565,7 +566,7 @@ const AnalyticsScreen = ({ navigation }) => {
       mounted = false;
       unsubTasksRef?.();
     };
-  }, []);
+  }, [retryCount]);
 
   const getRatingDistribution = () => {
     if (!reportStats || !reportStats.reports) return {};
@@ -583,17 +584,50 @@ const AnalyticsScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: isDark ? '#0A0A0F' : '#F8FAFC' }]}>
+        {/* Header shimmer */}
         <LinearGradient
-          colors={isDark ? ['#9F2241', '#691830', '#0A0A0F'] : ['#9F2241', '#BE3356', '#F8FAFC']}
-          style={styles.loadingGradient}
-        />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#9F2241" />
-          <Text style={{ color: isDark ? '#FFFFFF' : '#1E293B', marginTop: 16, fontSize: 15, fontWeight: '600' }}>
-            Cargando analytics...
-          </Text>
+          colors={isDark ? ['#9F2241', '#691830'] : ['#9F2241', '#BE3356']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ paddingTop: 56, paddingBottom: 20, paddingHorizontal: 20 }}
+        >
+          <ShimmerEffect width={160} height={24} borderRadius={8} style={{ marginBottom: 8 }} />
+          <ShimmerEffect width={220} height={14} borderRadius={6} />
+        </LinearGradient>
+        {/* Metrics skeleton */}
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }} scrollEnabled={false}>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            {[...Array(3)].map((_, i) => (
+              <ShimmerEffect key={i} width={(width - 56) / 3} height={90} borderRadius={14} />
+            ))}
+          </View>
+          <ShimmerEffect width="100%" height={120} borderRadius={14} />
+          <ShimmerEffect width="100%" height={180} borderRadius={14} />
+          {[...Array(4)].map((_, i) => (
+            <ShimmerEffect key={i} width="100%" height={56} borderRadius={12} />
+          ))}
+        </ScrollView>
+      </View>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 40, gap: 16 }]}>
+        <View style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: isDark ? '#1E1E22' : '#FFF0EE', justifyContent: 'center', alignItems: 'center' }}>
+          <Ionicons name="bar-chart-outline" size={48} color="#FF3B30" />
         </View>
+        <Text style={{ fontSize: 18, fontWeight: '700', color: isDark ? '#fff' : '#18181B', textAlign: 'center' }}>Error al cargar analytics</Text>
+        <Text style={{ fontSize: 14, color: isDark ? '#C7C7CC' : '#6B7280', textAlign: 'center' }}>No se pudieron cargar las métricas. Verifica tu conexión.</Text>
+        <TouchableOpacity
+          onPress={() => { setLoadError(false); setLoading(true); setRetryCount(c => c + 1); }}
+          style={{ backgroundColor: theme.primary, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+          accessibilityLabel="Reintentar" accessibilityRole="button"
+        >
+          <Ionicons name="refresh" size={16} color="#fff" />
+          <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Reintentar</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -647,6 +681,8 @@ const AnalyticsScreen = ({ navigation }) => {
             <TouchableOpacity
               onPress={() => navigation.goBack()}
               style={styles.backButton}
+              accessibilityLabel="Volver"
+              accessibilityRole="button"
             >
               <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
             </TouchableOpacity>

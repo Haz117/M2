@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   Dimensions,
   TextInput,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,25 +21,48 @@ import { useTheme } from '../contexts/ThemeContext';
 import { createTaskReport, uploadReportImage } from '../services/reportsService';
 import { getCurrentSession } from '../services/authFirestore';
 import { savePendingReport, updatePendingReportImages } from '../services/offlineReportsService';
-import Toast from './Toast';
+import { useNotification } from '../contexts/NotificationContext';
 import WebSafeBlur from './WebSafeBlur';
 
 const { width } = Dimensions.get('window');
 
 const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
   const { theme, isDark } = useTheme();
+  const { showSuccess, showError, showWarning } = useNotification();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [images, setImages] = useState([]);
   const [rating, setRating] = useState(0);
   const [ratingComment, setRatingComment] = useState('');
   const [loading, setLoading] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
   const [errors, setErrors] = useState({});
   const [uploadProgress, setUploadProgress] = useState({});
   const [uploadingImages, setUploadingImages] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [showTemplates, setShowTemplates] = useState(true);
+
+  const hasUnsavedChanges = title.trim() !== '' || description.trim() !== '' || images.length > 0 || rating > 0 || ratingComment.trim() !== '';
+
+  const handleClose = () => {
+    if (hasUnsavedChanges && !loading) {
+      if (Platform.OS === 'web') {
+        if (window.confirm('¿Descartar cambios? Se perderá el reporte no guardado.')) {
+          onClose();
+        }
+      } else {
+        Alert.alert(
+          'Descartar cambios',
+          '¿Deseas cerrar sin guardar? Se perderá el reporte no guardado.',
+          [
+            { text: 'Seguir editando', style: 'cancel' },
+            { text: 'Descartar', style: 'destructive', onPress: onClose },
+          ]
+        );
+      }
+    } else {
+      onClose();
+    }
+  };
 
   // 📋 Plantillas de reportes rápidos
   const REPORT_TEMPLATES = [
@@ -92,7 +116,7 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
     return () => unsubscribe();
   }, []);
 
-  const styles = StyleSheet.create({
+  const styles = useMemo(() => StyleSheet.create({
     container: {
       flex: 1,
       justifyContent: 'flex-end',
@@ -364,7 +388,7 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
       fontWeight: '600',
       color: isDark ? '#fff' : '#333',
     },
-  });
+  }), [isDark, theme]);
 
   const handleAddImage = async () => {
     try {
@@ -384,8 +408,8 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
         setImages([...images, newImage]);
       }
     } catch (error) {
-      console.error('Error picking image:', error);
-      setToastMessage('Error al seleccionar imagen');
+      if (__DEV__) console.error('Error picking image:', error);
+      showError('Error al seleccionar imagen');
     }
   };
 
@@ -393,7 +417,7 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
-        setToastMessage('Se necesita permiso para usar la cámara');
+        showWarning('Se necesita permiso para usar la cámara');
         return;
       }
 
@@ -412,8 +436,8 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
         setImages([...images, newImage]);
       }
     } catch (error) {
-      console.error('Error taking photo:', error);
-      setToastMessage('Error al tomar foto');
+      if (__DEV__) console.error('Error taking photo:', error);
+      showError('Error al tomar foto');
     }
   };
 
@@ -477,11 +501,11 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
                   ratingComment: ratingComment.trim(),
                   userId: session.session?.userId,
                 });
-                setToastMessage('💾 Reporte guardado localmente. Se enviará cuando haya conexión.');
+                showSuccess('💾 Reporte guardado localmente. Se enviará cuando haya conexión.');
                 setTimeout(() => closeAndReset(), 1000);
               } catch (offlineError) {
-                console.error('Error guardando offline:', offlineError);
-                setToastMessage('Error al guardar: ' + offlineError.message);
+                if (__DEV__) console.error('Error guardando offline:', offlineError);
+                showError('Error al guardar: ' + offlineError.message);
               } finally {
                 setLoading(false);
               }
@@ -563,7 +587,7 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
 
           } catch (imgError) {
             failedImages++;
-            console.error(`⚠️ Error processing image ${idx + 1}:`, imgError);
+            if (__DEV__) console.error(`⚠️ Error processing image ${idx + 1}:`, imgError);
             
             setUploadProgress(prev => ({
               ...prev,
@@ -589,10 +613,10 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
             ]
           );
         } else {
-          setToastMessage('✅ ¡Reporte y fotos enviados exitosamente!');
+          showSuccess('✅ ¡Reporte y fotos enviados exitosamente!');
         }
       } else {
-        setToastMessage('✅ ¡Reporte enviado exitosamente!');
+        showSuccess('✅ ¡Reporte enviado exitosamente!');
       }
 
       // PASO 3: Cerrar modal DESPUÉS de que terminen todos los uploads
@@ -601,9 +625,9 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
       }, 800);
 
     } catch (error) {
-      console.error('❌ Error creating report:', error);
-      setToastMessage('Error: ' + error.message);
-      
+      if (__DEV__) console.error('❌ Error creating report:', error);
+      showError('Error: ' + error.message);
+
       // Ofrecer opción de guardar offline
       Alert.alert(
         '❌ Error al Enviar',
@@ -629,11 +653,11 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
                   ratingComment: ratingComment.trim(),
                   userId: (await getCurrentSession()).session?.userId,
                 });
-                setToastMessage('💾 Reporte guardado. Se enviará cuando haya conexión.');
+                showSuccess('💾 Reporte guardado. Se enviará cuando haya conexión.');
                 closeAndReset();
               } catch (offlineError) {
-                console.error('Error guardando offline:', offlineError);
-                setToastMessage('Error al guardar');
+                if (__DEV__) console.error('Error guardando offline:', offlineError);
+                showError('Error al guardar');
               }
             },
           },
@@ -668,11 +692,14 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
         <TouchableOpacity
           style={styles.background}
           activeOpacity={1}
-          onPress={onClose}
+          onPress={handleClose}
         />
 
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
         <View style={styles.sheet}>
-          <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
+          <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView} keyboardShouldPersistTaps="handled">
             <View style={styles.header}>
               <View style={styles.headerRow}>
                 <Text style={styles.title}>Nuevo Reporte</Text>
@@ -740,10 +767,17 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
                 value={title}
                 onChangeText={setTitle}
                 editable={!loading}
+                maxLength={120}
+                accessibilityLabel="Título del reporte"
               />
-              {errors.title && (
-                <Text style={styles.errorText}>{errors.title}</Text>
-              )}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+                {errors.title ? (
+                  <Text style={styles.errorText}>{errors.title}</Text>
+                ) : <View />}
+                <Text style={{ fontSize: 11, color: title.length > 100 ? theme.warning : theme.textTertiary }}>
+                  {title.length}/120
+                </Text>
+              </View>
             </View>
 
             {/* Description */}
@@ -757,10 +791,17 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
                 onChangeText={setDescription}
                 multiline
                 editable={!loading}
+                maxLength={2000}
+                accessibilityLabel="Descripción del reporte"
               />
-              {errors.description && (
-                <Text style={styles.errorText}>{errors.description}</Text>
-              )}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+                {errors.description ? (
+                  <Text style={styles.errorText}>{errors.description}</Text>
+                ) : <View />}
+                <Text style={{ fontSize: 11, color: description.length > 1800 ? theme.warning : theme.textTertiary }}>
+                  {description.length}/2000
+                </Text>
+              </View>
             </View>
 
             {/* Photos/Evidence */}
@@ -890,6 +931,7 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
                     onChangeText={setRatingComment}
                     multiline
                     editable={!loading}
+                    accessibilityLabel="Comentarios adicionales sobre la calificación"
                   />
                 </View>
               )}
@@ -900,7 +942,7 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
           <View style={styles.buttonRow}>
             <TouchableOpacity
               style={styles.cancelButton}
-              onPress={onClose}
+              onPress={handleClose}
               disabled={loading}
             >
               <Text style={styles.cancelButtonText}>Cancelar</Text>
@@ -923,12 +965,9 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
             </TouchableOpacity>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </WebSafeBlur>
 
-      <Toast
-        message={toastMessage}
-        onDismiss={() => setToastMessage('')}
-      />
     </Modal>
   );
 };

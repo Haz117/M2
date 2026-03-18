@@ -19,6 +19,8 @@ import {
 import { db } from '../firebase';
 import { getCurrentSession } from './authFirestore';
 
+const log = __DEV__ ? console.log : () => {};
+
 const NOTIFICATIONS_COLLECTION = 'notifications';
 const NOTIFICATION_HISTORY_COLLECTION = 'notification_history';
 
@@ -69,7 +71,7 @@ export const sendLocalNotification = async (options) => {
       trigger: { seconds: Math.ceil(delay / 1000) },
     });
 
-    console.log('📲 Notificación local enviada:', notificationId);
+    log('📲 Notificación local enviada:', notificationId);
     return notificationId;
   } catch (error) {
     console.error('Error en notificación local:', error);
@@ -263,7 +265,7 @@ export const markNotificationAsRead = async (notificationId) => {
     }
     
     // Si no se encontró en ninguna colección, solo logueamos sin error
-    console.log('Notificación ya no existe o fue eliminada:', notificationId);
+    log('Notificación ya no existe o fue eliminada:', notificationId);
   } catch (error) {
     console.error('Error marcando como leída:', error);
   }
@@ -301,7 +303,7 @@ export const deleteNotification = async (notificationId) => {
     }
     
     // Si no se encontró en ninguna colección, solo logueamos sin error
-    console.log('Notificación ya no existe:', notificationId);
+    log('Notificación ya no existe:', notificationId);
   } catch (error) {
     console.error('Error eliminando notificación:', error);
     throw new Error(`No se pudo eliminar la notificación: ${error.message}`);
@@ -343,7 +345,7 @@ export const getMyNotifications = async (limit = 50) => {
           }
         });
       } catch (e) {
-        console.log('Error buscando en notifications:', e);
+        console.error('Error buscando en notifications:', e);
       }
     }
 
@@ -363,7 +365,7 @@ export const getMyNotifications = async (limit = 50) => {
           }
         });
       } catch (e) {
-        console.log('Error buscando por email:', e);
+        console.error('Error buscando por email:', e);
       }
 
       // 3. Buscar en notification_history (historial antiguo)
@@ -381,7 +383,7 @@ export const getMyNotifications = async (limit = 50) => {
           }
         });
       } catch (e) {
-        console.log('Error buscando en history:', e);
+        console.error('Error buscando en history:', e);
       }
     }
 
@@ -414,7 +416,7 @@ export const cleanOldNotifications = async () => {
       await deleteDoc(doc.ref);
     }
 
-    console.log(`🧹 Limpias ${snapshot.docs.length} notificaciones antiguas`);
+    log(`🧹 Limpias ${snapshot.docs.length} notificaciones antiguas`);
   } catch (error) {
     console.error('Error limpiando notificaciones:', error);
   }

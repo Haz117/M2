@@ -3,6 +3,7 @@
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { toMs, diffMs, isBefore } from '../utils/dateUtils';
+import { isTaskAssignedToUser, getTaskArea } from '../utils/taskHelpers';
 
 // ✅ OPTIMIZACIÓN: Cache simple con TTL
 const analyticsCache = new Map();
@@ -22,31 +23,6 @@ function setCachedData(key, data) {
     data,
     timestamp: Date.now(),
   });
-}
-
-// Helper function to check if a task is assigned to a user (supports both string and array formats)
-function isTaskAssignedToUser(task, userEmail) {
-  if (!task.assignedTo) return false;
-  if (Array.isArray(task.assignedTo)) {
-    // Normalize emails before comparing
-    const normalizedEmail = userEmail?.toLowerCase().trim() || '';
-    if (Array.isArray(task.assignedTo)) {
-      return task.assignedTo.some(email => email?.toLowerCase().trim() === normalizedEmail);
-    }
-    return (task.assignedTo?.toLowerCase().trim() || '') === normalizedEmail;
-  }
-  // Backward compatibility: old string format
-  return task.assignedTo.toLowerCase() === userEmail.toLowerCase();
-}
-
-// Helper function to get task area (supports both area and areas fields)
-function getTaskArea(task) {
-  if (task.area) {
-    return task.area;
-  } else if (task.areas && Array.isArray(task.areas) && task.areas.length > 0) {
-    return task.areas[0];
-  }
-  return 'Sin área';
 }
 
 /**

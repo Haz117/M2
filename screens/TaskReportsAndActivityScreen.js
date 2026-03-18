@@ -1,29 +1,35 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { getSwipeable } from '../utils/platformComponents';
+const Swipeable = getSwipeable();
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
-  ActivityIndicator,
   TouchableOpacity,
   Image,
   ScrollView,
   Dimensions,
   Alert,
+  RefreshControl,
+  Animated,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
-import { subscribeToTaskReports, subscribeToTaskActivity, rateTaskReport } from '../services/reportsService';
+import { subscribeToTaskReports, subscribeToTaskActivity, rateTaskReport, deleteTaskReport } from '../services/reportsService';
 import { getCurrentSession } from '../services/authFirestore';
 import ReportFormModal from '../components/ReportFormModal';
 import ExportReportModal from '../components/ExportReportModal';
-import Toast from '../components/Toast';
+import { useNotification } from '../contexts/NotificationContext';
+import ShimmerEffect from '../components/ShimmerEffect';
 
 const { width } = Dimensions.get('window');
 
 const TaskReportsAndActivityScreen = ({ route, navigation }) => {
   const { taskId, taskTitle } = route.params;
   const { theme, isDark } = useTheme();
+  const { showSuccess, showError } = useNotification();
   const [reports, setReports] = useState([]);
   const [activities, setActivities] = useState([]);
   const [tab, setTab] = useState('reports'); // 'reports' or 'activity'
@@ -31,12 +37,12 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
   const [showReportForm, setShowReportForm] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
-  const [toastMessage, setToastMessage] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
   const [expandedReportId, setExpandedReportId] = useState(null);
   const [hoverRating, setHoverRating] = useState({});  // Para feedback visual de estrellas
+  const [refreshing, setRefreshing] = useState(false);
 
-  const styles = StyleSheet.create({
+  const styles = useMemo(() => StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: isDark ? '#000' : '#f5f5f5',
@@ -274,7 +280,7 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
       marginTop: 4,
       fontStyle: 'italic',
     },
-  });
+  }), [isDark, theme]);
 
   const unsubReportsRef = useRef(null);
   const unsubActivityRef = useRef(null);
@@ -294,7 +300,7 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
 
         if (mounted) setLoading(false);
       } catch (error) {
-        console.error('Error loading data:', error);
+        if (__DEV__) console.error('Error loading data:', error);
         if (mounted) setLoading(false);
       }
     };
@@ -307,16 +313,70 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
     };
   }, [taskId]);
 
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    unsubReportsRef.current?.();
+    unsubActivityRef.current?.();
+    unsubReportsRef.current = subscribeToTaskReports(taskId, setReports);
+    unsubActivityRef.current = subscribeToTaskActivity(taskId, setActivities);
+    setTimeout(() => setRefreshing(false), 800);
+  }, [taskId]);
+
+  const handleDeleteReport = useCallback((reportId) => {
+    const doDelete = async () => {
+      try {
+        await deleteTaskReport(taskId, reportId);
+        showSuccess('Reporte eliminado');
+      } catch (error) {
+        showError('Error al eliminar: ' + error.message);
+      }
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm('¿Eliminar este reporte?')) doDelete();
+    } else {
+      Alert.alert('Eliminar reporte', '¿Estás seguro?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: doDelete },
+      ]);
+    }
+  }, [taskId, showSuccess, showError]);
+
+  const renderReportSwipeActions = useCallback((progress, dragX, reportId) => {
+    const trans = dragX.interpolate({
+      inputRange: [-80, 0],
+      outputRange: [0, 80],
+      extrapolate: 'clamp',
+    });
+    return (
+      <Animated.View style={{ transform: [{ translateX: trans }], justifyContent: 'center' }}>
+        <TouchableOpacity
+          onPress={() => handleDeleteReport(reportId)}
+          style={{
+            backgroundColor: '#FF3B30',
+            justifyContent: 'center',
+            alignItems: 'center',
+            width: 80,
+            height: '100%',
+            borderRadius: 12,
+          }}
+          accessibilityLabel="Eliminar reporte"
+        >
+          <Ionicons name="trash-outline" size={22} color="#fff" />
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  }, [handleDeleteReport]);
+
   const handleRateReport = async (reportId, rating) => {
     // En web Alert.alert no funciona bien, calificamos directamente
     try {
       await rateTaskReport(taskId, reportId, rating, '', currentUser.userId);
-      setToastMessage(`¡Reporte calificado con ${rating} estrellas!`);
+      showSuccess(`¡Reporte calificado con ${rating} estrellas!`);
       setExpandedReportId(null);
       setHoverRating({});
     } catch (error) {
-      console.error('Error al calificar:', error);
-      setToastMessage('Error al calificar: ' + error.message);
+      if (__DEV__) console.error('Error al calificar:', error);
+      showError('Error al calificar: ' + error.message);
     }
   };
 
@@ -406,7 +466,7 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
                       key={idx}
                       source={{ uri: imageUri }}
                       style={styles.reportImage}
-                      onError={(e) => console.log('Image load error:', e.nativeEvent.error)}
+                      onError={() => {}}
                     />
                   );
                 })}
@@ -472,8 +532,35 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color={theme.primary} />
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        {/* Header shimmer */}
+        <View style={[styles.header, { paddingTop: 12, paddingBottom: 12 }]}>
+          <ShimmerEffect width={32} height={32} borderRadius={8} />
+          <View style={{ flex: 1, marginLeft: 12, gap: 8 }}>
+            <ShimmerEffect width="60%" height={16} borderRadius={6} />
+            <ShimmerEffect width="40%" height={12} borderRadius={5} />
+          </View>
+        </View>
+        {/* Tab bar shimmer */}
+        <View style={{ flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginBottom: 12 }}>
+          <ShimmerEffect width={100} height={36} borderRadius={18} />
+          <ShimmerEffect width={100} height={36} borderRadius={18} />
+        </View>
+        {/* Report card skeletons */}
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }} scrollEnabled={false}>
+          {[...Array(4)].map((_, i) => (
+            <View key={i} style={{ gap: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <ShimmerEffect width={40} height={40} borderRadius={20} />
+                <View style={{ flex: 1, gap: 6 }}>
+                  <ShimmerEffect width="55%" height={13} borderRadius={5} />
+                  <ShimmerEffect width="35%" height={11} borderRadius={5} />
+                </View>
+              </View>
+              <ShimmerEffect width="100%" height={70} borderRadius={10} />
+            </View>
+          ))}
+        </ScrollView>
       </View>
     );
   }
@@ -577,9 +664,35 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
           ) : (
             <FlatList
               data={reports}
-              renderItem={renderReportCard}
+              renderItem={({ item }) => {
+                const card = renderReportCard({ item });
+                if (Platform.OS === 'web' || !isAdmin) return card;
+                return (
+                  <Swipeable
+                    renderRightActions={(progress, dragX) =>
+                      renderReportSwipeActions(progress, dragX, item.id)
+                    }
+                    friction={2}
+                    overshootRight={false}
+                  >
+                    {card}
+                  </Swipeable>
+                );
+              }}
               keyExtractor={(item) => item.id}
               contentContainerStyle={{ paddingVertical: 8 }}
+              windowSize={5}
+              maxToRenderPerBatch={4}
+              initialNumToRender={6}
+              removeClippedSubviews={true}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={theme.primary}
+                  colors={[theme.primary]}
+                />
+              }
               ListFooterComponent={
                 !isAdmin ? (
                   <TouchableOpacity
@@ -608,6 +721,18 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
             contentContainerStyle={
               activities.length === 0 ? { flex: 1 } : undefined
             }
+            windowSize={5}
+            maxToRenderPerBatch={6}
+            initialNumToRender={8}
+            removeClippedSubviews={true}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={theme.primary}
+                colors={[theme.primary]}
+              />
+            }
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Ionicons
@@ -631,7 +756,7 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
         onClose={() => setShowReportForm(false)}
         taskId={taskId}
         onSuccess={() => {
-          setToastMessage('¡Reporte enviado exitosamente!');
+          showSuccess('¡Reporte enviado exitosamente!');
         }}
       />
 
@@ -643,10 +768,6 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
         allReports={reports}
       />
 
-      <Toast
-        message={toastMessage}
-        onDismiss={() => setToastMessage('')}
-      />
     </View>
   );
 };

@@ -69,7 +69,7 @@ const AreaMetricsPanel = ({
       
       setDirectors(directorsData);
     } catch (error) {
-      console.error('Error loading directors:', error);
+      if (__DEV__) console.error('Error loading directors:', error);
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Animated, Platform, StatusBar, Modal, ScrollView, Easing } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Animated, Platform, Modal, ScrollView, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,7 +10,8 @@ import AdvancedFilters from '../components/AdvancedFilters';
 import ThemeToggle from '../components/ThemeToggle';
 import EmptyState from '../components/EmptyState';
 import ConfettiCelebration from '../components/ConfettiCelebration';
-import Toast from '../components/Toast';
+import { useNotification } from '../contexts/NotificationContext';
+import { deleteManager } from '../utils/deleteManager';
 import AnimatedBadge from '../components/AnimatedBadge';
 import QuickActionButton from '../components/QuickActionButton';
 import { isOverdue, toMs } from '../utils/dateUtils';
@@ -42,9 +43,10 @@ const Swipeable = getSwipeable();
 export default function HomeScreen({ navigation }) {
   const { theme, isDark } = useTheme();
   const { width, isDesktop, isTablet, columns, padding } = useResponsive();
-  
+  const { showSuccess, showError, showWarning, showInfo, showNotification } = useNotification();
+
   // 🌍 USAR EL CONTEXT GLOBAL DE TAREAS
-  const { tasks, setTasks, isLoading: tasksLoading, markAsDeleting, unmarkAsDeleting } = useTasks();
+  const { tasks, setTasks, isLoading: tasksLoading } = useTasks();
   const [isLoading, setIsLoading] = useState(tasksLoading);
   const [title, setTitle] = useState('');
   const [searchText, setSearchText] = useState('');
@@ -93,10 +95,6 @@ export default function HomeScreen({ navigation }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState('success');
-  const [toastAction, setToastAction] = useState(null);
 
   // Animation refs for stagger effect
   const headerOpacity = useRef(new Animated.Value(0)).current;
@@ -108,8 +106,8 @@ export default function HomeScreen({ navigation }) {
 
   // Stagger animations on mount
   useEffect(() => {
-    const staggerDelay = 100;
-    
+    const staggerDelay = 35;
+
     // Header animation
     Animated.parallel([
       Animated.timing(headerOpacity, {
@@ -127,7 +125,7 @@ export default function HomeScreen({ navigation }) {
     ]).start();
 
     // Search bar animation
-    setTimeout(() => {
+    const t1 = setTimeout(() => {
       Animated.parallel([
         Animated.timing(searchOpacity, {
           toValue: 1,
@@ -145,7 +143,7 @@ export default function HomeScreen({ navigation }) {
     }, staggerDelay);
 
     // List animation
-    setTimeout(() => {
+    const t2 = setTimeout(() => {
       Animated.parallel([
         Animated.timing(listOpacity, {
           toValue: 1,
@@ -161,6 +159,11 @@ export default function HomeScreen({ navigation }) {
         }),
       ]).start();
     }, staggerDelay * 2);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, []);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [savingProgress, setSavingProgress] = useState(null);
@@ -266,67 +269,54 @@ export default function HomeScreen({ navigation }) {
     // Verificar permisos usando el nuevo sistema
     const taskToDelete = tasks.find(t => t.id === taskId);
     if (!taskToDelete) {
-      setToastMessage('❌ Tarea no encontrada');
-      setToastType('error');
-      setToastVisible(true);
+      showError('❌ Tarea no encontrada');
       return;
     }
-    
+
     const deletePermission = canDeleteTask(currentUser, taskToDelete);
     if (!deletePermission.canDelete) {
-      setToastMessage(`❌ ${deletePermission.reason}`);
-      setToastType('error');
-      setToastVisible(true);
+      showError(`❌ ${deletePermission.reason}`);
       return;
     }
-    
+
     // ✅ MARCAR COMO EN PROCESO (local + context global)
     deletingTasksRef.current.add(taskId);
-    markAsDeleting(taskId);  // 🛡️ Evitar que el listener restaure la tarea
+    deleteManager.markDeleting(taskId);  // 🛡️ Evitar que el listener restaure la tarea
     hapticHeavy();
-    
+
     // 🚀 FASE 1: ELIMINAR DE LA UI INMEDIATAMENTE (optimistic update)
     setTasks(prevTasks => prevTasks.filter(t => t.id !== taskId));
-    
-    // ✅ MOSTRAR TOAST DE ÉXITO AL INSTANTE
-    setToastMessage('✅ Tarea eliminada');
-    setToastType('success');
-    setToastAction({
-      label: 'Deshacer',
+
+    // ✅ MOSTRAR TOAST DE ÉXITO AL INSTANTE (toca para deshacer)
+    showNotification({
+      message: '✅ Tarea eliminada · Toca para deshacer',
+      type: 'success',
+      duration: 8000,
       onPress: async () => {
-        // Evitar múltiples clics del botón Deshacer
         if (isUndoing) return;
         setIsUndoing(true);
-        
         try {
           // 🛡️ Desmarcar para permitir que el listener restaure
-          unmarkAsDeleting(taskId);
+          deleteManager.cancelDelete(taskId);
           deletingTasksRef.current.delete(taskId);
-          
-          // Recrear la tarea SIN el ID para que se regenere
           if (taskToDelete) {
             const { id, ...taskWithoutId } = taskToDelete;
             await createTask(taskWithoutId);
-            setToastMessage('✅ Tarea restaurada');
-            setToastType('info');
-            setToastVisible(true);
+            showInfo('✅ Tarea restaurada');
           }
         } catch (error) {
-          setToastMessage('❌ Error al restaurar');
-          setToastType('error');
-          setToastVisible(true);
+          showError('❌ Error al restaurar');
         } finally {
           setIsUndoing(false);
         }
       }
     });
-    setToastVisible(true);
-    
+
     // 🔄 FASE 2: EJECUTAR DELETE EN FIREBASE EN BACKGROUND (fire-and-forget)
     deleteTaskFirebase(taskId)
       .then(() => {
         // ✅ Solo desmarcar después de éxito confirmado
-        unmarkAsDeleting(taskId);
+        deleteManager.confirmDelete(taskId);
       })
       .catch(error => {
         // Si falla en Firebase, mantener marcado para evitar que reaparezca
@@ -335,25 +325,24 @@ export default function HomeScreen({ navigation }) {
         // ✅ LIMPIAR MARCA LOCAL DE EN PROCESO
         deletingTasksRef.current.delete(taskId);
       });
-  }, [currentUser, isUndoing, tasks, markAsDeleting, unmarkAsDeleting]);
+  }, [currentUser, isUndoing, tasks, showNotification, showError, showInfo]);
 
   const toggleComplete = useCallback(async (task) => {
     try {
+      const previousStatus = task.status;
       const newStatus = task.status === 'cerrada' ? 'pendiente' : 'cerrada';
-      
+
       // Verificar permisos usando el nuevo sistema (valida el newStatus específico)
       const statusPermission = canChangeTaskStatus(currentUser, task, newStatus);
       if (!statusPermission.canChange) {
-        setToastMessage(statusPermission.reason || 'No tienes permisos para este cambio');
-        setToastType('warning');
-        setToastVisible(true);
+        showWarning(statusPermission.reason || 'No tienes permisos para este cambio');
         return;
       }
-      
+
       hapticMedium(); // Haptic feedback on toggle
       await updateTask(task.id, { status: newStatus });
-      
-      // Show toast with feedback
+
+      // Show toast with feedback + undo
       if (newStatus === 'cerrada') {
         // Confetti para tareas urgentes completadas
         if (task.priority === 'alta') {
@@ -361,72 +350,89 @@ export default function HomeScreen({ navigation }) {
           setTimeout(() => setShowConfetti(false), 2500);
           hapticHeavy(); // Extra haptic for urgent tasks
         }
-        setToastMessage('Tarea marcada como completada');
-        setToastType('success');
-        setToastVisible(true);
+        showNotification({
+          message: '✅ Tarea completada · Toca para deshacer',
+          type: 'success',
+          duration: 5000,
+          onPress: async () => {
+            if (isUndoing) return;
+            setIsUndoing(true);
+            try {
+              await updateTask(task.id, { status: previousStatus });
+              showInfo('↩️ Estado restaurado');
+            } catch {
+              showError('Error al deshacer');
+            } finally {
+              setIsUndoing(false);
+            }
+          },
+        });
       } else {
-        setToastMessage('Tarea reabierta');
-        setToastType('info');
-        setToastVisible(true);
+        showInfo('Tarea reabierta');
       }
     } catch (error) {
-      setToastMessage(`Error al actualizar: ${error.message}`);
-      setToastType('error');
-      setToastVisible(true);
+      showError(`Error al actualizar: ${error.message}`);
     }
     // La actualización del estado se hace automáticamente por el listener
-  }, [currentUser]);
+  }, [currentUser, isUndoing]);
 
   const changeTaskStatus = useCallback(async (taskId, newStatus) => {
+    const statusLabels = {
+      'pendiente': 'Pendiente',
+      'en_proceso': 'En Proceso',
+      'en_revision': 'En Revisión',
+      'cerrada': 'Completada'
+    };
     try {
+      const task = tasks.find(t => t.id === taskId);
+      const previousStatus = task?.status;
       hapticMedium();
       await updateTask(taskId, { status: newStatus });
-      
-      const statusLabels = {
-        'pendiente': 'Pendiente',
-        'en_proceso': 'En Proceso', 
-        'en_revision': 'En Revisión',
-        'cerrada': 'Completada'
-      };
-      
-      setToastMessage(`Estado cambiado a: ${statusLabels[newStatus]}`);
-      setToastType('success');
-      setToastVisible(true);
-      
+
       // Confetti si se completa
       if (newStatus === 'cerrada') {
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 2500);
         hapticHeavy();
       }
+
+      showNotification({
+        message: `✅ Estado: ${statusLabels[newStatus]} · Toca para deshacer`,
+        type: 'success',
+        duration: 5000,
+        onPress: previousStatus ? async () => {
+          if (isUndoing) return;
+          setIsUndoing(true);
+          try {
+            await updateTask(taskId, { status: previousStatus });
+            showInfo(`↩️ Estado restaurado: ${statusLabels[previousStatus] || previousStatus}`);
+          } catch {
+            showError('Error al deshacer');
+          } finally {
+            setIsUndoing(false);
+          }
+        } : undefined,
+      });
     } catch (error) {
-      setToastMessage(`Error: ${error.message}`);
-      setToastType('error');
-      setToastVisible(true);
+      showError(`Error: ${error.message}`);
     }
-  }, []);
+  }, [showNotification, showInfo, showError, tasks, isUndoing]);
 
   const reopenTask = useCallback(async (task) => {
     // Solo admin puede reabrir
     if (!currentUser || currentUser.role !== 'admin') {
-      setToastMessage('Solo los administradores pueden reabrir tareas');
-      setToastType('warning');
-      setToastVisible(true);
+      showWarning('Solo los administradores pueden reabrir tareas');
       return;
     }
 
     try {
       hapticMedium();
       await updateTask(task.id, { status: 'pendiente' });
-      setToastMessage('Tarea reabierta');
-      setToastType('success');
-      setToastVisible(true);
+      showSuccess('Tarea reabierta');
     } catch (error) {
-      setToastMessage(`Error al reabrir: ${error.message}`);
-      setToastType('error');
-      setToastVisible(true);
+      showError(`Error al reabrir: ${error.message}`);
     }
-  }, [currentUser]);
+  }, [currentUser, showWarning, showSuccess, showError]);
 
   const duplicateTask = useCallback((task) => {
     hapticMedium();
@@ -444,10 +450,8 @@ export default function HomeScreen({ navigation }) {
         id: `temp-${Date.now()}`
       }
     });
-    setToastMessage('Editando copia de la tarea');
-    setToastType('info');
-    setToastVisible(true);
-  }, [navigation]);
+    showInfo('Editando copia de la tarea');
+  }, [navigation, showInfo]);
 
   const shareTask = useCallback(async (task) => {
     hapticLight();
@@ -455,13 +459,9 @@ export default function HomeScreen({ navigation }) {
     
     try {
       await Clipboard.setStringAsync(shareText);
-      setToastMessage('Tarea copiada al portapapeles');
-      setToastType('success');
-      setToastVisible(true);
+      showSuccess('Tarea copiada al portapapeles');
     } catch (error) {
-      setToastMessage('Error al copiar');
-      setToastType('error');
-      setToastVisible(true);
+      showError('Error al copiar');
     }
   }, []);
 
@@ -905,14 +905,17 @@ export default function HomeScreen({ navigation }) {
               <View style={[styles.taskCountBadge, { backgroundColor: theme.primary }]}>
                 <Text style={styles.taskCountText}>{filteredTasks.length}</Text>
               </View>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.compactToggle, { backgroundColor: compactView ? theme.primary : (isDark ? '#333' : '#e0e0e0') }]}
                 onPress={() => setCompactView(!compactView)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityLabel={compactView ? 'Vista normal' : 'Vista compacta'}
+                accessibilityRole="button"
               >
-                <Ionicons 
-                  name={compactView ? 'list' : 'grid-outline'} 
-                  size={16} 
-                  color={compactView ? '#fff' : theme.text} 
+                <Ionicons
+                  name={compactView ? 'list' : 'grid-outline'}
+                  size={16}
+                  color={compactView ? '#fff' : theme.text}
                 />
               </TouchableOpacity>
             </View>
@@ -935,12 +938,12 @@ export default function HomeScreen({ navigation }) {
                   key={filter.key}
                   style={[
                     styles.quickFilterChip,
-                    { 
-                      backgroundColor: quickStatusFilter === filter.key 
-                        ? theme.primary 
+                    {
+                      backgroundColor: quickStatusFilter === filter.key
+                        ? theme.primary
                         : (isDark ? '#2a2a2a' : '#f0f0f0'),
-                      borderColor: quickStatusFilter === filter.key 
-                        ? theme.primary 
+                      borderColor: quickStatusFilter === filter.key
+                        ? theme.primary
                         : (isDark ? '#444' : '#ddd'),
                     }
                   ]}
@@ -948,6 +951,9 @@ export default function HomeScreen({ navigation }) {
                     hapticLight();
                     setQuickStatusFilter(filter.key);
                   }}
+                  accessibilityLabel={`Filtrar por ${filter.label}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: quickStatusFilter === filter.key }}
                 >
                   <Ionicons 
                     name={filter.icon} 
@@ -1037,19 +1043,6 @@ export default function HomeScreen({ navigation }) {
         <SyncIndicator />
       </View>
       
-      {/* Toast mejorado */}
-      <Toast 
-        visible={toastVisible}
-        message={toastMessage}
-        type={toastType}
-        action={toastAction}
-        duration={toastAction ? 8000 : 3000}
-        onHide={() => {
-          setToastVisible(false);
-          setToastAction(null);
-        }}
-        swipeToDismiss
-      />
       
       {/* FAB con acciones rápidas - Admin */}
       {currentUser && (currentUser.role === 'admin') && (
@@ -1058,7 +1051,7 @@ export default function HomeScreen({ navigation }) {
             {
               icon: 'add-circle',
               label: 'Nueva tarea',
-              color: '#9F2241',
+              color: theme.primary,
               onPress: () => navigation.navigate('TaskDetail'),
             },
             {
@@ -1112,7 +1105,7 @@ export default function HomeScreen({ navigation }) {
             alignItems: 'center',
             gap: 12
           }}>
-            <LoadingIndicator type="spinner" color="#9F2241" size={12} />
+            <LoadingIndicator type="spinner" color={theme.primary} size={12} />
             <Text style={{ fontSize: 16, fontWeight: '600', color: '#1A1A1A' }}>
               {savingProgress === 100 ? 'Completado!' : 'Guardando...'}
             </Text>

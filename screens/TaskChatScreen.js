@@ -3,7 +3,7 @@
 // Requiere que configures firebase.js con tu proyecto.
 // Funcionalidad mínima: lista de mensajes en tiempo real + enviar mensaje de texto.
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback, memo, useMemo } from 'react';
 import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, Image, Modal, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +13,7 @@ import { getCurrentSession } from '../services/authFirestore';
 import { notifyNewComment } from '../services/fcm';
 import { notifyNewChatMessage } from '../services/emailNotifications';
 import ChatImageUpload from '../components/ChatImageUpload';
+import { useTheme } from '../contexts/ThemeContext';
 
 // Helper function to check if a task is assigned to a user (supports both string and array formats)
 function isTaskAssignedToUser(task, userEmail) {
@@ -30,6 +31,8 @@ function isTaskAssignedToUser(task, userEmail) {
 }
 
 export default function TaskChatScreen({ route, navigation }) {
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
   const { taskId, taskTitle } = route.params;
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
@@ -68,7 +71,7 @@ export default function TaskChatScreen({ route, navigation }) {
           }
         }
       } catch (error) {
-        console.error('[TaskChat] Error loading task:', error);
+        if (__DEV__) console.error('[TaskChat] Error loading task:', error);
         setHasAccess(false);
       }
     } else {
@@ -87,7 +90,7 @@ export default function TaskChatScreen({ route, navigation }) {
       snap.forEach(doc => arr.push({ id: doc.id, ...doc.data() }));
       setMessages(arr);
     }, (err) => {
-      console.error('[TaskChat] Error listening to messages:', err);
+      if (__DEV__) console.error('[TaskChat] Error listening to messages:', err);
     });
 
     return () => unsub();
@@ -113,7 +116,7 @@ export default function TaskChatScreen({ route, navigation }) {
           hasUnreadMessages: true
         });
       } catch (updateError) {
-        console.error('[TaskChat] Error updating task:', updateError);
+        if (__DEV__) console.error('[TaskChat] Error updating task:', updateError);
       }
       
       // 3. Notificar a otros usuarios de la tarea
@@ -129,14 +132,14 @@ export default function TaskChatScreen({ route, navigation }) {
           );
         }
       } catch (notifyError) {
-        console.error('[TaskChat] Error notifying:', notifyError);
+        if (__DEV__) console.error('[TaskChat] Error notifying:', notifyError);
       }
       
       setText('');
       // scroll opcional
       setTimeout(() => flatRef.current?.scrollToEnd?.({ animated: true }), 200);
     } catch (e) {
-      console.error('[TaskChat] Error sending message:', e);
+      if (__DEV__) console.error('[TaskChat] Error sending message:', e);
       Alert.alert('Error', `No se pudo enviar el mensaje: ${e.message}`);
     }
   };
@@ -163,30 +166,62 @@ export default function TaskChatScreen({ route, navigation }) {
           hasUnreadMessages: true
         });
       } catch (updateError) {
-        console.error('[TaskChat] Error updating task after image:', updateError);
+        if (__DEV__) console.error('[TaskChat] Error updating task after image:', updateError);
       }
       
       // Notificar
       try {
         await notifyNewComment(taskId, currentUser || 'Usuario', '[Imagen enviada]');
       } catch (notifyError) {
-        console.error('[TaskChat] Error notifying about image:', notifyError);
+        if (__DEV__) console.error('[TaskChat] Error notifying about image:', notifyError);
       }
       
       // scroll opcional
       setTimeout(() => flatRef.current?.scrollToEnd?.({ animated: true }), 200);
     } catch (e) {
-      console.error('[TaskChat] Error uploading image:', e);
+      if (__DEV__) console.error('[TaskChat] Error uploading image:', e);
       Alert.alert('Error', `No se pudo enviar la imagen: ${e.message}`);
     } finally {
       setIsUploadingImage(false);
     }
   };
 
+  const renderMessageItem = useCallback(({ item }) => (
+    <View style={styles.msgRow}>
+      <Text style={styles.msgAuthor}>{item.author || 'Usuario'}</Text>
+      {item.type === 'image' ? (
+        <TouchableOpacity
+          onPress={() => setSelectedImageUrl(item.imageUrl)}
+          activeOpacity={0.9}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Image source={{ uri: item.imageUrl }} style={styles.msgImage} resizeMode="cover" />
+          <View style={styles.imageOverlay}>
+            <Ionicons name="expand-outline" size={16} color="#FFFFFF" />
+          </View>
+        </TouchableOpacity>
+      ) : (
+        <Text style={styles.msgText}>{item.text || ''}</Text>
+      )}
+      <Text style={styles.msgTime}>
+        {item.createdAt?.toDate ? item.createdAt.toDate().toLocaleString() : 'Sin fecha'}
+      </Text>
+    </View>
+  ), [styles, setSelectedImageUrl]);
+
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.select({ios:'padding', android:undefined})}>
-      <View style={[styles.headerBar, { backgroundColor: '#9F2241' }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.select({ ios: 'padding', android: 'padding' })}
+      keyboardVerticalOffset={Platform.select({ ios: 0, android: 20 })}
+    >
+      <View style={styles.headerBar}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.closeButton}
+          accessibilityLabel="Volver"
+          accessibilityRole="button"
+        >
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
@@ -211,31 +246,12 @@ export default function TaskChatScreen({ route, navigation }) {
             data={messages}
             keyExtractor={(i) => i.id}
             contentContainerStyle={styles.messagesContainer}
-            renderItem={({ item }) => (
-              <View key={item.id} style={styles.msgRow}>
-                <Text style={styles.msgAuthor}>{item.author || 'Usuario'}</Text>
-                {item.type === 'image' ? (
-                  <TouchableOpacity 
-                    onPress={() => setSelectedImageUrl(item.imageUrl)}
-                    activeOpacity={0.9}
-                  >
-                    <Image
-                      source={{ uri: item.imageUrl }}
-                      style={styles.msgImage}
-                      resizeMode="cover"
-                    />
-                    <View style={styles.imageOverlay}>
-                      <Ionicons name="expand-outline" size={16} color="#FFFFFF" />
-                    </View>
-                  </TouchableOpacity>
-                ) : (
-                  <Text style={styles.msgText}>{item.text || ''}</Text>
-                )}
-                <Text style={styles.msgTime}>
-                  {item.createdAt?.toDate ? item.createdAt.toDate().toLocaleString() : 'Sin fecha'}
-                </Text>
-              </View>
-            )}
+            renderItem={renderMessageItem}
+            windowSize={10}
+            maxToRenderPerBatch={10}
+            initialNumToRender={15}
+            removeClippedSubviews={true}
+            inverted={false}
           />
 
           <View style={styles.composer}>
@@ -251,12 +267,18 @@ export default function TaskChatScreen({ route, navigation }) {
               style={styles.input}
               multiline
               maxLength={500}
+              accessibilityLabel="Escribe un mensaje"
+              accessibilityRole="text"
+              editable={!isUploadingImage}
             />
-            <TouchableOpacity 
-              style={[styles.sendButton, !text.trim() && styles.sendButtonDisabled]} 
+            <TouchableOpacity
+              style={[styles.sendButton, (!text.trim() || isUploadingImage) && styles.sendButtonDisabled]}
               onPress={send}
-              disabled={!text.trim()}
+              disabled={!text.trim() || isUploadingImage}
               activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel="Enviar mensaje"
+              accessibilityRole="button"
             >
               <Ionicons name="send" size={20} color="#FFFFFF" />
             </TouchableOpacity>
@@ -298,14 +320,14 @@ export default function TaskChatScreen({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme, isDark) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA'
+    backgroundColor: theme.background,
   },
   chatContent: {
     flex: 1,
-    flexDirection: 'column'
+    flexDirection: 'column',
   },
   headerBar: {
     flexDirection: 'row',
@@ -316,11 +338,12 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
-    shadowColor: '#9F2241',
+    backgroundColor: theme.primary,
+    shadowColor: theme.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
     shadowRadius: 10,
-    elevation: 6
+    elevation: 6,
   },
   closeButton: {
     width: 40,
@@ -346,10 +369,10 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 8
   },
-  msgRow: { 
-    marginBottom: 14, 
-    backgroundColor: '#FFFFFF', 
-    padding: 14, 
+  msgRow: {
+    marginBottom: 14,
+    backgroundColor: theme.card,
+    padding: 14,
     borderRadius: 18,
     maxWidth: '85%',
     alignSelf: 'flex-start',
@@ -359,20 +382,20 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.04)'
+    borderColor: theme.border,
   },
-  msgAuthor: { 
-    fontWeight: '700', 
-    marginBottom: 6, 
-    color: '#9F2241',
+  msgAuthor: {
+    fontWeight: '700',
+    marginBottom: 6,
+    color: theme.primary,
     fontSize: 13,
-    letterSpacing: 0.2
+    letterSpacing: 0.2,
   },
-  msgText: { 
-    color: '#1A1A1A',
+  msgText: {
+    color: theme.text,
     fontSize: 15,
     lineHeight: 21,
-    fontWeight: '400'
+    fontWeight: '400',
   },
   msgImage: {
     width: 220,
@@ -386,14 +409,14 @@ const styles = StyleSheet.create({
     color: '#A0A0A0',
     fontWeight: '500'
   },
-  composer: { 
-    flexDirection: 'row', 
-    padding: 12, 
+  composer: {
+    flexDirection: 'row',
+    padding: 12,
     paddingHorizontal: 16,
-    alignItems: 'flex-end', 
-    backgroundColor: '#FFFFFF',
+    alignItems: 'flex-end',
+    backgroundColor: theme.card,
     borderTopWidth: 1,
-    borderColor: '#E8E8E8',
+    borderColor: theme.border,
     gap: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
@@ -401,17 +424,17 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8
   },
-  input: { 
-    flex: 1, 
+  input: {
+    flex: 1,
     paddingVertical: 12,
-    paddingHorizontal: 16, 
-    backgroundColor: '#F5F5F5', 
+    paddingHorizontal: 16,
+    backgroundColor: isDark ? '#2A2A2A' : '#F5F5F5',
     borderRadius: 22,
-    color: '#1A1A1A',
+    color: theme.text,
     fontSize: 15,
     fontWeight: '500',
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: theme.border,
     maxHeight: 100,
     minHeight: 44,
   },
@@ -419,14 +442,14 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#9F2241',
+    backgroundColor: theme.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#9F2241',
+    shadowColor: theme.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
-    elevation: 6
+    elevation: 6,
   },
   sendButtonDisabled: {
     backgroundColor: '#D0D0D0',
@@ -441,17 +464,17 @@ const styles = StyleSheet.create({
   noAccessTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#1A1A1A',
+    color: theme.text,
     marginTop: 16,
     marginBottom: 10,
-    letterSpacing: -0.6
+    letterSpacing: -0.6,
   },
   noAccessText: {
     fontSize: 16,
-    color: '#8E8E93',
+    color: theme.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
-    fontWeight: '500'
+    fontWeight: '500',
   },
   // Estilos para overlay de imagen
   imageOverlay: {

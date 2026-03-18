@@ -84,7 +84,7 @@ export default function SuggestedOperativesPanel({
       
       setSuggestedDirectors(unselectedDirectors);
     } catch (error) {
-      console.error('Error cargando directores sugeridos:', error);
+      if (__DEV__) console.error('Error cargando directores sugeridos:', error);
       setSuggestedDirectors([]);
     } finally {
       setLoading(false);

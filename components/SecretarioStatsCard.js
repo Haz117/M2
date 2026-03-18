@@ -25,7 +25,7 @@ export default function SecretarioStatsCard({ onSecretarioPress }) {
         setSecretarioData(result);
       }
     } catch (error) {
-      console.error('Error loading secretario stats:', error);
+      if (__DEV__) console.error('Error loading secretario stats:', error);
     } finally {
       setLoading(false);
     }

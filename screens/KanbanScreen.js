@@ -29,13 +29,14 @@ import { updateTask } from '../services/tasks';
 import { useTasks } from '../contexts/TasksContext';
 import { getCurrentSession } from '../services/authFirestore';
 import { hapticMedium, hapticHeavy, hapticLight, hapticSuccess, hapticWarning } from '../utils/haptics';
-import Toast from '../components/Toast';
+import { useNotification } from '../contexts/NotificationContext';
 import TaskStatusButtons from '../components/TaskStatusButtons';
 import { useTheme } from '../contexts/ThemeContext';
 import { canChangeTaskStatus } from '../services/permissions';
 import { toMs, isOverdue } from '../utils/dateUtils';
 import HelpButton from '../components/HelpButton';
 import QuickTip, { TIPS } from '../components/QuickTip';
+import SyncIndicator from '../components/SyncIndicator';
 import { useResponsive } from '../utils/responsive';
 import { MAX_WIDTHS } from '../theme/tokens';
 
@@ -57,9 +58,7 @@ export default function KanbanScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [draggingTask, setDraggingTask] = useState(null);
   const [showStats, setShowStats] = useState(false);
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState('success');
+  const { showSuccess, showError, showWarning } = useNotification();
   const [dimensions, setDimensions] = useState(Dimensions.get('window'));
   const [compactView, setCompactView] = useState(false);
   const [sortBy, setSortBy] = useState('date'); // 'date' o 'priority'
@@ -218,9 +217,7 @@ export default function KanbanScreen({ navigation }) {
       if (task) {
         const statusPermission = canChangeTaskStatus(currentUser, task, newStatus);
         if (!statusPermission.canChange) {
-          setToastMessage(statusPermission.reason || 'No tienes permisos para este cambio');
-          setToastType('warning');
-          setToastVisible(true);
+          showWarning(statusPermission.reason || 'No tienes permisos para este cambio');
           hapticWarning();
           return;
         }
@@ -228,16 +225,12 @@ export default function KanbanScreen({ navigation }) {
       
       hapticMedium();
       await updateTask(taskId, { status: newStatus });
-      setToastMessage('✨ Estado actualizado correctamente');
-      setToastType('success');
-      setToastVisible(true);
+      showSuccess('✨ Estado actualizado correctamente');
       
       // Haptic de éxito
       hapticSuccess();
     } catch (error) {
-      setToastMessage('Error al actualizar estado');
-      setToastType('error');
-      setToastVisible(true);
+      showError('Error al actualizar estado');
       hapticWarning();
     }
   }, [currentUser, tasks]);
@@ -529,9 +522,7 @@ export default function KanbanScreen({ navigation }) {
     try {
       await updateTask(taskId, { priority });
       hapticMedium();
-      setToastMessage(`Prioridad cambiada a ${priority}`);
-      setToastType('success');
-      setToastVisible(true);
+      showSuccess(`Prioridad cambiada a ${priority}`);
       setContextMenu({ visible: false, task: null, position: { x: 0, y: 0 } });
     } catch (error) {
       // Error silencioso
@@ -539,6 +530,34 @@ export default function KanbanScreen({ navigation }) {
   };
 
   // Memoizar tareas por estado para evitar recalcular en cada render
+  // Pre-compute task stats to avoid repeated filter calls in render
+  const taskStats = useMemo(() => {
+    const now = Date.now();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(today);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    const userEmail = currentUser?.email || '';
+
+    let overdueCount = 0;
+    let todayCount = 0;
+    let thisWeekCount = 0;
+    let myTasksCount = 0;
+    const priorityCounts = { alta: 0, media: 0, baja: 0 };
+
+    tasks.forEach(t => {
+      const dueMs = toMs(t.dueAt);
+      const dueDate = new Date(dueMs);
+      if (dueMs < now && t.status !== 'cerrada') overdueCount++;
+      if (dueDate.toDateString() === today.toDateString() && t.status !== 'cerrada') todayCount++;
+      if (dueDate >= today && dueDate <= weekEnd && t.status !== 'cerrada') thisWeekCount++;
+      if (userEmail && (t.responsables?.some(r => r.email === userEmail) || t.responsable === userEmail)) myTasksCount++;
+      if (t.priority in priorityCounts) priorityCounts[t.priority]++;
+    });
+
+    return { overdueCount, overdueTasksCount: overdueCount, todayCount, thisWeekCount, myTasksCount, priorityCounts };
+  }, [tasks, currentUser]);
+
   const tasksByStatus = useMemo(() => {
     const grouped = {};
     STATUSES.forEach(status => {
@@ -553,7 +572,7 @@ export default function KanbanScreen({ navigation }) {
     return grouped;
   }, [tasks, applyFilters, sortTasks]);
 
-  const renderColumn = (status) => {
+  const renderColumn = useCallback((status) => {
     const { byStatus, filtered, sorted } = tasksByStatus[status.key] || { byStatus: [], filtered: [], sorted: [] };
     const completionRate = byStatus.length > 0 ? (filtered.length / byStatus.length) * 100 : 0;
     
@@ -578,7 +597,12 @@ export default function KanbanScreen({ navigation }) {
 
     return (
       <Animated.View key={status.key} style={[styles.column, { backgroundColor: theme.surface }, animatedStyle]}>
-        <View style={[styles.columnHeader, { backgroundColor: status.color + '20' }]}>
+        <View
+          style={[styles.columnHeader, { backgroundColor: status.color + '20' }]}
+          accessible={true}
+          accessibilityLabel={`Columna ${status.label}, ${sorted.length} tareas`}
+          accessibilityRole="header"
+        >
           <View style={styles.columnTitleContainer}>
             <View style={[styles.columnIconCircle, { backgroundColor: status.color }]}>
               <Ionicons name={status.icon} size={14} color="#FFFFFF" />
@@ -680,7 +704,7 @@ export default function KanbanScreen({ navigation }) {
         />
       </Animated.View>
     );
-  };
+  }, [tasksByStatus, columnAnimations, theme, isDark]);
 
   const styles = React.useMemo(() => createStyles(theme, isDark, columnWidth, dimensions), [theme, isDark, columnWidth, dimensions]);
 
@@ -730,7 +754,7 @@ export default function KanbanScreen({ navigation }) {
             </View>
             
             {/* Indicador de Vencidas Premium en el Header */}
-            {tasks.filter(t => toMs(t.dueAt) < Date.now() && t.status !== 'cerrada').length > 0 && (
+            {taskStats.overdueCount > 0 && (
               <TouchableOpacity
                 onPress={() => {
                   setFilters({ ...filters, overdue: !filters.overdue });
@@ -747,7 +771,7 @@ export default function KanbanScreen({ navigation }) {
                 </View>
                 <View style={styles.overdueHeaderContent}>
                   <Text style={styles.overdueHeaderCount}>
-                    {tasks.filter(t => toMs(t.dueAt) < Date.now() && t.status !== 'cerrada').length}
+                    {taskStats.overdueCount}
                   </Text>
                   <Text style={styles.overdueHeaderLabel}>vencidas</Text>
                 </View>
@@ -775,17 +799,20 @@ export default function KanbanScreen({ navigation }) {
               />
               
               {/* Toggle vista compacta */}
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => {
                   setCompactView(!compactView);
                   hapticLight();
                 }}
                 style={[styles.iconButton, compactView && styles.iconButtonActive]}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityLabel={compactView ? 'Vista normal' : 'Vista compacta'}
+                accessibilityRole="button"
               >
-                <Ionicons 
-                  name={compactView ? 'list' : 'grid-outline'} 
-                  size={18} 
-                  color="#FFFFFF" 
+                <Ionicons
+                  name={compactView ? 'list' : 'grid-outline'}
+                  size={18}
+                  color="#FFFFFF"
                 />
               </TouchableOpacity>
               
@@ -995,10 +1022,10 @@ export default function KanbanScreen({ navigation }) {
                         ]}>
                           {p.label}
                         </Text>
-                        {tasks.filter(t => t.priority === p.key).length > 0 && (
+                        {taskStats.priorityCounts[p.key] > 0 && (
                           <View style={[styles.priorityBadge, { backgroundColor: filters.priority === p.key ? 'rgba(255,255,255,0.3)' : p.color }]}>
                             <Text style={[styles.priorityBadgeText, { color: filters.priority === p.key ? '#FFFFFF' : '#FFFFFF' }]}>
-                              {tasks.filter(t => t.priority === p.key).length}
+                              {taskStats.priorityCounts[p.key]}
                             </Text>
                           </View>
                         )}
@@ -1017,7 +1044,7 @@ export default function KanbanScreen({ navigation }) {
                   </View>
                   <View style={styles.quickFilterGrid}>
                     {/* Vencidas */}
-                    {tasks.filter(t => isOverdue(t)).length > 0 && (
+                    {taskStats.overdueTasksCount > 0 && (
                       <TouchableOpacity
                         onPress={() => {
                           setFilters({ ...filters, overdue: !filters.overdue });
@@ -1037,7 +1064,7 @@ export default function KanbanScreen({ navigation }) {
                         <View style={styles.quickFilterCardContent}>
                           <Text style={[styles.quickFilterCardTitle, { color: theme.text }]}>Vencidas</Text>
                           <Text style={[styles.quickFilterCardCount, { color: '#DC2626' }]}>
-                            {tasks.filter(t => isOverdue(t)).length} tareas
+                            {taskStats.overdueTasksCount} tareas
                           </Text>
                         </View>
                         {filters.overdue && (
@@ -1070,10 +1097,7 @@ export default function KanbanScreen({ navigation }) {
                         <View style={styles.quickFilterCardContent}>
                           <Text style={[styles.quickFilterCardTitle, { color: theme.text }]}>Mis tareas</Text>
                           <Text style={[styles.quickFilterCardCount, { color: theme.primary }]}>
-                            {tasks.filter(t => 
-                              t.responsables?.some(r => r.email === currentUser.email) ||
-                              t.responsable === currentUser.email
-                            ).length} asignadas
+                            {taskStats.myTasksCount} asignadas
                           </Text>
                         </View>
                         {filters.responsible === currentUser.email && (
@@ -1111,11 +1135,7 @@ export default function KanbanScreen({ navigation }) {
                       <View style={styles.quickFilterCardContent}>
                         <Text style={[styles.quickFilterCardTitle, { color: theme.text }]}>Para hoy</Text>
                         <Text style={[styles.quickFilterCardCount, { color: '#F59E0B' }]}>
-                          {tasks.filter(t => {
-                            const dueDate = new Date(toMs(t.dueAt));
-                            const today = new Date();
-                            return dueDate.toDateString() === today.toDateString() && t.status !== 'cerrada';
-                          }).length} tareas
+                          {taskStats.todayCount} tareas
                         </Text>
                       </View>
                       {filters.dueToday && (
@@ -1147,13 +1167,7 @@ export default function KanbanScreen({ navigation }) {
                       <View style={styles.quickFilterCardContent}>
                         <Text style={[styles.quickFilterCardTitle, { color: theme.text }]}>Esta semana</Text>
                         <Text style={[styles.quickFilterCardCount, { color: '#3B82F6' }]}>
-                          {tasks.filter(t => {
-                            const dueDate = new Date(toMs(t.dueAt));
-                            const today = new Date();
-                            const weekEnd = new Date(today);
-                            weekEnd.setDate(weekEnd.getDate() + 7);
-                            return dueDate >= today && dueDate <= weekEnd && t.status !== 'cerrada';
-                          }).length} tareas
+                          {taskStats.thisWeekCount} tareas
                         </Text>
                       </View>
                       {filters.dueThisWeek && (
@@ -1234,7 +1248,7 @@ export default function KanbanScreen({ navigation }) {
         {/* Indicador visual de drag en proceso */}
         {draggingTask && (
           <View style={styles.dragIndicator}>
-            <Ionicons name="move" size={20} color="#9F2241" />
+            <Ionicons name="move" size={20} color={theme.primary} />
             <Text style={styles.dragIndicatorText}>
               Arrastra a una columna para cambiar estado
             </Text>
@@ -1248,9 +1262,7 @@ export default function KanbanScreen({ navigation }) {
             onPress={() => {
               // Solo admin puede crear tareas
               if (!currentUser || (currentUser.role !== 'admin')) {
-                setToastMessage('Solo administradores pueden crear tareas');
-                setToastType('warning');
-                setToastVisible(true);
+                showWarning('Solo administradores pueden crear tareas');
                 return;
               }
               hapticMedium();
@@ -1328,7 +1340,7 @@ export default function KanbanScreen({ navigation }) {
         >
           <View style={styles.statsContainer}>
             {STATUSES.map(status => {
-              const statusTasks = tasks.filter(t => t.status === status.key);
+              const statusTasks = tasksByStatus[status.key]?.byStatus || [];
               const total = tasks.length;
               const percentage = total > 0 ? (statusTasks.length / total) * 100 : 0;
               
@@ -1356,12 +1368,6 @@ export default function KanbanScreen({ navigation }) {
           </View>
         </BottomSheet>
 
-        <Toast
-          visible={toastVisible}
-          message={toastMessage}
-          type={toastType}
-          onHide={() => setToastVisible(false)}
-        />
         
         {/* 💡 Tip de ayuda para tablero Kanban */}
         <QuickTip
@@ -1369,6 +1375,7 @@ export default function KanbanScreen({ navigation }) {
           position="bottom"
           delay={2500}
         />
+        <SyncIndicator />
         </View>{/* contentWrapper */}
       </View>
     </GestureHandlerRootView>
@@ -2048,7 +2055,7 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
   dragIndicatorText: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#9F2241',
+    color: theme.primary,
     letterSpacing: 0.4,
     textTransform: 'uppercase'
   },

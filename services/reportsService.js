@@ -489,7 +489,7 @@ export const getReportStatistics = async (area = null) => {
  * @param {Function} callback - Callback function
  * @returns {Function} Unsubscribe function
  */
-export const subscribeToAllReports = (callback) => {
+export const subscribeToAllReports = (callback, onError) => {
   const q = query(collection(db, 'task_reports'));
 
   return onSnapshot(q, async (snapshot) => {
@@ -540,7 +540,7 @@ export const subscribeToAllReports = (callback) => {
     });
 
     callback(enrichedReports);
-  });
+  }, onError);
 };
 
 /**
@@ -608,7 +608,7 @@ export const getReportsGroupedByArea = async () => {
  * @param {Function} callback - Callback function
  * @returns {Function} Unsubscribe function
  */
-export const subscribeToAreaReports = (areas, callback) => {
+export const subscribeToAreaReports = (areas, callback, onError) => {
   const q = query(collection(db, 'task_reports'));
 
   return onSnapshot(q, async (snapshot) => {
@@ -665,7 +665,7 @@ export const subscribeToAreaReports = (areas, callback) => {
     });
 
     callback(enrichedReports);
-  });
+  }, onError);
 };
 
 /**
@@ -674,7 +674,7 @@ export const subscribeToAreaReports = (areas, callback) => {
  * @param {Function} callback - Callback function
  * @returns {Function} Unsubscribe function
  */
-export const subscribeToMyReports = (userEmail, callback) => {
+export const subscribeToMyReports = (userEmail, callback, onError) => {
   const q = query(
     collection(db, 'task_reports'),
     where('createdBy', '==', userEmail.toLowerCase())
@@ -727,5 +727,5 @@ export const subscribeToMyReports = (userEmail, callback) => {
     });
 
     callback(enrichedReports);
-  });
+  }, onError);
 };

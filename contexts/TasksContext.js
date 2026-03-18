@@ -5,33 +5,13 @@
 import React, { createContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { subscribeToTasks } from '../services/tasks';
 import { getCurrentSession } from '../services/authFirestore';
+import { deleteManager } from '../utils/deleteManager';
 
 // Usar globalThis para que React.lazy() bundles compartan la misma instancia de contexto
 if (!globalThis.__TASKS_CONTEXT__) {
   globalThis.__TASKS_CONTEXT__ = createContext();
 }
 export const TasksContext = globalThis.__TASKS_CONTEXT__;
-
-// 💾 Set persistente de tareas eliminadas (se guarda en localStorage)
-const DELETED_TASKS_KEY = 'permanentlyDeletedTaskIds';
-
-function saveDeletedTasks(deletedSet) {
-  try {
-    const arr = Array.from(deletedSet);
-    localStorage.setItem(DELETED_TASKS_KEY, JSON.stringify(arr));
-  } catch (e) {
-    // Silent fail - localStorage is optional
-  }
-}
-
-function loadDeletedTasks() {
-  try {
-    const arr = JSON.parse(localStorage.getItem(DELETED_TASKS_KEY) || '[]');
-    return new Set(arr);
-  } catch (e) {
-    return new Set();
-  }
-}
 
 /**
  * Filtra tareas según el rol del usuario:
@@ -59,34 +39,9 @@ function filterTasksByRole(allTasks, user) {
 export function TasksProvider({ children }) {
   const [tasks, setTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [hasSession, setHasSession] = useState(false); // Track sesión disponibility
+  const [hasSession, setHasSession] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const unsubscribeTasksRef = useRef(null);
-  
-  // 🛡️ Set global para rastrear tareas siendo eliminadas
-  const deletingTasksRef = useRef(new Set());
-  
-  // 💾 Set PERSISTENTE de tareas eliminadas permanentemente
-  const permanentlyDeletedRef = useRef(loadDeletedTasks());
-
-  // Función para marcar tarea como "eliminándose"
-  const markAsDeleting = useCallback((taskId) => {
-    deletingTasksRef.current.add(taskId);
-  }, []);
-
-  // Función para desmarcar tarea (cuando se confirma eliminación)
-  const unmarkAsDeleting = useCallback((taskId) => {
-    deletingTasksRef.current.delete(taskId);
-    // Al desmarcar, agregar a permanente para que NO reaparezca
-    permanentlyDeletedRef.current.add(taskId);
-    saveDeletedTasks(permanentlyDeletedRef.current);
-  }, []);
-
-  // Función para limpiar la lista de eliminados (en caso de sincronización)
-  const clearDeletedTask = useCallback((taskId) => {
-    permanentlyDeletedRef.current.delete(taskId);
-    saveDeletedTasks(permanentlyDeletedRef.current);
-  }, []);
 
   // 🔍 EFECTO 1: Verificar disponibilidad de sesión (con reintentos)
   useEffect(() => {
@@ -141,31 +96,28 @@ export function TasksProvider({ children }) {
         unsubscribeTasksRef.current = await subscribeToTasks((updatedTasks) => {
           if (!mounted) return;
 
-          // 🛡️ FILTRAR: No restaurar tareas que están siendo eliminadas O fueron eliminadas permanentemente
-          const withoutDeleted = updatedTasks.filter(task => {
-            const isBeingDeleted = deletingTasksRef.current.has(task.id);
-            const isPermanentlyDeleted = permanentlyDeletedRef.current.has(task.id);
-            return !isBeingDeleted && !isPermanentlyDeleted;
-          });
+          // Filter out deleted tasks using deleteManager
+          const visibleTasks = deleteManager.filterVisible(updatedTasks);
 
-          // 🔒 FILTRAR POR ROL: secretario/director solo ven lo que les corresponde
-          const filteredTasks = filterTasksByRole(withoutDeleted, currentUserRef.current);
-
+          // Filter by user role (admin sees all, others see only their tasks)
+          const filteredTasks = filterTasksByRole(visibleTasks, currentUserRef.current);
           setTasks(filteredTasks);
+
           if (!hasLoadedOnce.current) {
             hasLoadedOnce.current = true;
             setIsLoading(false);
           }
+
           retryCount = 0; // Reset retry counter on success
         });
       } catch (error) {
-        console.error('❌ Error en setupSubscription:', error.message);
+        if (__DEV__) console.error('❌ Error en setupSubscription:', error.message);
         // Si falla y aún tenemos reintentos, esperar y volver a intentar
         if (retryCount < MAX_RETRIES && mounted) {
           retryCount++;
           const delayMs = 500 * retryCount; // 500ms, 1s, 1.5s, 2s, 2.5s
-          console.warn(`Reintentando suscripción (${retryCount}/${MAX_RETRIES}) en ${delayMs}ms...`);
-          
+          if (__DEV__) console.warn(`Reintentando suscripción (${retryCount}/${MAX_RETRIES}) en ${delayMs}ms...`);
+
           setTimeout(() => {
             if (mounted) {
               setupSubscription();
@@ -174,7 +126,7 @@ export function TasksProvider({ children }) {
         } else {
           // No hay más reintentos
           setIsLoading(false);
-          console.error('❌ Agotados reintentos de suscripción a tareas');
+          if (__DEV__) console.error('❌ Agotados reintentos de suscripción a tareas');
         }
       }
     };
@@ -194,17 +146,13 @@ export function TasksProvider({ children }) {
     };
   }, [hasSession]);
 
-  // ⚡ Memoizar el valor del contexto para evitar re-renders innecesarios en los consumers
+  // ⚡ Memoize context value to prevent unnecessary re-renders
   const value = useMemo(() => ({
     tasks,
     setTasks,
     isLoading,
     currentUser,
-    markAsDeleting,
-    unmarkAsDeleting,
-    clearDeletedTask,
-    deletingTasksRef,
-    permanentlyDeletedRef,
+    deleteManager, // Expose deleteManager for delete operations
   }), [tasks, isLoading, currentUser]);
 
   return (

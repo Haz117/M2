@@ -3,20 +3,8 @@
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { toMs, diffMs } from '../utils/dateUtils';
+import { isTaskAssignedToUser } from '../utils/taskHelpers';
 
-// Helper function to check if a task is assigned to a user (supports both string and array formats)
-function isTaskAssignedToUser(task, userEmail) {
-  if (!task.assignedTo) return false;
-  
-  const normalizedUserEmail = userEmail?.toLowerCase().trim() || '';
-  if (!normalizedUserEmail) return false;
-  
-  if (Array.isArray(task.assignedTo)) {
-    return task.assignedTo.some(email => email?.toLowerCase().trim() === normalizedUserEmail);
-  }
-  // Backward compatibility: old string format
-  return (task.assignedTo?.toLowerCase().trim() || '') === normalizedUserEmail;
-}
 
 /**
  * Obtener datos de heatmap de actividad (estilo GitHub)

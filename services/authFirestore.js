@@ -138,7 +138,7 @@ export const getCurrentSession = async () => {
         }
       } catch (refreshError) {
         // Si falla el refresh, usar sesión local
-        console.log('Error refrescando sesión:', refreshError.message);
+        console.error('Error refrescando sesión:', refreshError.message);
       }
       
       return { success: true, session };

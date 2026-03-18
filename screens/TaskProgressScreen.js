@@ -20,6 +20,7 @@ import { getCurrentSession } from '../services/authFirestore';
 import { useTheme } from '../contexts/ThemeContext';
 import ProgressBar from '../components/ProgressBar';
 import LoadingIndicator from '../components/LoadingIndicator';
+import ShimmerEffect from '../components/ShimmerEffect';
 import { useResponsive } from '../utils/responsive';
 import { MAX_WIDTHS } from '../theme/tokens';
 import { toMs } from '../utils/dateUtils';
@@ -91,9 +92,22 @@ export default function TaskProgressScreen({ route, navigation }) {
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <LoadingIndicator />
-      </View>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+        {/* Header bar shimmer */}
+        <ShimmerEffect width="100%" height={56} borderRadius={0} />
+        <View style={{ flex: 1, padding: 16 }}>
+          {/* Title + progress bar card */}
+          <ShimmerEffect width="100%" height={130} borderRadius={14} style={{ marginBottom: 16 }} />
+          {/* Stat mini cards */}
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+            {[1,2,3,4].map(i => <ShimmerEffect key={i} width="22%" height={64} borderRadius={10} />)}
+          </View>
+          {/* Assignee rows */}
+          {[1,2,3].map(i => (
+            <ShimmerEffect key={i} width="100%" height={88} borderRadius={14} style={{ marginBottom: 12 }} />
+          ))}
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -116,25 +130,27 @@ export default function TaskProgressScreen({ route, navigation }) {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.contentWrapper, { maxWidth: isDesktop ? MAX_WIDTHS.content : '100%' }]}>
       {/* Header */}
-      <View style={[styles.headerBar, { backgroundColor: '#9F2241' }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
+      <View style={[styles.headerBar, { backgroundColor: theme.primary }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton} accessibilityLabel="Volver" accessibilityRole="button">
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <Ionicons name="trending-up" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
           <Text style={styles.headerTitle}>Progreso de Tarea</Text>
         </View>
-        <TouchableOpacity onPress={onRefresh} style={styles.headerButton}>
+        <TouchableOpacity onPress={onRefresh} style={styles.headerButton} accessibilityLabel="Actualizar" accessibilityRole="button">
           <Ionicons name="refresh" size={20} color="#FFFFFF" />
         </TouchableOpacity>
         {currentUser && (currentUser.role === 'admin') && (
-          <TouchableOpacity onPress={handleEdit} style={styles.headerButton}>
+          <TouchableOpacity onPress={handleEdit} style={styles.headerButton} accessibilityLabel="Editar tarea" accessibilityRole="button">
             <Ionicons name="pencil" size={20} color="#FFFFFF" />
           </TouchableOpacity>
         )}
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => navigation.navigate('TaskReportsAndActivity', { taskId, taskTitle: progressData?.titulo })}
           style={styles.headerButton}
+          accessibilityLabel="Ver reportes"
+          accessibilityRole="button"
         >
           <Ionicons name="document-text" size={20} color="#FFFFFF" />
         </TouchableOpacity>
@@ -170,7 +186,7 @@ export default function TaskProgressScreen({ route, navigation }) {
             progress={overallProgress}
             size="large"
             label="Avance Total"
-            color="#9F2241"
+            color={theme.primary}
           />
 
           <View style={[styles.statsGrid, { marginTop: 20 }]}>
@@ -219,7 +235,7 @@ export default function TaskProgressScreen({ route, navigation }) {
             Object.entries(progressByAssignee).map(([email, progress]) => (
               <View key={email} style={styles.assigneeProgressItem}>
                 <View style={styles.assigneeHeader}>
-                  <View style={styles.assigneeAvatar}>
+                  <View style={[styles.assigneeAvatar, { backgroundColor: theme.primary }]}>
                     <Text style={styles.assigneeAvatarText}>
                       {email.charAt(0).toUpperCase()}
                     </Text>

@@ -65,7 +65,7 @@ const QuickTip = ({
         showTip();
       }, delay);
     } catch (error) {
-      console.log('Error checking tip:', error);
+      if (__DEV__) console.error('Error checking tip:', error);
     }
   };
 
@@ -113,7 +113,7 @@ const QuickTip = ({
         try {
           await AsyncStorage.setItem(`@tip_${tipId}`, 'seen');
         } catch (error) {
-          console.log('Error saving tip state:', error);
+          if (__DEV__) console.error('Error saving tip state:', error);
         }
       }
       
@@ -187,7 +187,7 @@ export const resetAllTips = async () => {
     const tipKeys = keys.filter(k => k.startsWith('@tip_'));
     await AsyncStorage.multiRemove(tipKeys);
   } catch (error) {
-    console.log('Error resetting tips:', error);
+    if (__DEV__) console.error('Error resetting tips:', error);
   }
 };
 

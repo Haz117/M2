@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
-import { hapticMedium, hapticLight } from '../utils/feedback';
+import { hapticMedium, hapticLight } from '../utils/haptics';
 
 /**
  * AdvancedFilters component with modal
@@ -106,7 +106,7 @@ const AdvancedFilters = ({ filters, onApplyFilters, areas = [], users = [], task
         onPress={openModal}
         activeOpacity={0.8}
       >
-        <View style={[styles.filterGradient, { backgroundColor: activeCount > 0 ? '#9F2241' : '#F3F4F6' }]}>
+        <View style={[styles.filterGradient, { backgroundColor: activeCount > 0 ? theme.primary : '#F3F4F6' }]}>
           <Ionicons
             name="filter"
             size={20}
@@ -114,7 +114,7 @@ const AdvancedFilters = ({ filters, onApplyFilters, areas = [], users = [], task
           />
           {activeCount > 0 && (
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>{activeCount}</Text>
+              <Text style={[styles.badgeText, { color: theme.primary }]}>{activeCount}</Text>
             </View>
           )}
         </View>
@@ -204,7 +204,7 @@ const AdvancedFilters = ({ filters, onApplyFilters, areas = [], users = [], task
                         key={area}
                         style={[
                           styles.chip,
-                          (tempFilters.areas || []).includes(area) && styles.chipActive,
+                          (tempFilters.areas || []).includes(area) && { ...styles.chipActive, backgroundColor: theme.primary, borderColor: theme.primary },
                         ]}
                         onPress={() => toggleArrayFilter('areas', area)}
                         activeOpacity={0.7}
@@ -235,7 +235,7 @@ const AdvancedFilters = ({ filters, onApplyFilters, areas = [], users = [], task
                         key={user}
                         style={[
                           styles.chip,
-                          (tempFilters.responsible || []).includes(user) && styles.chipActive,
+                          (tempFilters.responsible || []).includes(user) && { ...styles.chipActive, backgroundColor: theme.primary, borderColor: theme.primary },
                         ]}
                         onPress={() => toggleArrayFilter('responsible', user)}
                         activeOpacity={0.7}
@@ -270,7 +270,7 @@ const AdvancedFilters = ({ filters, onApplyFilters, areas = [], users = [], task
                   <View
                     style={[
                       styles.toggle,
-                      tempFilters.overdue && styles.toggleActive,
+                      tempFilters.overdue && { ...styles.toggleActive, backgroundColor: theme.primary },
                     ]}
                   >
                     <View style={[styles.toggleThumb, tempFilters.overdue && styles.toggleThumbActive]} />
@@ -288,7 +288,7 @@ const AdvancedFilters = ({ filters, onApplyFilters, areas = [], users = [], task
                         key={tag}
                         style={[
                           styles.chip,
-                          (tempFilters.tags || []).includes(tag) && styles.chipActive,
+                          (tempFilters.tags || []).includes(tag) && { ...styles.chipActive, backgroundColor: theme.primary, borderColor: theme.primary },
                         ]}
                         onPress={() => toggleArrayFilter('tags', tag)}
                         activeOpacity={0.7}
@@ -323,7 +323,7 @@ const AdvancedFilters = ({ filters, onApplyFilters, areas = [], users = [], task
                 onPress={applyFilters}
                 activeOpacity={0.8}
               >
-                <View style={[styles.applyGradient, { backgroundColor: '#9F2241' }]}>
+                <View style={[styles.applyGradient, { backgroundColor: theme.primary }]}>
                   <Text style={styles.applyButtonText}>Aplicar Filtros</Text>
                 </View>
               </TouchableOpacity>

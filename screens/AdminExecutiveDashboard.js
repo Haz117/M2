@@ -25,9 +25,11 @@ import { collection, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import ProgressBar from '../components/ProgressBar';
 import Avatar from '../components/Avatar';
+import ShimmerEffect from '../components/ShimmerEffect';
 import TrafficLightDashboard from '../components/TrafficLightDashboard';
 import HelpButton from '../components/HelpButton';
 import { toMs } from '../utils/dateUtils';
+import { resolveAreaName } from '../config/areas';
 
 const { width } = Dimensions.get('window');
 const chartWidth = Math.min(width - 48, 500);
@@ -190,8 +192,8 @@ export default function AdminExecutiveDashboard({ navigation }) {
     return directores.map(user => {
       const userTasks = tasks.filter(t => 
         (Array.isArray(t.assignedTo) 
-          ? t.assignedTo.some(e => e?.toLowerCase().trim() === user.email?.toLowerCase().trim())
-          : t.assignedTo?.toLowerCase().trim() === user.email?.toLowerCase().trim()) || t.area === user.area
+          ? t.assignedTo.some(e => (typeof e === 'string' ? e : e?.email || '').toLowerCase().trim() === user.email?.toLowerCase().trim())
+          : t.assignedTo?.toLowerCase().trim() === user.email?.toLowerCase().trim()) || resolveAreaName(t.area) === resolveAreaName(user.area)
       );
       const completed = userTasks.filter(t => t.status === 'completada' || t.status === 'cerrada');
       const pending = userTasks.filter(t => t.status === 'pendiente');
@@ -227,12 +229,13 @@ export default function AdminExecutiveDashboard({ navigation }) {
       const secTasks = tasks.filter(t => {
         const taskArea = t.area || '';
         const taskAreas = t.areas || [taskArea];
-        return direcciones.some(dir => taskAreas.includes(dir) || taskArea === dir) ||
-               taskArea.includes(secArea);
+        return direcciones.some(dir => taskAreas.map(a => resolveAreaName(a)).includes(resolveAreaName(dir)) || resolveAreaName(taskArea) === resolveAreaName(dir)) ||
+               resolveAreaName(taskArea).includes(resolveAreaName(secArea));
       });
       
-      const secDirectors = directores.filter(d => 
-        direcciones.includes(d.area) || direcciones.includes(d.department)
+      const secDirectors = directores.filter(d =>
+        direcciones.map(resolveAreaName).includes(resolveAreaName(d.area)) ||
+        direcciones.map(resolveAreaName).includes(resolveAreaName(d.department))
       );
       
       const secCompleted = secTasks.filter(t => t.status === 'completada' || t.status === 'cerrada');
@@ -303,7 +306,7 @@ export default function AdminExecutiveDashboard({ navigation }) {
       const usersData = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setUsers(usersData);
     } catch (error) {
-      console.error('Error loading data:', error);
+      if (__DEV__) console.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
@@ -747,11 +750,32 @@ export default function AdminExecutiveDashboard({ navigation }) {
   
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={theme.primary} />
-        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
-          Cargando dashboard...
-        </Text>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        {/* Header shimmer */}
+        <LinearGradient
+          colors={['#9F2241', '#BC955C']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.header, { paddingBottom: 20 }]}
+        >
+          <ShimmerEffect width={140} height={14} borderRadius={6} style={{ marginBottom: 8 }} />
+          <ShimmerEffect width={220} height={24} borderRadius={8} />
+        </LinearGradient>
+        {/* Body shimmer */}
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }} scrollEnabled={false}>
+          {/* KPI cards */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {[...Array(4)].map((_, i) => (
+              <ShimmerEffect key={i} width={(width - 52) / 2} height={90} borderRadius={14} />
+            ))}
+          </View>
+          {/* Chart area */}
+          <ShimmerEffect width="100%" height={200} borderRadius={16} />
+          {/* Stats rows */}
+          {[...Array(5)].map((_, i) => (
+            <ShimmerEffect key={i} width="100%" height={64} borderRadius={12} />
+          ))}
+        </ScrollView>
       </View>
     );
   }

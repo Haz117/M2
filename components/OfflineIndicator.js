@@ -91,7 +91,7 @@ export default function OfflineIndicator({ theme = {}, style = {} }) {
       const result = await syncPendingOperations();
       setPendingCount(result.pending);
     } catch (error) {
-      console.error('Error sincronizando:', error);
+      if (__DEV__) console.error('Error sincronizando:', error);
     }
     setIsSyncing(false);
   };

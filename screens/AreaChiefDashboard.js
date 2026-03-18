@@ -1,7 +1,7 @@
 // screens/AreaChiefDashboard.js
 // Dashboard para jefes de área - Ver tareas, progreso, equipo
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../contexts/ThemeContext';
 import { getCurrentSession } from '../services/authFirestore';
 import { subscribeToTasks } from '../services/tasks';
-import LoadingIndicator from '../components/LoadingIndicator';
+import ShimmerEffect from '../components/ShimmerEffect';
 import ProgressBar from '../components/ProgressBar';
 import Avatar from '../components/Avatar';
 import WebSafeBlur from '../components/WebSafeBlur';
@@ -32,6 +32,7 @@ export default function AreaChiefDashboard({ navigation }) {
   const [tasks, setTasks] = useState([]);
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('all'); // all, pendiente, en_progreso, completed
 
@@ -80,7 +81,9 @@ export default function AreaChiefDashboard({ navigation }) {
 
       unsubscribeRef.current = unsub;
     } catch (error) {
+      setLoadError(true);
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -114,7 +117,7 @@ export default function AreaChiefDashboard({ navigation }) {
         avgProgress,
       });
     } catch (error) {
-      console.error('Error calculando métricas:', error);
+      if (__DEV__) console.error('Error calculando métricas:', error);
     }
   };
 
@@ -123,7 +126,7 @@ export default function AreaChiefDashboard({ navigation }) {
     loadChiefData();
   };
 
-  const getFilteredTasks = () => {
+  const filteredTasksMemo = useMemo(() => {
     switch (filter) {
       case 'pendiente':
         return tasks.filter((t) => t.status === 'pendiente');
@@ -134,7 +137,7 @@ export default function AreaChiefDashboard({ navigation }) {
       default:
         return tasks;
     }
-  };
+  }, [tasks, filter]);
 
   const handleTaskPress = (task) => {
     navigation.navigate('TaskProgress', { taskId: task.id, task });
@@ -171,7 +174,7 @@ export default function AreaChiefDashboard({ navigation }) {
                 ? '#34C759'
                 : task.status === 'en_progreso'
                 ? '#FF9500'
-                : '#9F2241',
+                : theme.primary,
           },
         ]}
       />
@@ -228,13 +231,43 @@ export default function AreaChiefDashboard({ navigation }) {
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <LoadingIndicator />
+      <View style={[styles.container, { backgroundColor: theme.background, paddingHorizontal: 16, paddingTop: 60 }]}>
+        <ShimmerEffect width="60%" height={28} borderRadius={8} />
+        <View style={{ marginTop: 20, gap: 12 }}>
+          {[...Array(3)].map((_, i) => (
+            <ShimmerEffect key={i} width="100%" height={80} borderRadius={12} />
+          ))}
+        </View>
+        <View style={{ marginTop: 20, gap: 12 }}>
+          {[...Array(4)].map((_, i) => (
+            <ShimmerEffect key={i} width="100%" height={64} borderRadius={10} />
+          ))}
+        </View>
       </View>
     );
   }
 
-  const filteredTasks = getFilteredTasks();
+  if (loadError) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center', padding: 40, gap: 16 }]}>
+        <View style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: isDark ? '#1E1E22' : '#FFF0EE', justifyContent: 'center', alignItems: 'center' }}>
+          <Ionicons name="cloud-offline-outline" size={48} color="#FF3B30" />
+        </View>
+        <Text style={{ fontSize: 18, fontWeight: '700', color: theme.text, textAlign: 'center' }}>Error de conexión</Text>
+        <Text style={{ fontSize: 14, color: theme.textSecondary, textAlign: 'center' }}>No se pudo cargar el dashboard.</Text>
+        <TouchableOpacity
+          onPress={() => { setLoadError(false); setLoading(true); loadChiefData(); }}
+          style={{ backgroundColor: theme.primary, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+          accessibilityLabel="Reintentar" accessibilityRole="button"
+        >
+          <Ionicons name="refresh" size={16} color="#fff" />
+          <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Reintentar</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const filteredTasks = filteredTasksMemo;
 
   return (
     <Animated.View
@@ -251,6 +284,8 @@ export default function AreaChiefDashboard({ navigation }) {
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={{ padding: 8 }}
+            accessibilityLabel="Volver"
+            accessibilityRole="button"
           >
             <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
           </TouchableOpacity>
@@ -304,7 +339,7 @@ export default function AreaChiefDashboard({ navigation }) {
             </View>
 
             <View style={[styles.metricCard, { backgroundColor: isDark ? '#2a2a2e' : '#f5f5f7' }]}>
-              <Ionicons name="trending-up" size={24} color="#9F2241" />
+              <Ionicons name="trending-up" size={24} color={theme.primary} />
               <Text style={[styles.metricValue, { color: theme.text }]}>
                 {metrics.avgProgress}%
               </Text>
@@ -397,6 +432,10 @@ export default function AreaChiefDashboard({ navigation }) {
               keyExtractor={(item) => item.id}
               scrollEnabled={false}
               contentContainerStyle={styles.tasksList}
+              windowSize={5}
+              maxToRenderPerBatch={6}
+              initialNumToRender={8}
+              removeClippedSubviews={false}
             />
           ) : (
             <View style={styles.emptyContainer}>

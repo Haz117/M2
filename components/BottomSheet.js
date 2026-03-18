@@ -1,7 +1,7 @@
 // components/BottomSheet.js
 // Modal deslizable desde abajo con drag gesture
 import React, { useRef, useEffect } from 'react';
-import { View, Modal, StyleSheet, Animated, PanResponder, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Modal, StyleSheet, Animated, PanResponder, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { hapticMedium } from '../utils/haptics';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -116,7 +116,7 @@ const BottomSheet = ({
               transform: [{ translateY }],
             },
           ]}
-          {...panResponder.panHandlers}
+          {...(Platform.OS !== 'web' ? panResponder.panHandlers : {})}
         >
           {/* Handle */}
           <View style={styles.handleContainer}>

@@ -5,6 +5,7 @@
 const __DEV__ = false; // Cambiar a true para depuración
 const log = __DEV__ ? console.log : () => {};
 import { toMs } from '../utils/dateUtils';
+import { isTaskAssignedToUser } from '../utils/taskHelpers';
 
 import { 
   collection, 
@@ -40,24 +41,6 @@ import {
 } from './offlineSync';
 
 const COLLECTION_NAME = 'tasks';
-
-// Helper function to check if a task is assigned to a user (supports both string and array formats)
-function isTaskAssignedToUser(task, userEmail) {
-  if (!task.assignedTo) return false;
-  
-  const normalizedUserEmail = userEmail?.toLowerCase().trim() || '';
-  if (!normalizedUserEmail) return false;
-  
-  if (Array.isArray(task.assignedTo)) {
-    // Normalizar todos los emails en el array antes de comparar
-    return task.assignedTo.some(email => 
-      email?.toLowerCase().trim() === normalizedUserEmail
-    );
-  }
-  
-  // Backward compatibility: old string format
-  return (task.assignedTo?.toLowerCase().trim() || '') === normalizedUserEmail;
-}
 
 // 🔍 DIAGNÓSTICO: Detectar si emulador está activo
 function detectEmulator() {

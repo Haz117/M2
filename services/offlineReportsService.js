@@ -5,6 +5,8 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const log = __DEV__ ? console.log : () => {};
+
 const PENDING_REPORTS_KEY = '@pending_reports';
 const SYNCED_REPORTS_KEY = '@synced_reports';
 const FAILED_REPORTS_KEY = '@failed_reports';
@@ -28,7 +30,7 @@ export const savePendingReport = async (reportData) => {
     pendingReports.push(pendingReport);
     await AsyncStorage.setItem(PENDING_REPORTS_KEY, JSON.stringify(pendingReports));
     
-    console.log('💾 Reporte guardado offline:', reportId);
+    log('💾 Reporte guardado offline:', reportId);
     return reportId;
   } catch (error) {
     console.error('❌ Error guardando reporte offline:', error);
@@ -82,7 +84,7 @@ export const markReportAsSynced = async (reportId) => {
       await AsyncStorage.setItem(PENDING_REPORTS_KEY, JSON.stringify(updated));
       await AsyncStorage.setItem(SYNCED_REPORTS_KEY, JSON.stringify(synced));
       
-      console.log('✅ Reporte marcado como sincronizado:', reportId);
+      log('✅ Reporte marcado como sincronizado:', reportId);
     }
   } catch (error) {
     console.error('Error marcando reporte como sincronizado:', error);
@@ -108,7 +110,7 @@ export const markReportAsFailed = async (reportId) => {
       await AsyncStorage.setItem(PENDING_REPORTS_KEY, JSON.stringify(updated));
       await AsyncStorage.setItem(FAILED_REPORTS_KEY, JSON.stringify(failed));
       
-      console.log('⚠️ Reporte marcado como fallido:', reportId);
+      log('⚠️ Reporte marcado como fallido:', reportId);
     }
   } catch (error) {
     console.error('Error marcando reporte como fallido:', error);
@@ -140,7 +142,7 @@ export const updatePendingReportImages = async (reportId, imageUris) => {
       report.images = imageUris;
       report.imageCount = imageUris.length;
       await AsyncStorage.setItem(PENDING_REPORTS_KEY, JSON.stringify(pending));
-      console.log('🖼️ Imágenes actualizadas para reporte:', reportId);
+      log('🖼️ Imágenes actualizadas para reporte:', reportId);
     }
   } catch (error) {
     console.error('Error actualizando imágenes:', error);
@@ -155,7 +157,7 @@ export const deletePendingReport = async (reportId) => {
     const pending = await getPendingReports();
     const updated = pending.filter(r => r.id !== reportId);
     await AsyncStorage.setItem(PENDING_REPORTS_KEY, JSON.stringify(updated));
-    console.log('🗑️ Reporte eliminado:', reportId);
+    log('🗑️ Reporte eliminado:', reportId);
   } catch (error) {
     console.error('Error eliminando reporte:', error);
   }
@@ -177,7 +179,7 @@ export const cleanupOldSyncedReports = async () => {
     const removed = synced.length - filtered.length;
     if (removed > 0) {
       await AsyncStorage.setItem(SYNCED_REPORTS_KEY, JSON.stringify(filtered));
-      console.log(`🧹 Limpiados ${removed} reportes antiguos`);
+      log(`🧹 Limpiados ${removed} reportes antiguos`);
     }
   } catch (error) {
     console.error('Error limpiando reportes antiguos:', error);
@@ -228,9 +230,9 @@ export const retryFailedReports = async () => {
         await AsyncStorage.setItem(PENDING_REPORTS_KEY, JSON.stringify(pending));
         await AsyncStorage.setItem(FAILED_REPORTS_KEY, JSON.stringify(updated));
         
-        console.log(`🔄 Reporte ${report.id} movido para reintentar (intento ${report.retries + 1})`);
+        log(`🔄 Reporte ${report.id} movido para reintentar (intento ${report.retries + 1})`);
       } else {
-        console.log(`❌ Reporte ${report.id} excedió máximo de reintentos`);
+        log(`❌ Reporte ${report.id} excedió máximo de reintentos`);
       }
     }
   } catch (error) {

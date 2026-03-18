@@ -58,7 +58,7 @@ export default function ChatImageUpload({
         base64: manipResult.base64 || null
       };
     } catch (error) {
-      console.error('Error comprimiendo imagen:', error);
+      if (__DEV__) console.error('Error comprimiendo imagen:', error);
       return { uri: imageUri, base64: null }; // Si falla, usar original
     }
   };
@@ -85,7 +85,7 @@ export default function ChatImageUpload({
         setPreviewModalVisible(true);
       }
     } catch (error) {
-      console.error('Error capturando foto:', error);
+      if (__DEV__) console.error('Error capturando foto:', error);
       Alert.alert('Error', 'No se pudo capturar la foto');
     }
   };
@@ -113,7 +113,7 @@ export default function ChatImageUpload({
         setPreviewModalVisible(true);
       }
     } catch (error) {
-      console.error('Error seleccionando imagen:', error);
+      if (__DEV__) console.error('Error seleccionando imagen:', error);
       Alert.alert('Error', 'No se pudo seleccionar la imagen');
     }
   };
@@ -140,14 +140,13 @@ export default function ChatImageUpload({
           const byteArray = new Uint8Array(byteNumbers);
           return new Blob([byteArray], { type: mimeType });
         } catch (e) {
-          console.error('[ChatImageUpload] base64ToBlob error:', e);
+          if (__DEV__) console.error('[ChatImageUpload] base64ToBlob error:', e);
           throw e;
         }
       };
       
       // Verificar si Storage está disponible
       if (!storage) {
-        console.log('[ChatImageUpload] No storage, trying base64 fallback...');
         // Sin Storage, usar base64 como fallback (no recomendado)
         if (selectedImage.base64) {
           const imageUri = `data:image/jpeg;base64,${selectedImage.base64}`;
@@ -183,7 +182,7 @@ export default function ChatImageUpload({
             const response = await fetch(selectedImage.uri);
             blob = await response.blob();
           } catch (fetchError) {
-            console.error('Error fetch en web:', fetchError);
+            if (__DEV__) console.error('Error fetch en web:', fetchError);
             // Fallback a base64 si no funciona
             if (selectedImage.base64) {
               blob = base64ToBlob(selectedImage.base64);
@@ -221,7 +220,7 @@ export default function ChatImageUpload({
       setUploadProgress(0);
 
     } catch (error) {
-      console.error('Error subiendo imagen:', error);
+      if (__DEV__) console.error('Error subiendo imagen:', error);
       
       // Si falla Storage, intentar con base64 como fallback
       if (selectedImage.base64 || Platform.OS === 'web') {
@@ -242,7 +241,7 @@ export default function ChatImageUpload({
           setUploadProgress(0);
           return;
         } catch (fallbackError) {
-          console.error('Fallback también falló:', fallbackError);
+          if (__DEV__) console.error('Fallback también falló:', fallbackError);
         }
       }
       

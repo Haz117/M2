@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, memo } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
-import { hapticLight } from '../utils/feedback';
+import { hapticLight } from '../utils/haptics';
 
 /**
  * SearchBar component with debounce functionality
@@ -53,9 +53,17 @@ const SearchBar = memo(function SearchBar({ onSearch, placeholder = 'Buscar tare
         autoCapitalize="none"
         autoCorrect={false}
         returnKeyType="search"
+        accessibilityLabel="Buscar"
+        accessibilityRole="search"
       />
       {searchText.length > 0 && (
-        <TouchableOpacity onPress={handleClear} activeOpacity={0.7}>
+        <TouchableOpacity
+          onPress={handleClear}
+          activeOpacity={0.7}
+          accessibilityLabel="Limpiar búsqueda"
+          accessibilityRole="button"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Ionicons name="close-circle" size={20} color={theme.textSecondary} />
         </TouchableOpacity>
       )}

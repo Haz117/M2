@@ -21,13 +21,14 @@ const BarChart = React.lazy(() => import('react-native-chart-kit').then(module =
 const PieChart = React.lazy(() => import('react-native-chart-kit').then(module => ({ default: module.PieChart })));
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import Toast from 'react-native-toast-message';
+import { useNotification } from '../contexts/NotificationContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useResponsive } from '../utils/responsive';
 import { subscribeToTasks } from '../services/tasks';
 import { subscribeToSubtasks } from '../services/tasksMultiple';
 import { getCurrentSession } from '../services/authFirestore';
 import LoadingIndicator from '../components/LoadingIndicator';
+import ShimmerEffect from '../components/ShimmerEffect';
 import EmptyState from '../components/EmptyState';
 import StatCard from '../components/StatCard';
 import SpringCard from '../components/SpringCard';
@@ -61,6 +62,7 @@ const { width: screenWidth } = Dimensions.get('window');
 export default function ReportsScreen({ navigation }) {
   const { theme, isDark } = useTheme();
   const { width, isDesktop, isTablet, padding } = useResponsive();
+  const { showSuccess, showError } = useNotification();
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -225,7 +227,7 @@ export default function ReportsScreen({ navigation }) {
         });
         unsubscribes.push(unsubscribe);
       } catch (error) {
-        console.warn(`Failed to subscribe to subtasks for task ${task.id}:`, error?.message);
+        if (__DEV__) console.warn(`Failed to subscribe to subtasks for task ${task.id}:`, error?.message);
       }
     });
 
@@ -237,7 +239,7 @@ export default function ReportsScreen({ navigation }) {
           try {
             unsub();
           } catch (error) {
-            console.warn('Error unsubscribing:', error);
+            if (__DEV__) console.warn('Error unsubscribing:', error);
           }
         }
       });
@@ -260,7 +262,7 @@ export default function ReportsScreen({ navigation }) {
           }
         });
       } catch (error) {
-        console.warn('Error subscribing to tasks:', error);
+        if (__DEV__) console.warn('Error subscribing to tasks:', error);
         if (mounted) setLoading(false);
       }
     })();
@@ -279,7 +281,7 @@ export default function ReportsScreen({ navigation }) {
         try {
           unsubscribe();
         } catch (error) {
-          console.warn('Error unsubscribing from tasks:', error);
+          if (__DEV__) console.warn('Error unsubscribing from tasks:', error);
         }
       }
     };
@@ -302,7 +304,7 @@ export default function ReportsScreen({ navigation }) {
         setFirestoreAreas(areas);
       });
     } catch (error) {
-      console.warn('Error subscribing to areas:', error);
+      if (__DEV__) console.warn('Error subscribing to areas:', error);
     }
     
     return () => {
@@ -310,7 +312,7 @@ export default function ReportsScreen({ navigation }) {
         try {
           unsubscribe();
         } catch (error) {
-          console.warn('Error unsubscribing from areas:', error);
+          if (__DEV__) console.warn('Error unsubscribing from areas:', error);
         }
       }
     };
@@ -699,7 +701,7 @@ export default function ReportsScreen({ navigation }) {
       const optimizations = generateOptimizationSuggestions(areaMetrics, tasks, newAlerts);
       setSuggestions(optimizations);
     } catch (error) {
-      console.error('Error calculando análisis avanzados:', error);
+      if (__DEV__) console.error('Error calculando análisis avanzados:', error);
     }
   }, [areaMetrics, tasks]);
 
@@ -730,36 +732,20 @@ export default function ReportsScreen({ navigation }) {
       const result = await exportAreaReport(areaMetrics, tasks, period);
       if (result.success) {
         if (Platform.OS === 'web') {
-          // En web, el archivo se descarga automáticamente
-          Toast.show({
-            type: 'success',
-            text1: '✅ Reporte Descargado',
-            text2: result.filename,
-            position: 'top',
-          });
+          showSuccess(`✅ Reporte Descargado: ${result.filename}`);
         } else {
           Alert.alert('✅ Éxito', `Reporte guardado: ${result.filename}`);
         }
       } else {
         if (Platform.OS === 'web') {
-          Toast.show({
-            type: 'error',
-            text1: '❌ Error',
-            text2: result.error || 'No se pudo exportar',
-            position: 'top',
-          });
+          showError(`❌ Error: ${result.error || 'No se pudo exportar'}`);
         } else {
           Alert.alert('❌ Error', result.error);
         }
       }
     } catch (error) {
       if (Platform.OS === 'web') {
-        Toast.show({
-          type: 'error',
-          text1: '❌ Error',
-          text2: 'No se pudo exportar el reporte',
-          position: 'top',
-        });
+        showError('❌ Error: No se pudo exportar el reporte');
       } else {
         Alert.alert('❌ Error', 'No se pudo exportar el reporte');
       }
@@ -791,9 +777,28 @@ export default function ReportsScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <LoadingIndicator type="spinner" color={theme.primary} size={14} />
-        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Cargando reportes...</Text>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <LinearGradient
+          colors={isDark ? ['#9F2241', '#7A1A33'] : ['#9F2241', '#BC2E52']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0.8 }}
+          style={{ paddingTop: 52, paddingBottom: 20, paddingHorizontal: 20 }}
+        >
+          <ShimmerEffect width={160} height={24} borderRadius={8} style={{ marginBottom: 8 }} />
+          <ShimmerEffect width={240} height={14} borderRadius={6} />
+        </LinearGradient>
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }} scrollEnabled={false}>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            {[...Array(3)].map((_, i) => (
+              <ShimmerEffect key={i} width={(width - 52) / 3} height={80} borderRadius={12} />
+            ))}
+          </View>
+          <ShimmerEffect width="100%" height={140} borderRadius={14} />
+          <ShimmerEffect width="100%" height={200} borderRadius={14} />
+          {[...Array(4)].map((_, i) => (
+            <ShimmerEffect key={i} width="100%" height={60} borderRadius={12} />
+          ))}
+        </ScrollView>
       </View>
     );
   }
@@ -815,6 +820,8 @@ export default function ReportsScreen({ navigation }) {
                   onPress={() => navigation.goBack()}
                   style={styles.backButton}
                   activeOpacity={0.7}
+                  accessibilityLabel="Volver"
+                  accessibilityRole="button"
                 >
                   <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
                 </TouchableOpacity>
@@ -872,7 +879,7 @@ export default function ReportsScreen({ navigation }) {
                   style={[
                     styles.periodTab,
                     period === p.key && styles.periodTabActive,
-                    { backgroundColor: period === p.key ? (isDark ? '#9F2241' : '#9F2241') : 'transparent' }
+                    { backgroundColor: period === p.key ? theme.primary : 'transparent' }
                   ]}
                   activeOpacity={0.7}
                 >
@@ -982,14 +989,14 @@ export default function ReportsScreen({ navigation }) {
             <View style={[styles.summaryCard, { backgroundColor: theme.card, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
               <View style={styles.summaryHeader}>
                 <View style={styles.summaryLeft}>
-                  <View style={[styles.summaryIconBg, { backgroundColor: '#9F2241' }]}>
+                  <View style={[styles.summaryIconBg, { backgroundColor: theme.primary }]}>
                     <Ionicons name="pie-chart" size={20} color="#FFFFFF" />
                   </View>
                   <View>
                     <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Tasa de Finalización</Text>
                     <View style={styles.summaryValueRow}>
                       <Text style={[styles.summaryValue, { color: theme.text }]}>{currentStats.completionRate}</Text>
-                      <Text style={[styles.summaryPercent, { color: '#9F2241' }]}>%</Text>
+                      <Text style={[styles.summaryPercent, { color: theme.primary }]}>%</Text>
                     </View>
                   </View>
                 </View>
@@ -1061,8 +1068,8 @@ export default function ReportsScreen({ navigation }) {
               opacity: Platform.OS === 'web' ? 1 : chartsOpacity,
               transform: Platform.OS === 'web' ? [] : [{ translateY: chartsSlide }]
             }}>
-              <Suspense fallback={<ActivityIndicator color={theme.primary} />}>
-                <ComplianceReport 
+              <Suspense fallback={<ShimmerEffect width="100%" height={200} borderRadius={8} />}>
+                <ComplianceReport
                   tasks={tasks}
                   showDetails={true}
                 />
@@ -1112,7 +1119,7 @@ export default function ReportsScreen({ navigation }) {
               <View style={styles.subtasksStatsSection}>
                 <SpringCard style={styles.subtaskCard}>
                   <View style={styles.subtaskHeader}>
-                    <Ionicons name="checkmark-done" size={24} color="#9F2241" style={{ marginRight: 8 }} />
+                    <Ionicons name="checkmark-done" size={24} color={theme.primary} style={{ marginRight: 8 }} />
                     <Text style={[styles.subtaskTitle, { color: theme.text }]}>Progreso de Subtareas</Text>
                   </View>
                   
@@ -1151,8 +1158,8 @@ export default function ReportsScreen({ navigation }) {
                       width: 120, 
                       height: 120
                     }]}>
-                      <View style={[styles.progressRingFill, { 
-                        borderColor: '#9F2241',
+                      <View style={[styles.progressRingFill, {
+                        borderColor: theme.primary,
                         borderWidth: 8,
                         borderRadius: 60,
                         width: 120,
@@ -1160,7 +1167,7 @@ export default function ReportsScreen({ navigation }) {
                         opacity: subtasksStats.completionRate / 100
                       }]}>
                         <View style={{justifyContent: 'center', alignItems: 'center', flex: 1}}>
-                          <Text style={{fontSize: 28, fontWeight: '800', color: '#9F2241'}}>
+                          <Text style={{fontSize: 28, fontWeight: '800', color: theme.primary}}>
                             {subtasksStats.completionRate}%
                           </Text>
                         </View>
@@ -1191,7 +1198,7 @@ export default function ReportsScreen({ navigation }) {
                           <Text style={[styles.taskProgressTitle, { color: theme.text }]} numberOfLines={1}>
                             {index + 1}. {taskProgress.title}
                           </Text>
-                          <Text style={[styles.taskProgressPercent, { color: '#9F2241' }]}>
+                          <Text style={[styles.taskProgressPercent, { color: theme.primary }]}>
                             {taskProgress.progress}%
                           </Text>
                         </View>
@@ -1227,7 +1234,7 @@ export default function ReportsScreen({ navigation }) {
             {dailyCompletions.length > 0 && (
               <SpringCard style={styles.chartCard}>
                 <Text style={[styles.chartTitle, { color: theme.text }]}>Tareas Completadas por Día</Text>
-                <Suspense fallback={<ActivityIndicator color={theme.primary} />}>
+                <Suspense fallback={<ShimmerEffect width={width - (padding * 2 + 40)} height={220} borderRadius={8} />}>
                   <LineChart
                     data={chartData}
                     width={width - (padding * 2 + 40)}
@@ -1250,7 +1257,7 @@ export default function ReportsScreen({ navigation }) {
             {priorityChartData.length > 0 && (
               <SpringCard style={styles.chartCard}>
                 <Text style={[styles.chartTitle, { color: theme.text }]}>Distribución por Prioridad</Text>
-                <Suspense fallback={<ActivityIndicator color={theme.primary} />}>
+                <Suspense fallback={<ShimmerEffect width={width - (padding * 2 + 40)} height={220} borderRadius={8} />}>
                   <PieChart
                     data={priorityChartData}
                     width={width - (padding * 2 + 40)}
@@ -1583,7 +1590,7 @@ export default function ReportsScreen({ navigation }) {
                   <Ionicons name="arrow-forward-outline" size={20} color={theme.primary} />
                   <Text style={[styles.chartTitle, { color: theme.text }]}>Comparación de Rendimiento</Text>
                 </View>
-                <Suspense fallback={<ActivityIndicator color={theme.primary} />}>
+                <Suspense fallback={<ShimmerEffect width="100%" height={200} borderRadius={8} />}>
                   <AreaComparisonChart
                     areaMetrics={displayAreaMetrics}
                     padding={padding}
@@ -1916,7 +1923,7 @@ const createStyles = (theme, isDark, isDesktop, isTablet, isDesktopLarge, width,
       borderRadius: 12,
     },
     periodTabActive: {
-      shadowColor: '#9F2241',
+      shadowColor: theme.primary,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.3,
       shadowRadius: 8,
@@ -1993,7 +2000,7 @@ const createStyles = (theme, isDark, isDesktop, isTablet, isDesktopLarge, width,
     },
     progressBarFill: {
       height: '100%',
-      backgroundColor: '#9F2241',
+      backgroundColor: theme.primary,
       borderRadius: 4,
     },
     // ✨ Metrics Row Compacto
@@ -2389,7 +2396,7 @@ const createStyles = (theme, isDark, isDesktop, isTablet, isDesktopLarge, width,
       borderRadius: 16,
       alignItems: 'center',
       justifyContent: 'center',
-      shadowColor: '#9F2241',
+      shadowColor: theme.primary,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.3,
       shadowRadius: 8,

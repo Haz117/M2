@@ -23,6 +23,10 @@ export const useTheme = () => {
         background: '#FFFFFF',
         surface: '#F8F9FA',
         card: '#FFFFFF',
+        cardBackground: '#FFFFFF',
+        surfaceL1: '#FFFFFF',
+        surfaceL2: '#F9F9F9',
+        surfaceL3: '#F0F0F0',
         text: '#1C1C1E',
         textSecondary: '#6E6E73',
         border: '#E5E5EA',
@@ -30,6 +34,11 @@ export const useTheme = () => {
         warning: '#FF9500',
         error: '#FF3B30',
         info: '#007AFF',
+        radiusSm: 8,
+        radiusMd: 12,
+        radiusLg: 20,
+        radiusXl: 28,
+        radiusFull: 999,
       }
     };
   }
@@ -193,14 +202,27 @@ export const ThemeProvider = ({ children }) => {
     // ========== SUPERFICIES ==========
     surface: isDark ? '#1A1A1D' : '#FFFFFF',
     surfaceVariant: isDark ? '#2C2C2C' : '#FFFAF0',
-    
+    // Alias usado en formularios y tarjetas de detalle
+    cardBackground: isDark ? '#1A1A1D' : '#FFFFFF',
+    // Capas de profundidad en dark mode
+    surfaceL1: isDark ? '#1A1A1A' : '#FFFFFF',
+    surfaceL2: isDark ? '#272727' : '#F9F9F9',
+    surfaceL3: isDark ? '#333333' : '#F0F0F0',
+
+    // ========== BORDER RADIUS ==========
+    radiusSm: 8,
+    radiusMd: 12,
+    radiusLg: 20,
+    radiusXl: 28,
+    radiusFull: 999,
+
     // Sombras adicionales
     shadowColor: isDark ? '#000000' : '#000000',
-    
+
     // Iconos
     icon: isDark ? '#FFFFFF' : '#9F2241',
     iconInactive: isDark ? '#808080' : '#8E8E93',
-    
+
     isDark,
   };
 

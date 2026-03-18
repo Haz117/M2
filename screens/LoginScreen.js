@@ -7,7 +7,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { loginUser } from '../services/authFirestore';
-import Toast from '../components/Toast';
+import Toast from 'react-native-toast-message';
+
+const BRAND = BRAND;
 
 export default function LoginScreen({ onLogin }) {
   const [email, setEmail] = useState('');
@@ -16,11 +18,6 @@ export default function LoginScreen({ onLogin }) {
   const [showPassword, setShowPassword] = useState(false);
   const [focusedInput, setFocusedInput] = useState(null);
   
-  // Toast states
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState('success');
-
   // Animaciones avanzadas
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -77,12 +74,13 @@ export default function LoginScreen({ onLogin }) {
   const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   const showToast = (message, type = 'error') => {
-    setToastMessage(message);
-    setToastType(type);
-    setToastVisible(true);
-    if (type === 'error') {
-      triggerShake();
-    }
+    if (type === 'error') triggerShake();
+    Toast.show({
+      type: type === 'success' ? 'success' : type === 'warning' ? 'info' : 'error',
+      text1: message,
+      position: type === 'error' ? 'top' : 'bottom',
+      visibilityTime: 3000,
+    });
   };
 
   const handleSubmit = async () => {
@@ -167,7 +165,13 @@ export default function LoginScreen({ onLogin }) {
                   style={styles.textInput}
                   secureTextEntry={!showPassword}
                 />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 8 }}>
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={{ padding: 8 }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  accessibilityRole="button"
+                >
                   <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color="rgba(255,255,255,0.6)" />
                 </TouchableOpacity>
               </View>
@@ -232,13 +236,6 @@ export default function LoginScreen({ onLogin }) {
         </ScrollView>
       </View>
       
-      <Toast
-        visible={toastVisible}
-        message={toastMessage}
-        type={toastType}
-        onHide={() => setToastVisible(false)}
-        duration={3000}
-      />
     </KeyboardAvoidingView>
   );
 }
@@ -246,11 +243,11 @@ export default function LoginScreen({ onLogin }) {
 const styles = StyleSheet.create({
   container: { 
     flex: 1,
-    backgroundColor: '#9F2241' // Fondo de respaldo
+    backgroundColor: BRAND // Fondo de respaldo
   },
   gradient: { 
     flex: 1, 
-    backgroundColor: '#9F2241',
+    backgroundColor: BRAND,
     minHeight: '100%'
   },
   circle1: { position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(255,255,255,0.05)', top: -100, left: -100 },
@@ -274,7 +271,7 @@ const styles = StyleSheet.create({
   btn: { marginTop: 8, borderRadius: 14, overflow: 'hidden', elevation: 8 },
   btnDisabled: { opacity: 0.6 },
   btnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, gap: 8, backgroundColor: '#FFF' },
-  btnText: { fontSize: 17, fontWeight: '700', color: '#9F2241', letterSpacing: 0.3 },
+  btnText: { fontSize: 17, fontWeight: '700', color: BRAND, letterSpacing: 0.3 },
   separator: { flexDirection: 'row', alignItems: 'center', marginTop: 24, marginBottom: 8 },
   separatorLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.2)' },
   separatorText: { marginHorizontal: 16, fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '500' },

@@ -2,7 +2,7 @@
 // "Mi bandeja" - lista de tareas asignadas al usuario actual, ordenadas por fecha de vencimiento.
 // Acciones rápidas: marcar cerrada y posponer 1 día. Abre detalle y chat.
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, SectionList, Modal, ScrollView, TextInput, Animated, Easing, Platform, InteractionManager } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Modal, ScrollView, TextInput, Animated, Easing, Platform, InteractionManager } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,7 +15,9 @@ import { updateTask, deleteTask as deleteTaskFirebase } from '../services/tasks'
 import { scheduleNotificationForTask, cancelNotification } from '../services/notifications';
 import { getCurrentSession } from '../services/authFirestore';
 import { hapticMedium, hapticLight } from '../utils/haptics';
-import Toast from 'react-native-toast-message';
+import { useNotification } from '../contexts/NotificationContext';
+import { isTaskAssignedToUser } from '../utils/taskHelpers';
+import { deleteManager } from '../utils/deleteManager';
 import { confirmTaskCompletion, hasUserConfirmed } from '../services/taskConfirmations';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTasks } from '../contexts/TasksContext';
@@ -25,33 +27,18 @@ import { useResponsive } from '../utils/responsive';
 import { SPACING, TYPOGRAPHY, RADIUS, SHADOWS, MAX_WIDTHS } from '../theme/tokens';
 import { isOverdue, toMs } from '../utils/dateUtils';
 import HelpButton from '../components/HelpButton';
+import SyncIndicator from '../components/SyncIndicator';
 import { getDireccionesBySecretaria } from '../config/areas';
 
-// Helper function to check if a task is assigned to a user (supports both string and array formats)
-function isTaskAssignedToUser(task, userEmail) {
-  if (!task.assignedTo) return false;
-  if (Array.isArray(task.assignedTo)) {
-    // Normalize emails before comparing
-    const normalizedEmail = userEmail?.toLowerCase().trim() || '';
-    if (Array.isArray(task.assignedTo)) {
-      return task.assignedTo.some(email => email?.toLowerCase().trim() === normalizedEmail);
-    }
-    return (task.assignedTo?.toLowerCase().trim() || '') === normalizedEmail;
-  }
-  // Backward compatibility: old string format
-  return task.assignedTo.toLowerCase() === userEmail.toLowerCase();
-}
 
 export default function MyInboxScreen({ navigation }) {
   const { theme, isDark } = useTheme();
   const { width, isDesktop, isTablet, columns, padding } = useResponsive();
+  const { showSuccess, showError, showWarning, showInfo } = useNotification();
   // 🌍 USAR EL CONTEXT GLOBAL DE TAREAS
-  const { tasks, setTasks, markAsDeleting, unmarkAsDeleting, isLoading: tasksLoading } = useTasks();
+  const { tasks, setTasks, isLoading: tasksLoading } = useTasks();
   const [currentUser, setCurrentUser] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState('success');
   const [recentMessages, setRecentMessages] = useState([]);
   const [showMessagesModal, setShowMessagesModal] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -396,13 +383,9 @@ export default function MyInboxScreen({ navigation }) {
       // Cancelar notificación existente
       if (taskToClose.notificationId) await cancelNotification(taskToClose.notificationId);
       await updateTask(taskToClose.id, { status: 'cerrada' });
-      setToastMessage('Tarea completada exitosamente');
-      setToastType('success');
-      setToastVisible(true);
+      showSuccess('Tarea completada exitosamente');
     } catch (e) {
-      setToastMessage('Error al marcar como cerrada: ' + e.message);
-      setToastType('error');
-      setToastVisible(true);
+      showError('Error al marcar como cerrada: ' + e.message);
     } finally {
       setShowCloseConfirm(false);
       setTaskToClose(null);
@@ -429,22 +412,10 @@ export default function MyInboxScreen({ navigation }) {
         dueAt: newDue,
         notificationId: notifId || task.notificationId
       });
-      Toast.show({
-        type: 'success',
-        text1: 'Pospuesta',
-        text2: 'Tarea pospuesta 1 día',
-        position: 'top',
-        visibilityTime: 2000,
-      });
+      showSuccess('Tarea pospuesta 1 día');
       // La actualización del estado se hace automáticamente por el listener
     } catch (e) {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Error al posponer: ' + e.message,
-        position: 'top',
-        visibilityTime: 3000,
-      });
+      showError('Error al posponer: ' + e.message);
     }
   };
   
@@ -458,23 +429,9 @@ export default function MyInboxScreen({ navigation }) {
         area: currentUser.department || ''
       });
       
-      Toast.show({
-        type: 'success',
-        text1: result.allCompleted ? '¡Listo para revisión!' : 'Confirmado',
-        text2: result.allCompleted 
-          ? 'Todos han confirmado' 
-          : `${result.completedCount}/${result.totalAssigned} han confirmado`,
-        position: 'top',
-        visibilityTime: 2000,
-      });
+      showSuccess(result.allCompleted ? 'Todos han confirmado - ¡Listo para revisión!' : `${result.completedCount}/${result.totalAssigned} han confirmado`);
     } catch (e) {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: e.message,
-        position: 'top',
-        visibilityTime: 3000,
-      });
+      showError(e.message);
     }
   };
 
@@ -540,9 +497,7 @@ export default function MyInboxScreen({ navigation }) {
     
     // Verificar permisos ANTES de intentar
     if (!currentUser || currentUser.role !== 'admin') {
-      setToastMessage(`Solo admins pueden eliminar. Tu rol: ${currentUser?.role || 'desconocido'}`);
-      setToastType('error');
-      setToastVisible(true);
+      showError(`Solo admins pueden eliminar. Tu rol: ${currentUser?.role || 'desconocido'}`);
       return;
     }
 
@@ -552,15 +507,13 @@ export default function MyInboxScreen({ navigation }) {
     // ✅ MARCAR COMO EN PROCESO (en state, ref Y context global)
     deletingTasksRef.current.add(taskId);
     setDeletingTaskIds(prev => new Set([...prev, taskId]));
-    markAsDeleting(taskId);  // 🛡️ Evitar que el listener restaure la tarea
+    deleteManager.markDeleting(taskId);  // 🛡️ Evitar que el listener restaure la tarea
     
     // 💾 GUARDAR EN ASYNCSTORAGE para persistir si recarga
     await saveDeletingTasks(deletingTasksRef.current);
     
     // ✅ MOSTRAR TOAST INMEDIATAMENTE
-    setToastMessage('🔴 ¡BORRANDO TAREA! Espera un momento...');
-    setToastType('info');
-    setToastVisible(true);
+    showInfo('🔴 ¡BORRANDO TAREA! Espera un momento...');
 
     // Esperar 600ms para que el usuario vea el INDICADOR ROJO
     // Luego remover de la lista UI
@@ -571,16 +524,12 @@ export default function MyInboxScreen({ navigation }) {
     // 🔄 FASE 2: EJECUTAR DELETE EN FIREBASE EN BACKGROUND (fire-and-forget)
     deleteTaskFirebase(taskId)
       .then(() => {
-        setToastMessage('✅ ¡TAREA ELIMINADA! Ya no aparecerá');
-        setToastType('success');
-        setToastVisible(true);
+        showSuccess('✅ ¡TAREA ELIMINADA! Ya no aparecerá');
         // ✅ Solo desmarcar después de éxito confirmado
-        unmarkAsDeleting(taskId);
+        deleteManager.confirmDelete(taskId);
       })
       .catch(error => {
-        setToastMessage('Error: No se pudo eliminar la tarea');
-        setToastType('error');
-        setToastVisible(true);
+        showError('Error: No se pudo eliminar la tarea');
         // Mantener marcado para evitar que reaparezca
       })
       .finally(() => {
@@ -597,23 +546,17 @@ export default function MyInboxScreen({ navigation }) {
   // Función para borrar múltiples tareas seleccionadas
   const deleteSelectedTasks = async () => {
     if (selectedTaskIds.size === 0) {
-      setToastMessage('⚠️ Selecciona al menos una tarea');
-      setToastType('warning');
-      setToastVisible(true);
+      showWarning('⚠️ Selecciona al menos una tarea');
       return;
     }
 
     if (!currentUser || currentUser.role !== 'admin') {
-      setToastMessage('❌ Solo admins pueden eliminar tareas');
-      setToastType('error');
-      setToastVisible(true);
+      showError('❌ Solo admins pueden eliminar tareas');
       return;
     }
 
     const count = selectedTaskIds.size;
-    setToastMessage(`🔴 ¡ELIMINANDO ${count} TAREA${count > 1 ? 'S' : ''}! Espera...`);
-    setToastType('info');
-    setToastVisible(true);
+    showInfo(`🔴 ¡ELIMINANDO ${count} TAREA${count > 1 ? 'S' : ''}! Espera...`);
 
     // Marcar todas como eliminando (local + context global)
     const newDeletingSet = new Set([...deletingTasksRef.current, ...selectedTaskIds]);
@@ -621,7 +564,7 @@ export default function MyInboxScreen({ navigation }) {
     setDeletingTaskIds(newDeletingSet);
     
     // 🛡️ Marcar en context global para evitar restauración por listener
-    selectedTaskIds.forEach(taskId => markAsDeleting(taskId));
+    selectedTaskIds.forEach(taskId => deleteManager.markDeleting(taskId));
 
     // 💾 GUARDAR EN ASYNCSTORAGE para persistir si recarga
     await saveDeletingTasks(newDeletingSet);
@@ -637,7 +580,7 @@ export default function MyInboxScreen({ navigation }) {
     const deletePromises = taskIdsToDelete.map(taskId => 
       deleteTaskFirebase(taskId)
         .then(() => {
-          unmarkAsDeleting(taskId); // Desmarcar solo las que se eliminaron correctamente
+          deleteManager.confirmDelete(taskId); // Desmarcar solo las que se eliminaron correctamente
           return taskId;
         })
         .catch(err => {
@@ -649,15 +592,11 @@ export default function MyInboxScreen({ navigation }) {
     Promise.all(deletePromises)
       .then((results) => {
         const successCount = results.filter(r => r !== null).length;
-        setToastMessage(`✅ ¡${successCount} TAREA${successCount > 1 ? 'S' : ''} ELIMINADA${successCount > 1 ? 'S' : ''}! Ya no aparecerán`);
-        setToastType('success');
-        setToastVisible(true);
+        showSuccess(`✅ ¡${successCount} TAREA${successCount > 1 ? 'S' : ''} ELIMINADA${successCount > 1 ? 'S' : ''}! Ya no aparecerán`);
         setSelectedTaskIds(new Set());
       })
       .catch(err => {
-        setToastMessage('❌ Error: No se pudieron eliminar todas las tareas');
-        setToastType('error');
-        setToastVisible(true);
+        showError('❌ Error: No se pudieron eliminar todas las tareas');
       })
       .finally(() => {
         setDeletingTaskIds(prev => {
@@ -755,9 +694,7 @@ export default function MyInboxScreen({ navigation }) {
   const toggleComplete = async (task) => {
     // Validar permisos: solo admin puede reabrir
     if (task.status === 'cerrada' && currentUser?.role !== 'admin') {
-      setToastMessage('Solo administradores pueden reabrir tareas');
-      setToastType('warning');
-      setToastVisible(true);
+      showWarning('Solo administradores pueden reabrir tareas');
       return;
     }
     
@@ -769,9 +706,7 @@ export default function MyInboxScreen({ navigation }) {
     // Admin, secretario, y director pueden editar tareas
     const canEdit = currentUser && ['admin', 'secretario', 'director'].includes(currentUser.role);
     if (!canEdit) {
-      setToastMessage('No tienes permisos para editar tareas');
-      setToastType('info');
-      setToastVisible(true);
+      showInfo('No tienes permisos para editar tareas');
       return;
     }
     navigation.navigate('TaskDetail', { task });
@@ -783,9 +718,7 @@ export default function MyInboxScreen({ navigation }) {
     // Solo admin puede crear tareas principales
     const canCreate = currentUser && ['admin'].includes(currentUser.role);
     if (!canCreate) {
-      setToastMessage('Solo administradores pueden crear tareas. Los secretarios y directores solo pueden crear subtareas.');
-      setToastType('warning');
-      setToastVisible(true);
+      showWarning('Solo administradores pueden crear tareas. Los secretarios y directores solo pueden crear subtareas.');
       return;
     }
     navigation.navigate('TaskDetail');
@@ -1023,7 +956,7 @@ export default function MyInboxScreen({ navigation }) {
               
               {/* Botón crear */}
               <TouchableOpacity style={styles.addButton} onPress={goToCreate}>
-                <Ionicons name="add" size={26} color="#9F2241" />
+                <Ionicons name="add" size={26} color={theme.primary} />
               </TouchableOpacity>
             </View>
           </View>
@@ -1505,12 +1438,12 @@ export default function MyInboxScreen({ navigation }) {
             key={filter.key}
             style={[
               styles.quickFilterChip,
-              { 
-                backgroundColor: quickStatusFilter === filter.key 
-                  ? theme.primary 
+              {
+                backgroundColor: quickStatusFilter === filter.key
+                  ? theme.primary
                   : (isDark ? '#2a2a2a' : '#f0f0f0'),
-                borderColor: quickStatusFilter === filter.key 
-                  ? theme.primary 
+                borderColor: quickStatusFilter === filter.key
+                  ? theme.primary
                   : (isDark ? '#444' : '#ddd'),
               }
             ]}
@@ -1518,6 +1451,9 @@ export default function MyInboxScreen({ navigation }) {
               hapticLight();
               setQuickStatusFilter(filter.key);
             }}
+            accessibilityLabel={`Filtrar por ${filter.label}`}
+            accessibilityRole="button"
+            accessibilityState={{ selected: quickStatusFilter === filter.key }}
           >
             <Ionicons 
               name={filter.icon} 
@@ -1545,20 +1481,23 @@ export default function MyInboxScreen({ navigation }) {
         ))}
         
         {/* Toggle vista compacta */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[
-            styles.compactToggleBtn, 
+            styles.compactToggleBtn,
             { backgroundColor: compactView ? theme.primary : (isDark ? '#2a2a2a' : '#f0f0f0') }
           ]}
           onPress={() => {
             hapticLight();
             setCompactView(!compactView);
           }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityLabel={compactView ? 'Vista normal' : 'Vista compacta'}
+          accessibilityRole="button"
         >
-          <Ionicons 
-            name={compactView ? 'list' : 'grid-outline'} 
-            size={16} 
-            color={compactView ? '#fff' : theme.text} 
+          <Ionicons
+            name={compactView ? 'list' : 'grid-outline'}
+            size={16}
+            color={compactView ? '#fff' : theme.text}
           />
         </TouchableOpacity>
       </ScrollView>
@@ -1664,14 +1603,9 @@ export default function MyInboxScreen({ navigation }) {
           />
         }
       />
+      <SyncIndicator />
       </View>
-      
-      <Toast 
-        visible={toastVisible}
-        message={toastMessage}
-        type={toastType}
-        onHide={() => setToastVisible(false)}
-      />
+
     </View>
   );
 }
@@ -1771,7 +1705,7 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#9F2241',
+    borderColor: theme.primary,
   },
   msgBadgeText: {
     color: '#FFFFFF',
@@ -2053,7 +1987,7 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     elevation: 4
   },
   addButtonText: {
-    color: '#9F2241',
+    color: theme.primary,
     fontSize: 32,
     fontWeight: '300',
     marginTop: -2
@@ -2108,7 +2042,7 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
   },
   userLabel: {
     fontSize: isDesktop ? 10 : 11,
-    color: '#9F2241',
+    color: theme.primary,
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -2193,7 +2127,7 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     fontSize: 13,
     fontWeight: '800',
     marginBottom: 8,
-    color: '#9F2241',
+    color: theme.primary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     textShadowColor: 'rgba(0,0,0,0.08)',
@@ -2281,8 +2215,8 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     elevation: 4
   },
   actionBtnPrimary: {
-    backgroundColor: '#9F2241',
-    borderColor: '#9F2241'
+    backgroundColor: theme.primary,
+    borderColor: theme.primary
   },
   actionBtnDanger: {
     backgroundColor: '#EF4444',

@@ -1,7 +1,7 @@
 // screens/AdminScreen.js
 // Pantalla de configuración y administración
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Animated, Platform, Modal, Easing, ActivityIndicator, Alert } from 'react-native';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Animated, Platform, Modal, ActivityIndicator, Alert, KeyboardAvoidingView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ensurePermissions, getAllScheduledNotifications, cancelAllNotifications } from '../services/notifications';
@@ -10,8 +10,9 @@ import { db } from '../firebase';
 import * as Notifications from 'expo-notifications';
 import { getCurrentSession, logoutUser, isAdmin, registerUser } from '../services/authFirestore';
 import { useTheme } from '../contexts/ThemeContext';
-import Toast from '../components/Toast';
+import { useNotification } from '../contexts/NotificationContext';
 import OverdueAlert from '../components/OverdueAlert';
+import ShimmerEffect from '../components/ShimmerEffect';
 import { toMs } from '../utils/dateUtils';
 import { hapticMedium, hapticLight } from '../utils/haptics';
 import { useTasks } from '../contexts/TasksContext';
@@ -22,6 +23,7 @@ export default function AdminScreen({ navigation, onLogout }) {
   const { isDark, toggleTheme, theme } = useTheme();
   const { isDesktop } = useResponsive();
   const { tasks } = useTasks();
+  const { showSuccess, showError, showWarning } = useNotification();
   const [notificationCount, setNotificationCount] = useState(0);
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -35,9 +37,6 @@ export default function AdminScreen({ navigation, onLogout }) {
   const [newPassword, setNewPassword] = useState('');
   const [showUrgentModal, setShowUrgentModal] = useState(false);
   const [urgentTasks, setUrgentTasks] = useState([]);
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState('success');
   const [isLoading, setIsLoading] = useState(true);
   const [showFlowModal, setShowFlowModal] = useState(false);
 
@@ -63,13 +62,21 @@ export default function AdminScreen({ navigation, onLogout }) {
         await loadNotificationCount();
         await loadAllUsers();
       } catch (error) {
-        showToast('Error al cargar datos de administración', 'error');
+        showError('Error al cargar datos de administración');
       } finally {
         setIsLoading(false);
       }
     };
     loadData();
   }, []);
+
+  // Conteos de usuarios por rol — memoizados para evitar filter() en cada render
+  const userCounts = useMemo(() => ({
+    secretarios: allUsers.filter(u => u.role === 'secretario').length,
+    directores: allUsers.filter(u => u.role === 'director').length,
+    operativos: allUsers.filter(u => !['secretario', 'director', 'admin'].includes(u.role)).length,
+    admins: allUsers.filter(u => u.role === 'admin').length,
+  }), [allUsers]);
 
   // Detectar tareas urgentes desde el contexto global (sin suscripción extra)
   useEffect(() => {
@@ -88,12 +95,6 @@ export default function AdminScreen({ navigation, onLogout }) {
     }
   }, [tasks]);
 
-  const showToast = (message, type = 'success') => {
-    setToastMessage(message);
-    setToastType(type);
-    setToastVisible(true);
-  };
-  
   // Removed duplicate useEffect - new one handles data loading
   
   const loadCurrentUser = async () => {
@@ -104,10 +105,10 @@ export default function AdminScreen({ navigation, onLogout }) {
         const adminStatus = await isAdmin();
         setIsUserAdmin(adminStatus);
       } else {
-        showToast('No hay sesión activa. Inicia sesión primero', 'warning');
+        showWarning('No hay sesión activa. Inicia sesión primero');
       }
     } catch (error) {
-      showToast('Error al cargar usuario', 'error');
+      showError('Error al cargar usuario');
     }
   };
 
@@ -120,7 +121,7 @@ export default function AdminScreen({ navigation, onLogout }) {
         setNotificationCount(0);
       }
     } catch (error) {
-      console.error('Error loading notifications:', error);
+      if (__DEV__) console.error('Error loading notifications:', error);
       setNotificationCount(0);
     }
   };
@@ -144,24 +145,24 @@ export default function AdminScreen({ navigation, onLogout }) {
         setAllUsers(users);
       }
     } catch (error) {
-      console.error('Error loading users:', error);
+      if (__DEV__) console.error('Error loading users:', error);
       setAllUsers([]);
     }
   };
 
   const resetUserPassword = async () => {
     if (!resetEmail.trim() || !newPassword.trim()) {
-      showToast('Por favor completa email y nueva contraseña', 'error');
+      showError('Por favor completa email y nueva contraseña');
       return;
     }
 
     if (newPassword.length < 6) {
-      showToast('La contraseña debe tener al menos 6 caracteres', 'error');
+      showError('La contraseña debe tener al menos 6 caracteres');
       return;
     }
 
     if (!isUserAdmin) {
-      showToast('Solo los administradores pueden resetear contraseñas', 'warning');
+      showWarning('Solo los administradores pueden resetear contraseñas');
       return;
     }
 
@@ -169,9 +170,9 @@ export default function AdminScreen({ navigation, onLogout }) {
       const usersRef = collection(db, 'users');
       const q = query(usersRef, where('email', '==', resetEmail.toLowerCase()));
       const querySnapshot = await getDocs(q);
-      
+
       if (querySnapshot.empty) {
-        showToast('Usuario no encontrado', 'error');
+        showError('Usuario no encontrado');
         return;
       }
 
@@ -191,11 +192,11 @@ export default function AdminScreen({ navigation, onLogout }) {
         password: hashedPassword
       });
 
-      showToast('La contraseña ha sido actualizada', 'success');
+      showSuccess('La contraseña ha sido actualizada');
       setResetEmail('');
       setNewPassword('');
     } catch (error) {
-      showToast('No se pudo resetear la contraseña: ' + error.message, 'error');
+      showError('No se pudo resetear la contraseña: ' + error.message);
     }
   };
 
@@ -204,10 +205,10 @@ export default function AdminScreen({ navigation, onLogout }) {
       await updateDoc(doc(db, 'users', userId), {
         active: !currentStatus
       });
-      showToast('El usuario ha sido ' + (!currentStatus ? 'activado' : 'desactivado'), 'success');
+      showSuccess('El usuario ha sido ' + (!currentStatus ? 'activado' : 'desactivado'));
       loadAllUsers();
     } catch (error) {
-      showToast('No se pudo actualizar el estado: ' + error.message, 'error');
+      showError('No se pudo actualizar el estado: ' + error.message);
     }
   };
 
@@ -218,40 +219,40 @@ export default function AdminScreen({ navigation, onLogout }) {
 
   const createUser = async () => {
     if (!userName.trim() || !userEmail.trim() || !userPassword.trim()) {
-      showToast('Por favor completa nombre, email y contraseña', 'error');
+      showError('Por favor completa nombre, email y contraseña');
       return;
     }
 
     if (!validateEmail(userEmail.trim())) {
-      showToast('Por favor ingresa un email válido', 'error');
+      showError('Por favor ingresa un email válido');
       return;
     }
 
     if (userPassword.length < 6) {
-      showToast('La contraseña debe tener al menos 6 caracteres', 'error');
+      showError('La contraseña debe tener al menos 6 caracteres');
       return;
     }
 
     if (!isUserAdmin) {
-      showToast('Solo los administradores pueden crear usuarios', 'warning');
+      showWarning('Solo los administradores pueden crear usuarios');
       return;
     }
 
     try {
       const result = await registerUser(userEmail.trim(), userPassword, userName.trim(), userRole);
-      
+
       if (result.success) {
-        showToast(`${userName} ha sido agregado como ${userRole}`, 'success');
+        showSuccess(`${userName} ha sido agregado como ${userRole}`);
         setUserName('');
         setUserEmail('');
         setUserPassword('');
         setUserRole('director');
         loadAllUsers(); // Recargar lista
       } else {
-        showToast(result.error, 'error');
+        showError(result.error);
       }
     } catch (error) {
-      showToast('No se pudo crear el usuario: ' + error.message, 'error');
+      showError('No se pudo crear el usuario: ' + error.message);
     }
   };
 
@@ -324,12 +325,24 @@ export default function AdminScreen({ navigation, onLogout }) {
     );
   };
 
-  // Show loading indicator while fetching data
+  // Show shimmer while fetching data
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.loadingContainer, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={theme.primary} />
-        <Text style={[styles.loadingText, { color: theme.text }]}>Cargando administración...</Text>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        {/* Header shimmer */}
+        <ShimmerEffect width="100%" height={110} borderRadius={0} style={{ marginBottom: 16 }} />
+        {/* Stat cards row 1 */}
+        <View style={{ flexDirection: 'row', paddingHorizontal: 16, gap: 10, marginBottom: 10 }}>
+          {[1,2,3].map(i => <ShimmerEffect key={i} width="30%" height={90} borderRadius={12} />)}
+        </View>
+        {/* Stat cards row 2 */}
+        <View style={{ flexDirection: 'row', paddingHorizontal: 16, gap: 10, marginBottom: 20 }}>
+          {[1,2,3].map(i => <ShimmerEffect key={i} width="30%" height={90} borderRadius={12} />)}
+        </View>
+        {/* Section rows */}
+        {[1,2,3,4].map(i => (
+          <ShimmerEffect key={i} width="90%" height={56} borderRadius={12} style={{ marginHorizontal: 16, marginBottom: 12 }} />
+        ))}
       </View>
     );
   }
@@ -486,11 +499,11 @@ export default function AdminScreen({ navigation, onLogout }) {
                   <Ionicons name="arrow-down" size={24} color={theme.textSecondary} style={{ alignSelf: 'center', marginVertical: 8 }} />
                   
                   <View style={styles.roleRow}>
-                    <View style={[styles.roleBoxSmall, { backgroundColor: '#9F2241' }]}>
+                    <View style={[styles.roleBoxSmall, { backgroundColor: theme.primary }]}>
                       <Text style={styles.roleBoxTextSmall}>SECRETARIO</Text>
                       <Text style={styles.roleBoxDescSmall}>Ve su área</Text>
                     </View>
-                    <View style={[styles.roleBoxSmall, { backgroundColor: '#9F2241' }]}>
+                    <View style={[styles.roleBoxSmall, { backgroundColor: theme.primary }]}>
                       <Text style={styles.roleBoxTextSmall}>SECRETARIO</Text>
                       <Text style={styles.roleBoxDescSmall}>Ve su área</Text>
                     </View>
@@ -528,7 +541,7 @@ export default function AdminScreen({ navigation, onLogout }) {
                 
                 <View style={styles.flowSteps}>
                   <View style={styles.flowStep}>
-                    <View style={[styles.flowStepNumber, { backgroundColor: '#9F2241' }]}>
+                    <View style={[styles.flowStepNumber, { backgroundColor: theme.primary }]}>
                       <Text style={styles.flowStepNumberText}>1</Text>
                     </View>
                     <View style={styles.flowStepContent}>
@@ -593,7 +606,7 @@ export default function AdminScreen({ navigation, onLogout }) {
                 
                 <View style={styles.screensGrid}>
                   <View style={[styles.screenItem, { backgroundColor: isDark ? '#2A2A30' : '#FFFFFF' }]}>
-                    <Ionicons name="home" size={24} color="#9F2241" />
+                    <Ionicons name="home" size={24} color={theme.primary} />
                     <Text style={[styles.screenName, { color: theme.text }]}>Inicio</Text>
                     <Text style={[styles.screenDesc, { color: theme.textSecondary }]}>Lista + crear</Text>
                   </View>
@@ -642,7 +655,7 @@ export default function AdminScreen({ navigation, onLogout }) {
                     </Text>
                   </View>
                   
-                  <View style={[styles.metricRole, { borderLeftColor: '#9F2241' }]}>
+                  <View style={[styles.metricRole, { borderLeftColor: theme.primary }]}>
                     <Text style={[styles.metricRoleTitle, { color: theme.text }]}>Secretario</Text>
                     <Text style={[styles.metricRoleDesc, { color: theme.textSecondary }]}>
                       Rendimiento de sus directores • Tareas de su área • Promedio de cumplimiento
@@ -661,17 +674,17 @@ export default function AdminScreen({ navigation, onLogout }) {
               {/* Credenciales */}
               <View style={styles.flowSection}>
                 <View style={styles.flowSectionHeader}>
-                  <Ionicons name="key" size={20} color="#9F2241" />
+                  <Ionicons name="key" size={20} color={theme.primary} />
                   <Text style={[styles.flowSectionTitle, { color: theme.text }]}>🔐 Credenciales de Acceso</Text>
                 </View>
                 
                 <View style={[styles.credentialsBox, { backgroundColor: isDark ? '#2A2A2A' : '#F5F5F5' }]}>
-                  <Text style={[styles.credentialHeader, { color: '#9F2241' }]}>👤 ADMINISTRADOR</Text>
+                  <Text style={[styles.credentialHeader, { color: theme.primary }]}>👤 ADMINISTRADOR</Text>
                   <Text style={[styles.credentialItem, { color: theme.text }]}>admin@todo.com → admin123</Text>
                 </View>
                 
                 <View style={[styles.credentialsBox, { backgroundColor: isDark ? '#2A2A2A' : '#F5F5F5' }]}>
-                  <Text style={[styles.credentialHeader, { color: '#9F2241' }]}>📋 SECRETARIOS</Text>
+                  <Text style={[styles.credentialHeader, { color: theme.primary }]}>📋 SECRETARIOS</Text>
                   <Text style={[styles.credentialItem, { color: theme.text }]}>secretaria.general@municipio.com → SecGen2024</Text>
                   <Text style={[styles.credentialItem, { color: theme.text }]}>tesoreria@municipio.com → Teso2024</Text>
                   <Text style={[styles.credentialItem, { color: theme.text }]}>obras.publicas@municipio.com → Obras2024</Text>
@@ -683,7 +696,7 @@ export default function AdminScreen({ navigation, onLogout }) {
                 </View>
                 
                 <View style={[styles.credentialsBox, { backgroundColor: isDark ? '#2A2A2A' : '#F5F5F5' }]}>
-                  <Text style={[styles.credentialHeader, { color: '#9F2241' }]}>🏢 DIRECTORES - Contraseña: Dir2024</Text>
+                  <Text style={[styles.credentialHeader, { color: theme.primary }]}>🏢 DIRECTORES - Contraseña: Dir2024</Text>
                   
                   <Text style={[styles.areaHeader, { color: '#235B4E' }]}>📁 Secretaría General Municipal (11)</Text>
                   <Text style={[styles.credentialItem, { color: theme.text }]}>amalia.escalante@municipio.com</Text>
@@ -749,7 +762,7 @@ export default function AdminScreen({ navigation, onLogout }) {
             
             <View style={styles.flowModalFooter}>
               <TouchableOpacity 
-                style={[styles.flowModalButton, { backgroundColor: '#9F2241' }]}
+                style={[styles.flowModalButton, { backgroundColor: theme.primary }]}
                 onPress={() => setShowFlowModal(false)}
               >
                 <Text style={styles.flowModalButtonText}>Entendido</Text>
@@ -809,9 +822,14 @@ export default function AdminScreen({ navigation, onLogout }) {
         role={currentUser?.role}
       />
 
-      <ScrollView 
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+      <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Stats Overview - Estadísticas por Rol */}
         <View style={styles.statsContainer}>
@@ -825,7 +843,7 @@ export default function AdminScreen({ navigation, onLogout }) {
               <View style={styles.statIconBadge}>
                 <Ionicons name="briefcase" size={28} color="#FFFFFF" />
               </View>
-              <Text style={styles.statNumber}>{allUsers.filter(u => u.role === 'secretario').length}</Text>
+              <Text style={styles.statNumber}>{userCounts.secretarios}</Text>
               <Text style={styles.statLabel}>SECRETARIOS</Text>
             </LinearGradient>
           </View>
@@ -840,7 +858,7 @@ export default function AdminScreen({ navigation, onLogout }) {
               <View style={styles.statIconBadge}>
                 <Ionicons name="people" size={28} color="#FFFFFF" />
               </View>
-              <Text style={styles.statNumber}>{allUsers.filter(u => u.role === 'director').length}</Text>
+              <Text style={styles.statNumber}>{userCounts.directores}</Text>
               <Text style={styles.statLabel}>DIRECTORES</Text>
             </LinearGradient>
           </View>
@@ -855,7 +873,7 @@ export default function AdminScreen({ navigation, onLogout }) {
               <View style={styles.statIconBadge}>
                 <Ionicons name="people" size={28} color="#FFFFFF" />
               </View>
-              <Text style={styles.statNumber}>{allUsers.filter(u => !['secretario', 'director', 'admin'].includes(u.role)).length}</Text>
+              <Text style={styles.statNumber}>{userCounts.operativos}</Text>
               <Text style={styles.statLabel}>OTROS</Text>
             </LinearGradient>
           </View>
@@ -873,7 +891,7 @@ export default function AdminScreen({ navigation, onLogout }) {
               <View style={styles.statIconBadge}>
                 <Ionicons name="shield-checkmark" size={28} color="#FFFFFF" />
               </View>
-              <Text style={styles.statNumber}>{allUsers.filter(u => u.role === 'admin').length}</Text>
+              <Text style={styles.statNumber}>{userCounts.admins}</Text>
               <Text style={styles.statLabel}>ADMINS</Text>
             </LinearGradient>
           </View>
@@ -1002,7 +1020,7 @@ export default function AdminScreen({ navigation, onLogout }) {
               style={[
                 styles.roleButton, 
                 { backgroundColor: theme.background, borderColor: theme.border },
-                userRole === 'secretario' && { backgroundColor: '#9F2241', borderColor: '#9F2241' }
+                userRole === 'secretario' && { backgroundColor: theme.primary, borderColor: theme.primary }
               ]}
               onPress={() => { hapticLight(); setUserRole('secretario'); }}
             >
@@ -1413,7 +1431,7 @@ export default function AdminScreen({ navigation, onLogout }) {
           <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
             <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Modo Oscuro</Text>
             <TouchableOpacity
-              style={[styles.themeToggle, isDark && styles.themeToggleActive]}
+              style={[styles.themeToggle, isDark && { ...styles.themeToggleActive, backgroundColor: theme.primary }]}
               onPress={() => {
                 hapticMedium();
                 toggleTheme();
@@ -1430,13 +1448,8 @@ export default function AdminScreen({ navigation, onLogout }) {
           </View>
         </View>
       </ScrollView>
-      
-      <Toast
-        visible={toastVisible}
-        message={toastMessage}
-        type={toastType}
-        onHide={() => setToastVisible(false)}
-      />
+      </KeyboardAvoidingView>
+
       </View>
     </View>
   );

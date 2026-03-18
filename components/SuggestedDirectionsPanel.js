@@ -94,7 +94,7 @@ export default function SuggestedDirectionsPanel({
             }
           }
         } catch (error) {
-          console.error(`Error cargando direcciones del secretario ${secretario.email}:`, error);
+          if (__DEV__) console.error(`Error cargando direcciones del secretario ${secretario.email}:`, error);
         }
       }
 
@@ -106,7 +106,7 @@ export default function SuggestedDirectionsPanel({
       
       setSuggestedDirections(unselectedDirections);
     } catch (error) {
-      console.error('Error cargando direcciones sugeridas:', error);
+      if (__DEV__) console.error('Error cargando direcciones sugeridas:', error);
       setSuggestedDirections([]);
     } finally {
       setLoading(false);

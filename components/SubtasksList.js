@@ -16,6 +16,7 @@ import {
   Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../contexts/ThemeContext';
 import {
   addSubtask,
   updateSubtaskStatus,
@@ -24,13 +25,14 @@ import {
   assignSubtaskToUser
 } from '../services/tasksMultiple';
 
-export default function SubtasksList({ 
-  taskId, 
+function SubtasksList({
+  taskId,
   canEdit = true,
   canDelegate = false,
   delegateUsers = [],
   currentUser = null
 }) {
+  const { theme } = useTheme();
   const [subtasks, setSubtasks] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
@@ -60,7 +62,6 @@ export default function SubtasksList({
 
     try {
       setLoading(true);
-      console.log('Iniciando creación de subtarea...');
       
       // Crear una promesa con timeout más largo (30 segundos)
       const timeoutPromise = new Promise((_, reject) => 
@@ -79,7 +80,6 @@ export default function SubtasksList({
       
       // Esperar a que se complete (con timeout de respaldo)
       const subtaskId = await Promise.race([addSubtaskPromise, timeoutPromise]);
-      console.log('Subtarea creada con ID:', subtaskId);
       
       // La subtarea se creó exitosamente, esperar un poco para que la BD se actualice
       await new Promise(resolve => setTimeout(resolve, 800));
@@ -98,7 +98,7 @@ export default function SubtasksList({
         ]);
       }, 500);
     } catch (error) {
-      console.error('Error al agregar subtarea:', error);
+      if (__DEV__) console.error('Error al agregar subtarea:', error);
       
       let errorMessage = error.message || 'Error desconocido';
       
@@ -196,7 +196,7 @@ export default function SubtasksList({
           Alert.alert('Éxito', `Subtarea delegada a ${director.displayName}`);
         }
       } catch (error) {
-        console.error('Error delegando subtarea:', error);
+        if (__DEV__) console.error('Error delegando subtarea:', error);
         if (Platform.OS === 'web') {
           alert(`Error: ${error.message}`);
         } else {
@@ -300,8 +300,8 @@ export default function SubtasksList({
           {item.assignedTo && (
             <View style={styles.assignedSection}>
               <View style={styles.assignedBadge}>
-                <Ionicons name="person" size={14} color="#9F2241" />
-                <Text style={styles.assignedText}>
+                <Ionicons name="person" size={14} color={theme.primary} />
+                <Text style={[styles.assignedText, { color: theme.primary }]}>
                   Asignado a: {item.assignedToName || item.assignedTo}
                 </Text>
               </View>
@@ -402,7 +402,7 @@ export default function SubtasksList({
             <TouchableOpacity
               onPress={handleAddSubtask}
               disabled={loading || !newSubtaskTitle.trim()}
-              style={[styles.saveButton, (!newSubtaskTitle.trim() || loading) && styles.saveButtonDisabled]}
+              style={[styles.saveButton, { backgroundColor: theme.primary }, (!newSubtaskTitle.trim() || loading) && styles.saveButtonDisabled]}
             >
               {loading ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
@@ -488,7 +488,7 @@ export default function SubtasksList({
                     onPress={() => handleDelegateSubtask(director)}
                     disabled={delegating}
                   >
-                    <View style={styles.delegateUserAvatar}>
+                    <View style={[styles.delegateUserAvatar, { backgroundColor: theme.primary }]}>
                       <Ionicons name="person" size={20} color="#FFF" />
                     </View>
                     <View style={styles.delegateUserInfo}>
@@ -496,9 +496,9 @@ export default function SubtasksList({
                       <Text style={styles.delegateUserArea}>{director.area}</Text>
                     </View>
                     {delegating ? (
-                      <ActivityIndicator size="small" color="#9F2241" />
+                      <ActivityIndicator size="small" color={theme.primary} />
                     ) : (
-                      <Ionicons name="chevron-forward" size={20} color="#9F2241" />
+                      <Ionicons name="chevron-forward" size={20} color={theme.primary} />
                     )}
                   </TouchableOpacity>
                 ))
@@ -540,6 +540,8 @@ function formatTimeAgo(timestamp) {
   if (diffDays === 1) return '1 día';
   return `${diffDays} días`;
 }
+
+export default React.memo(SubtasksList);
 
 const styles = StyleSheet.create({
   container: {

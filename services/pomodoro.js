@@ -5,6 +5,8 @@ import { collection, addDoc, query, where, getDocs, orderBy } from 'firebase/fir
 import { db } from '../firebase';
 import { toMs } from '../utils/dateUtils';
 
+const log = __DEV__ ? console.log : () => {};
+
 const POMODORO_KEY = '@pomodoro_sessions';
 
 /**
@@ -24,7 +26,7 @@ export async function savePomodoroSession(session) {
     sessions.push({ ...session, id: docRef.id, createdAt: Date.now() });
     await AsyncStorage.setItem(POMODORO_KEY, JSON.stringify(sessions));
     
-    console.log('✅ Sesión Pomodoro guardada:', session);
+    log('✅ Sesión Pomodoro guardada:', session);
     return { success: true, id: docRef.id };
   } catch (error) {
     console.error('❌ Error guardando sesión Pomodoro:', error);

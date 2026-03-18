@@ -1,6 +1,8 @@
 // Service para exportar reportes a PDF con fotos
 import { getCurrentSession } from './authFirestore';
 
+const log = __DEV__ ? console.log : () => {};
+
 // Imports condicionales para expo modules
 let Print = null;
 let Sharing = null;
@@ -353,7 +355,7 @@ export const sharePDF = async (pdfUri, fileName = 'Reporte.pdf') => {
       }
     } else {
       // Web: mostrar mensaje informativo
-      console.log('Compartir no disponible en web. El archivo está listo para descargar.');
+      log('Compartir no disponible en web. El archivo está listo para descargar.');
     }
   } catch (error) {
     console.error('Error sharing PDF:', error);
@@ -380,7 +382,7 @@ export const savePDFToDevice = async (pdfUri) => {
       return destPath;
     } else {
       // Web: archivo ya fue descargado por downloadPDFWeb
-      console.log('En web, el archivo ya fue descargado al dispositivo');
+      log('En web, el archivo ya fue descargado al dispositivo');
       return pdfUri;
     }
   } catch (error) {

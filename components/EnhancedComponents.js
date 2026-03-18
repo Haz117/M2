@@ -19,7 +19,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { ThemeContext } from '../theme/enhancedTheme';
 import { usePressAnimation } from './animations';
-import { triggerHaptic, showSuccess } from './microInteractions';
+import { triggerHaptic } from './microInteractions';
 
 /**
  * Enhanced Button Component

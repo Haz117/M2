@@ -3,6 +3,8 @@
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 
+const log = __DEV__ ? console.log : () => {};
+
 const COLLECTION_NAME = 'tasks';
 
 /**
@@ -36,7 +38,7 @@ export function getNextRecurrenceDate(currentDate, pattern) {
  * Se ejecuta periódicamente
  */
 export async function processRecurringTasks() {
-  console.log('🔄 Procesando tareas recurrentes...');
+  log('🔄 Procesando tareas recurrentes...');
   
   try {
     const tasksRef = collection(db, COLLECTION_NAME);
@@ -76,11 +78,11 @@ export async function processRecurringTasks() {
         });
         
         created++;
-        console.log(`✅ Nueva instancia de "${task.title}" para ${new Date(nextDueDate).toLocaleDateString()}`);
+        log(`✅ Nueva instancia de "${task.title}" para ${new Date(nextDueDate).toLocaleDateString()}`);
       }
     }
     
-    console.log(`✅ Procesamiento completado: ${created} tareas creadas`);
+    log(`✅ Procesamiento completado: ${created} tareas creadas`);
     return { success: true, created };
   } catch (error) {
     console.error('❌ Error procesando tareas recurrentes:', error);

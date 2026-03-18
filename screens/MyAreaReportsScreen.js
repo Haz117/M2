@@ -17,13 +17,16 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
+import ShimmerEffect from '../components/ShimmerEffect';
 import { subscribeToAreaReports, subscribeToMyReports, rateTaskReport, deleteTaskReport } from '../services/reportsService';
+import { hapticSuccess, hapticWarning } from '../utils/haptics';
 import { getCurrentSession } from '../services/authFirestore';
 import { getDireccionesBySecretaria } from '../config/areas';
-import Toast from '../components/Toast';
+import { useNotification } from '../contexts/NotificationContext';
 
 const MyAreaReportsScreen = ({ navigation }) => {
   const { theme, isDark } = useTheme();
+  const { showError, showSuccess } = useNotification();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -31,7 +34,7 @@ const MyAreaReportsScreen = ({ navigation }) => {
   const [selectedReport, setSelectedReport] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter] = useState('all'); // 'all', 'mine', 'team'
-  const [toastMessage, setToastMessage] = useState('');
+  const [loadError, setLoadError] = useState(false);
 
   const unsubscribeRef = React.useRef(null);
 
@@ -42,7 +45,14 @@ const MyAreaReportsScreen = ({ navigation }) => {
     };
   }, []);
 
+  const onSubError = useCallback(() => {
+    setLoadError(true);
+    setLoading(false);
+    setRefreshing(false);
+  }, []);
+
   const loadData = async () => {
+    setLoadError(false);
     const result = await getCurrentSession();
     if (result.success && result.session) {
       setCurrentUser(result.session);
@@ -68,7 +78,7 @@ const MyAreaReportsScreen = ({ navigation }) => {
           setReports(data);
           setLoading(false);
           setRefreshing(false);
-        });
+        }, onSubError);
       } else if (userRole === 'director') {
         // Director ve reportes de su área específica
         const directorArea = result.session.area;
@@ -76,13 +86,13 @@ const MyAreaReportsScreen = ({ navigation }) => {
           setReports(data);
           setLoading(false);
           setRefreshing(false);
-        });
+        }, onSubError);
       } else {
         unsubscribeRef.current = subscribeToMyReports(userEmail, (data) => {
           setReports(data);
           setLoading(false);
           setRefreshing(false);
-        });
+        }, onSubError);
       }
     }
   };
@@ -126,24 +136,26 @@ const MyAreaReportsScreen = ({ navigation }) => {
     });
   };
 
-  const handleRateReport = async (reportId, taskId, rating) => {
+  const handleRateReport = useCallback(async (reportId, taskId, rating) => {
+    hapticSuccess();
     try {
       await rateTaskReport(taskId, reportId, rating, '', currentUser?.userId);
-      setToastMessage(`Reporte calificado con ${rating} estrellas`);
+      showSuccess(`Reporte calificado con ${rating} estrellas`);
       setShowModal(false);
     } catch (error) {
-      setToastMessage('Error al calificar el reporte');
+      hapticWarning();
+      showError('Error al calificar el reporte');
     }
-  };
+  }, [currentUser, showSuccess, showError]);
 
-  const handleDeleteReport = async (reportId, taskId) => {
+  const handleDeleteReport = useCallback(async (reportId, taskId) => {
     const doDelete = async () => {
       try {
         await deleteTaskReport(taskId, reportId);
-        setToastMessage('Reporte eliminado correctamente');
+        showSuccess('Reporte eliminado correctamente');
         setShowModal(false);
       } catch (error) {
-        setToastMessage(`Error: ${error.message}`);
+        showError(`Error: ${error.message}`);
       }
     };
 
@@ -162,7 +174,7 @@ const MyAreaReportsScreen = ({ navigation }) => {
         ]
       );
     }
-  };
+  }, [showSuccess, showError]);
 
   const renderStars = (rating, interactive = false, onRate = null) => {
     return (
@@ -189,13 +201,13 @@ const MyAreaReportsScreen = ({ navigation }) => {
     return currentUser?.role === 'secretario' || currentUser?.role === 'admin';
   };
 
-  const renderReportCard = ({ item }) => {
+  const renderReportCard = useCallback(({ item }) => {
     const isMyReport = item.createdBy?.toLowerCase().trim() === currentUser?.email?.toLowerCase().trim();
-    
+
     return (
       <TouchableOpacity
         style={[
-          styles.reportCard, 
+          styles.reportCard,
           { backgroundColor: isDark ? '#1a1a1a' : '#fff' },
           isMyReport && styles.myReportCard
         ]}
@@ -203,6 +215,8 @@ const MyAreaReportsScreen = ({ navigation }) => {
           setSelectedReport(item);
           setShowModal(true);
         }}
+        accessibilityRole="button"
+        accessibilityLabel={`Reporte: ${item.title}${isMyReport ? ', tuyo' : ''}${item.rating ? `, calificado con ${item.rating} estrellas` : ', pendiente'}`}
       >
         <View style={styles.reportHeader}>
           <View style={styles.reportTitleRow}>
@@ -262,7 +276,7 @@ const MyAreaReportsScreen = ({ navigation }) => {
         )}
       </TouchableOpacity>
     );
-  };
+  }, [isDark, theme, currentUser, setSelectedReport, setShowModal]);
 
   const renderDetailModal = () => {
     if (!selectedReport) return null;
@@ -399,7 +413,7 @@ const MyAreaReportsScreen = ({ navigation }) => {
     );
   };
 
-  const styles = StyleSheet.create({
+  const styles = useMemo(() => StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: isDark ? '#000' : '#f5f5f5',
@@ -598,12 +612,25 @@ const MyAreaReportsScreen = ({ navigation }) => {
       justifyContent: 'center',
       alignItems: 'center',
       padding: 40,
+      gap: 12,
+    },
+    emptyIconWrapper: {
+      width: 88,
+      height: 88,
+      borderRadius: 44,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 4,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      textAlign: 'center',
     },
     emptyText: {
-      fontSize: 16,
-      color: isDark ? '#888' : '#666',
-      marginTop: 12,
+      fontSize: 14,
       textAlign: 'center',
+      lineHeight: 20,
     },
     // Modal styles
     modalOverlay: {
@@ -710,27 +737,38 @@ const MyAreaReportsScreen = ({ navigation }) => {
       fontSize: 16,
       fontWeight: '600',
     },
-  });
+  }), [isDark, theme]);
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color={theme.primary} />
-        <Text style={{ color: isDark ? '#888' : '#666', marginTop: 12 }}>Cargando reportes...</Text>
+      <View style={[styles.container, { paddingHorizontal: 16, paddingTop: 60 }]}>
+        {[...Array(5)].map((_, i) => (
+          <View key={i} style={{ marginBottom: 14 }}>
+            <ShimmerEffect width="100%" height={100} borderRadius={12} />
+          </View>
+        ))}
       </View>
     );
   }
 
   const filteredReports = useMemo(() => getFilteredReports(), [reports, filter, currentUser]);
-  const userEmail = currentUser?.email?.toLowerCase().trim() || '';
-  const myReports = reports.filter(r => r.createdBy?.toLowerCase().trim() === userEmail).length;
-  const teamReports = reports.length - myReports;
-  const pendingCount = reports.filter(r => !r.rating).length;
+
+  const reportStats = useMemo(() => {
+    const userEmail = currentUser?.email?.toLowerCase().trim() || '';
+    const myReports = reports.filter(r => r.createdBy?.toLowerCase().trim() === userEmail).length;
+    return {
+      myReports,
+      teamReports: reports.length - myReports,
+      pendingCount: reports.filter(r => !r.rating).length,
+    };
+  }, [reports, currentUser]);
+
+  const { myReports, teamReports, pendingCount } = reportStats;
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} accessibilityLabel="Volver" accessibilityRole="button">
           <Ionicons name="arrow-back" size={24} color={isDark ? '#fff' : '#000'} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Reportes de Mi Área</Text>
@@ -778,6 +816,9 @@ const MyAreaReportsScreen = ({ navigation }) => {
               { borderColor: isDark ? '#444' : '#ddd' }
             ]}
             onPress={() => setFilter(f)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: filter === f }}
+            accessibilityLabel={f === 'all' ? 'Todos los reportes' : f === 'mine' ? 'Mis reportes' : 'Reportes del equipo'}
           >
             <Text style={[
               styles.filterText,
@@ -790,13 +831,28 @@ const MyAreaReportsScreen = ({ navigation }) => {
       </View>
 
       {/* Reports List */}
-      {filteredReports.length === 0 ? (
+      {loadError ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="document-text-outline" size={64} color={isDark ? '#333' : '#ccc'} />
-          <Text style={styles.emptyText}>
-            {filter === 'mine' ? 'No has enviado reportes aún' : 
-             filter === 'team' ? 'No hay reportes del equipo' : 
-             'No hay reportes para mostrar'}
+          <View style={[styles.emptyIconWrapper, { backgroundColor: isDark ? '#1E1E22' : '#FFF0EE' }]}>
+            <Ionicons name="cloud-offline-outline" size={48} color="#FF3B30" />
+          </View>
+          <Text style={[styles.emptyTitle, { color: theme.text }]}>Error de conexión</Text>
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No se pudieron cargar los reportes.</Text>
+        </View>
+      ) : filteredReports.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <View style={[styles.emptyIconWrapper, { backgroundColor: isDark ? '#1E1E22' : '#F5F5F7' }]}>
+            <Ionicons name="document-text-outline" size={48} color={isDark ? '#444' : '#C7C7CC'} />
+          </View>
+          <Text style={[styles.emptyTitle, { color: theme.text }]}>
+            {filter === 'mine' ? 'Sin reportes propios' :
+             filter === 'team' ? 'Sin reportes del equipo' :
+             'Sin reportes'}
+          </Text>
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+            {filter === 'mine' ? 'Aún no has enviado reportes.\nCrea uno desde una tarea asignada.' :
+             filter === 'team' ? 'Tu equipo no ha enviado reportes aún.' :
+             'No hay reportes disponibles.\nAjusta los filtros para ver más resultados.'}
           </Text>
         </View>
       ) : (
@@ -817,12 +873,6 @@ const MyAreaReportsScreen = ({ navigation }) => {
       )}
 
       {renderDetailModal()}
-
-      <Toast
-        visible={!!toastMessage}
-        message={toastMessage}
-        onHide={() => setToastMessage('')}
-      />
     </View>
   );
 };

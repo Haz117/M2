@@ -94,7 +94,7 @@ export default function MultiUserSelector({
       setUsers(usersList);
       setFilteredUsers(usersList);
     } catch (error) {
-      console.error('Error cargando usuarios:', error);
+      if (__DEV__) console.error('Error cargando usuarios:', error);
     } finally {
       setLoading(false);
     }

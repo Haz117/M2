@@ -4,6 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { createTask, updateTask, deleteTask } from './tasks';
 
+const log = __DEV__ ? console.log : () => {};
+
 const QUEUE_KEY = '@offline_queue';
 const SYNC_STATUS_KEY = '@sync_status';
 
@@ -168,7 +170,7 @@ export const syncQueue = async (force = false) => {
       failed: failedOps.length 
     });
 
-    console.log(`✅ Sincronización completada: ${syncedCount} exitosas, ${failedOps.length} fallidas`);
+    log(`✅ Sincronización completada: ${syncedCount} exitosas, ${failedOps.length} fallidas`);
 
     return { 
       success: true, 

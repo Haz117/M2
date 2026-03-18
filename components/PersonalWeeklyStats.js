@@ -34,7 +34,7 @@ const { width: screenWidth } = Dimensions.get('window');
  * @param {string} userName - Nombre para mostrar
  * @param {string} userRole - Rol del usuario ('admin', 'secretario', 'director', etc.)
  */
-export default function PersonalWeeklyStats({ tasks = [], userId, userName = 'tu', userRole = '' }) {
+function PersonalWeeklyStats({ tasks = [], userId, userName = 'tu', userRole = '' }) {
   const { theme, isDark } = useTheme();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -361,6 +361,8 @@ export default function PersonalWeeklyStats({ tasks = [], userId, userName = 'tu
     </View>
   );
 }
+
+export default React.memo(PersonalWeeklyStats);
 
 const createStyles = (theme, isDark) => StyleSheet.create({
   container: {

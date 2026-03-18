@@ -1,6 +1,6 @@
 // components/SuggestedDirectorsPanel.js
 // Panel que muestra directores sugeridos basado en secretarios seleccionados
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -23,21 +23,33 @@ export default function SuggestedDirectorsPanel({
   const [suggestedDirectors, setSuggestedDirectors] = useState([]);
   const [loading, setLoading] = useState(false);
   const { isDark } = useTheme();
+  const prevKeyRef = useRef(null);
 
-  // Cargar directores sugeridos cuando cambien los usuarios seleccionados
+  // Estabilizar el efecto con una clave basada en los emails de los secretarios
+  // para evitar disparos múltiples por referencias nuevas del array
+  const secretariosKey = selectedUsers
+    .filter(u => u.role === 'secretario')
+    .map(u => u.email)
+    .sort()
+    .join(',');
+
   useEffect(() => {
-    loadSuggestedDirectors();
-  }, [selectedUsers]);
+    if (prevKeyRef.current === secretariosKey) return;
+    prevKeyRef.current = secretariosKey;
+    let mounted = true;
+    loadSuggestedDirectors(mounted);
+    return () => { mounted = false; };
+  }, [secretariosKey]);
 
-  const loadSuggestedDirectors = async () => {
+  const loadSuggestedDirectors = async (mounted = true) => {
     try {
       setLoading(true);
 
       // Obtener solo secretarios seleccionados
       const secretariosSeleccionados = selectedUsers.filter(u => u.role === 'secretario');
-      
+
       if (secretariosSeleccionados.length === 0) {
-        setSuggestedDirectors([]);
+        if (mounted) setSuggestedDirectors([]);
         return;
       }
 
@@ -90,13 +102,13 @@ export default function SuggestedDirectorsPanel({
             }
           }
         } catch (error) {
-          console.error(`Error cargando áreas del secretario ${secretario.email}:`, error);
+          if (__DEV__) console.error(`Error cargando áreas del secretario ${secretario.email}:`, error);
         }
       }
 
       // Si no hay direcciones, no hay directores que mostrar
       if (direccionesDeSecretarios.size === 0) {
-        setSuggestedDirectors([]);
+        if (mounted) setSuggestedDirectors([]);
         return;
       }
 
@@ -148,18 +160,26 @@ export default function SuggestedDirectorsPanel({
         }
       });
       
+      // Deduplicar por id (puede haber duplicados si un director coincide por múltiples paths)
+      const seenIds = new Set();
+      const uniqueDirectors = directors.filter(d => {
+        if (seenIds.has(d.id)) return false;
+        seenIds.add(d.id);
+        return true;
+      });
+
       // Filtrar los que ya están seleccionados
       const selectedEmails = new Set(selectedUsers.map(u => u.email?.toLowerCase()));
-      const unselectedDirectors = directors.filter(
+      const unselectedDirectors = uniqueDirectors.filter(
         d => !selectedEmails.has(d.email?.toLowerCase())
       );
-      
-      setSuggestedDirectors(unselectedDirectors);
+
+      if (mounted) setSuggestedDirectors(unselectedDirectors);
     } catch (error) {
-      console.error('Error cargando directores sugeridos:', error);
-      setSuggestedDirectors([]);
+      if (__DEV__) console.error('Error cargando directores sugeridos:', error);
+      if (mounted) setSuggestedDirectors([]);
     } finally {
-      setLoading(false);
+      if (mounted) setLoading(false);
     }
   };
 

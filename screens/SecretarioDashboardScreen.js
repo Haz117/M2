@@ -1,7 +1,7 @@
 // screens/SecretarioDashboardScreen.js
 // Dashboard exclusivo para Secretarios con métricas de sus direcciones y directores
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,9 +20,10 @@ import { getCurrentSession } from '../services/authFirestore';
 import { subscribeToTasks } from '../services/tasks';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
-import { getDireccionesBySecretaria } from '../config/areas';
+import { getDireccionesBySecretaria, resolveAreaName } from '../config/areas';
 import ProgressBar from '../components/ProgressBar';
 import Avatar from '../components/Avatar';
+import ShimmerEffect from '../components/ShimmerEffect';
 import { toMs } from '../utils/dateUtils';
 
 const { width } = Dimensions.get('window');
@@ -30,6 +31,7 @@ const { width } = Dimensions.get('window');
 export default function SecretarioDashboardScreen({ navigation }) {
   const { theme, isDark } = useTheme();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [tasks, setTasks] = useState([]);
@@ -60,6 +62,7 @@ export default function SecretarioDashboardScreen({ navigation }) {
   }, []);
 
   const loadInitialData = async () => {
+    setLoadError(false);
     try {
       const session = await getCurrentSession();
       if (session.success && session.session.role === 'secretario') {
@@ -67,7 +70,8 @@ export default function SecretarioDashboardScreen({ navigation }) {
         await loadDirectors(session.session);
       }
     } catch (error) {
-      console.error('Error loading data:', error);
+      if (__DEV__) console.error('Error loading data:', error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -103,7 +107,7 @@ export default function SecretarioDashboardScreen({ navigation }) {
       // Suscribirse a las tareas de estas áreas
       subscribeToAreaTasks(user, direcciones, myDirectors);
     } catch (error) {
-      console.error('Error loading directors:', error);
+      if (__DEV__) console.error('Error loading directors:', error);
     }
   };
 
@@ -121,7 +125,8 @@ export default function SecretarioDashboardScreen({ navigation }) {
 
         // Tareas donde el área coincide con las direcciones del secretario
         const isInMyArea = direcciones.some(dir =>
-          taskAreas.includes(dir) || taskArea === dir
+          taskAreas.map(a => resolveAreaName(a)).includes(resolveAreaName(dir)) ||
+          resolveAreaName(taskArea) === resolveAreaName(dir)
         );
 
         // O tareas asignadas a sus directores
@@ -131,7 +136,7 @@ export default function SecretarioDashboardScreen({ navigation }) {
 
         // O tareas de coordinación que incluyen sus áreas
         const isCoordinationWithMyArea = task.isCoordinationTask &&
-          taskAreas.some(area => direcciones.includes(area));
+          taskAreas.some(area => direcciones.map(resolveAreaName).includes(resolveAreaName(area)));
 
         return isInMyArea || isAssignedToMyDirector || isCoordinationWithMyArea;
       });
@@ -220,6 +225,24 @@ export default function SecretarioDashboardScreen({ navigation }) {
     setRefreshing(false);
   }, []);
 
+  // Pre-compute per-direction task data to avoid repeated filter() in render
+  const directionTasksMap = useMemo(() => {
+    const now = Date.now();
+    const map = {};
+    (currentUser?.direcciones || []).forEach(direccion => {
+      const dirTasks = tasks.filter(t =>
+        (t.area === direccion || t.areas?.includes(direccion)) &&
+        t.status !== 'completada' && t.status !== 'cerrada'
+      );
+      const overdue = dirTasks.filter(t => {
+        const dueDate = t.dueAt ? new Date(toMs(t.dueAt)) : null;
+        return dueDate && dueDate.getTime() < now;
+      });
+      map[direccion] = { directionTasks: dirTasks, overdue };
+    });
+    return map;
+  }, [tasks, currentUser]);
+
   const getCompletionColor = (rate) => {
     if (rate >= 80) return '#34C759';
     if (rate >= 50) return '#FF9500';
@@ -228,11 +251,49 @@ export default function SecretarioDashboardScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={theme.primary} />
-        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
-          Cargando dashboard...
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <LinearGradient
+          colors={isDark ? ['#2A1520', '#1A1A1A'] : ['#9F2241', '#7F1D35']}
+          style={[styles.header, { justifyContent: 'flex-end', paddingBottom: 20 }]}
+        >
+          <ShimmerEffect width={200} height={20} borderRadius={8} style={{ marginBottom: 8 }} />
+          <ShimmerEffect width={260} height={16} borderRadius={6} />
+        </LinearGradient>
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }} scrollEnabled={false}>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            {[...Array(3)].map((_, i) => (
+              <ShimmerEffect key={i} width={(width - 52) / 3} height={80} borderRadius={12} />
+            ))}
+          </View>
+          <ShimmerEffect width="100%" height={140} borderRadius={14} />
+          <ShimmerEffect width="100%" height={100} borderRadius={14} />
+          {[...Array(3)].map((_, i) => (
+            <ShimmerEffect key={i} width="100%" height={72} borderRadius={12} />
+          ))}
+        </ScrollView>
+      </View>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center', padding: 32 }]}>
+        <Ionicons name="cloud-offline-outline" size={56} color={theme.textSecondary} />
+        <Text style={{ fontSize: 18, fontWeight: '700', color: theme.text, marginTop: 16, textAlign: 'center' }}>
+          Error al cargar
         </Text>
+        <Text style={{ fontSize: 14, color: theme.textSecondary, marginTop: 8, textAlign: 'center' }}>
+          No se pudo conectar. Verifica tu internet.
+        </Text>
+        <TouchableOpacity
+          style={{ marginTop: 24, backgroundColor: theme.primary, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+          onPress={() => { setLoading(true); loadInitialData(); }}
+          accessibilityLabel="Reintentar"
+          accessibilityRole="button"
+        >
+          <Ionicons name="refresh" size={18} color="#FFF" />
+          <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 15 }}>Reintentar</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -250,9 +311,11 @@ export default function SecretarioDashboardScreen({ navigation }) {
             <Text style={styles.headerTitle}>Dashboard de tu Secretaría</Text>
             <Text style={styles.headerSubtitle}>{currentUser?.area || 'Sin área asignada'}</Text>
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.refreshButton}
             onPress={onRefresh}
+            accessibilityLabel="Actualizar"
+            accessibilityRole="button"
           >
             <Ionicons name="refresh" size={24} color="#FFFFFF" />
           </TouchableOpacity>
@@ -432,14 +495,7 @@ export default function SecretarioDashboardScreen({ navigation }) {
           
           {currentUser?.direcciones?.length > 0 ? (
             currentUser.direcciones.map((direccion, index) => {
-              const directionTasks = tasks.filter(t => 
-                (t.area === direccion || t.areas?.includes(direccion)) &&
-                t.status !== 'completada' && t.status !== 'cerrada'
-              );
-              const overdue = directionTasks.filter(t => {
-                const dueDate = t.dueAt ? new Date(toMs(t.dueAt)) : null;
-                return dueDate && dueDate < new Date();
-              });
+              const { directionTasks, overdue } = directionTasksMap[direccion] || { directionTasks: [], overdue: [] };
               
               return (
                 <TouchableOpacity 

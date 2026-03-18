@@ -9,6 +9,8 @@ import { db } from '../firebase';
 import { collection, addDoc, doc, updateDoc, getDocs, deleteDoc, query, where, serverTimestamp } from 'firebase/firestore';
 import { getCurrentSession } from './authFirestore';
 
+const log = __DEV__ ? console.log : () => {};
+
 /**
  * Obtener token de push notification del dispositivo
  * @returns {Promise<string>} FCM token o Expo push token
@@ -64,7 +66,7 @@ export const registerPushToken = async (userId) => {
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
     });
 
-    console.log('Push token registered:', token);
+    log('Push token registered:', token);
   } catch (error) {
     console.error('Error registering push token:', error);
   }
@@ -116,10 +118,10 @@ export const setupPushNotificationListener = (onNotificationReceived) => {
     // Navegar basado en tipo de notificación
     if (data?.taskId) {
       // Navegar a tarea
-      console.log('Navigate to task:', data.taskId);
+      log('Navigate to task:', data.taskId);
     } else if (data?.areaId) {
       // Navegar a área
-      console.log('Navigate to area:', data.areaId);
+      log('Navigate to area:', data.areaId);
     }
   });
 
@@ -139,7 +141,7 @@ export const batchSendPushNotifications = async (userIds = [], notification) => 
     );
 
     await Promise.all(promises);
-    console.log(`Sent notifications to ${userIds.length} users`);
+    log(`Sent notifications to ${userIds.length} users`);
   } catch (error) {
     console.error('Error batch sending notifications:', error);
   }
@@ -300,7 +302,7 @@ export const cleanupExpiredTokens = async () => {
       deleted++;
     }
 
-    console.log(`Cleaned up ${deleted} expired tokens`);
+    log(`Cleaned up ${deleted} expired tokens`);
     return deleted;
   } catch (error) {
     console.error('Error cleaning up tokens:', error);
@@ -327,7 +329,7 @@ export const schedulePushNotification = async (userId, notification, sendAt) => 
       createdAt: serverTimestamp(),
     });
 
-    console.log('Notification scheduled for:', sendAt);
+    log('Notification scheduled for:', sendAt);
   } catch (error) {
     console.error('Error scheduling notification:', error);
   }

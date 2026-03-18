@@ -11,9 +11,17 @@ console.debug = () => {};
 // Filtrar errores de CORS de Google (inofensivos en desarrollo)
 console.error = (...args) => {
   const message = args[0]?.toString() || '';
-  if (!message.includes('CORS') && !message.includes('google') && !message.includes('favicon')) {
-    originalError(...args);
-  }
+  // Filtrar advertencias de librerías en web que no afectan funcionalidad
+  if (
+    message.includes('CORS') ||
+    message.includes('google') ||
+    message.includes('favicon') ||
+    message.includes('transform-origin') ||       // react-native-reanimated 4.x en web
+    message.includes('Unexpected text node') ||   // RNW: nodos de texto en View (librerías)
+    message.includes('onStartShouldSetResponder') || // RNW: props de responder en DOM
+    message.includes('onResponder')               // RNW: props de responder en DOM
+  ) return;
+  originalError(...args);
 };
 
 import React, { useEffect, useState, useRef, Suspense } from 'react';
@@ -25,6 +33,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { TasksProvider } from './contexts/TasksContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import { getGestureHandlerRootView } from './utils/platformComponents';
 
 // ✅ OPTIMIZACIÓN: Lazy loading de screens (-40% bundle inicial)
@@ -174,7 +183,7 @@ function MainTabs({ onLogout }) {
           t.status !== 'cerrada' &&
           toMs(t.dueAt) < tomorrow &&
           (Array.isArray(t.assignedTo)
-            ? t.assignedTo.some(e => e?.toLowerCase().trim() === currentUser.email?.toLowerCase().trim())
+            ? t.assignedTo.some(e => (typeof e === 'string' ? e : e?.email || '').toLowerCase().trim() === currentUser.email?.toLowerCase().trim())
             : (t.assignedTo?.toLowerCase().trim() === currentUser.email?.toLowerCase().trim()))
         );
       }
@@ -224,7 +233,7 @@ function MainTabs({ onLogout }) {
   const getRoleBadgeColor = (role) => {
     switch (role) {
       case 'admin': return '#DC2626';
-      case 'secretario': return '#9F2241';
+      case 'secretario': return theme.primary;
       case 'director': return '#235B4E';
       default: return '#3B82F6';
     }
@@ -273,8 +282,8 @@ function MainTabs({ onLogout }) {
             }}
             style={styles.logoutBtn}
           >
-            <Ionicons name="log-out-outline" size={20} color="#9F2241" />
-            <Text style={styles.logoutText}>Salir</Text>
+            <Ionicons name="log-out-outline" size={20} color={theme.primary} />
+            <Text style={[styles.logoutText, { color: theme.primary }]}>Salir</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -622,12 +631,14 @@ export default function App() {
                   options={{ animation: 'fade' }}
                 >
                   {(props) => (
-                    <TasksProvider>
-                      <MainTabs 
-                        {...props}
-                        onLogout={handleLogout}
-                      />
-                    </TasksProvider>
+                    <NotificationProvider>
+                      <TasksProvider>
+                        <MainTabs 
+                          {...props}
+                          onLogout={handleLogout}
+                        />
+                      </TasksProvider>
+                    </NotificationProvider>
                   )}
                 </Stack.Screen>
                 <Stack.Screen 
@@ -814,9 +825,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     marginRight: 8
-  },
-  roleBadgeAdmin: {
-    backgroundColor: '#9F2241'
   },
   roleBadgeText: {
     color: '#FFFFFF',

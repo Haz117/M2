@@ -1,16 +1,17 @@
 // screens/TaskDetailScreen.js
 // Formulario para crear o editar una tarea. Incluye DateTimePicker y programación de notificación.
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, Button, TextInput, Platform, Alert, TouchableOpacity, ScrollView, Animated, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Platform, Alert, TouchableOpacity, ScrollView, Animated, ActivityIndicator, Modal, KeyboardAvoidingView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createTask, updateTask, deleteTask } from '../services/tasks';
-import { createTaskMultiple, updateTaskMultiple } from '../services/tasksMultiple';
 import { getAllUsersNames, getTitularesByAreas } from '../services/roles';
+import TaskCreator from '../services/TaskCreator';
+import useTaskCreation from '../hooks/useTaskCreation';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { scheduleNotificationForTask, cancelNotification, notifyAssignment } from '../services/notifications';
 import { getCurrentSession } from '../services/authFirestore';
-import Toast from '../components/Toast';
+import { useNotification } from '../contexts/NotificationContext';
 import ShakeInput from '../components/ShakeInput';
 import LoadingIndicator from '../components/LoadingIndicator';
 import PressableButton from '../components/PressableButton';
@@ -30,7 +31,7 @@ import { confirmTaskCompletion, removeTaskConfirmation, hasUserConfirmed } from 
 import { useTheme } from '../contexts/ThemeContext';
 import { savePomodoroSession } from '../services/pomodoro';
 import { AREAS } from '../config/areas';
-import { getAreaType, getSecretariaByDireccion, SECRETARIAS } from '../config/areas';
+import { getAreaType, getSecretariaByDireccion, SECRETARIAS, resolveAreaName } from '../config/areas';
 import { 
   canEditTask, 
   canDelegateTask, 
@@ -52,6 +53,7 @@ if (Platform.OS !== 'web') {
 
 export default function TaskDetailScreen({ route, navigation }) {
   const { theme, isDark } = useTheme();
+  const { showSuccess, showError } = useNotification();
   // Si route.params.task está presente, estamos editando; si no, creamos nueva
   const editingTask = route.params?.task || null;
 
@@ -187,10 +189,6 @@ export default function TaskDetailScreen({ route, navigation }) {
   const [showAreaModal, setShowAreaModal] = useState(false);
   const [areaSearchQuery, setAreaSearchQuery] = useState('');
   
-  // Toast state
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState('success');
   const [saveProgress, setSaveProgress] = useState(null);
   
   // Estado de confirmaciones por asignado
@@ -215,6 +213,34 @@ export default function TaskDetailScreen({ route, navigation }) {
   // Refs para inputs
   const titleInputRef = useRef(null);
   const descriptionInputRef = useRef(null);
+
+  const hasUnsavedChanges = editingTask
+    ? title !== (editingTask.title ?? '') || description !== (editingTask.description ?? '')
+    : title.trim() !== '' || description.trim() !== '';
+
+  const handleBack = useCallback(() => {
+    if (hasUnsavedChanges) {
+      if (Platform.OS === 'web') {
+        if (window.confirm('¿Descartar cambios? Los datos no guardados se perderán.')) {
+          navigation.goBack();
+        }
+      } else {
+        Alert.alert(
+          'Descartar cambios',
+          '¿Deseas salir sin guardar? Los cambios se perderán.',
+          [
+            { text: 'Seguir editando', style: 'cancel' },
+            { text: 'Descartar', style: 'destructive', onPress: () => navigation.goBack() },
+          ]
+        );
+      }
+    } else {
+      navigation.goBack();
+    }
+  }, [hasUnsavedChanges, navigation]);
+  
+  // Inicializar hook de creación de tareas
+  const { saveTask, deleteTask: deleteTaskService, isLoading: isTaskLoading, progress: taskProgress } = useTaskCreation();
   
   // Animaciones
   const buttonScale = useRef(new Animated.Value(1)).current;
@@ -307,21 +333,21 @@ export default function TaskDetailScreen({ route, navigation }) {
     const userAreas = new Set();
     
     selectedAssignees.forEach(user => {
-      // Agregar área principal
-      if (user.area) userAreas.add(user.area);
-      if (user.department && user.department !== user.area) userAreas.add(user.department);
-      
+      // Agregar área principal (normalizada para evitar alias duplicados)
+      if (user.area) userAreas.add(resolveAreaName(user.area));
+      if (user.department && user.department !== user.area) userAreas.add(resolveAreaName(user.department));
+
       // Agregar areasPermitidas (campo clave para directores)
       if (Array.isArray(user.areasPermitidas)) {
-        user.areasPermitidas.forEach(ap => userAreas.add(ap));
+        user.areasPermitidas.filter(Boolean).forEach(ap => userAreas.add(resolveAreaName(ap)));
       }
-      
+
       if (user.role === 'secretario') {
-        const areaSecretario = user.area || '';
+        const areaSecretario = resolveAreaName(user.area || '');
         
         // Usar direcciones del propio usuario
         if (Array.isArray(user.direcciones)) {
-          user.direcciones.forEach(dir => userAreas.add(dir));
+          user.direcciones.filter(Boolean).forEach(dir => userAreas.add(resolveAreaName(dir)));
         }
         
         // Obtener direcciones del mapeo oficial
@@ -359,23 +385,23 @@ export default function TaskDetailScreen({ route, navigation }) {
     const userAreasSet = new Set();
     
     selectedAssignees.forEach(user => {
-      // Agregar área principal
+      // Agregar área principal (normalizada para evitar alias duplicados)
       if (user.area) {
-        userAreasSet.add(user.area);
+        userAreasSet.add(resolveAreaName(user.area));
       }
-      
+
       // Agregar department/región
       if (user.department && user.department !== user.area) {
-        userAreasSet.add(user.department);
+        userAreasSet.add(resolveAreaName(user.department));
       }
-      
+
       // Para secretarios, agregar todas sus direcciones permitidas
       if (user.role === 'secretario') {
         if (Array.isArray(user.direcciones)) {
-          user.direcciones.forEach(dir => userAreasSet.add(dir));
+          user.direcciones.filter(Boolean).forEach(dir => userAreasSet.add(resolveAreaName(dir)));
         }
         if (Array.isArray(user.areasPermitidas)) {
-          user.areasPermitidas.forEach(area => userAreasSet.add(area));
+          user.areasPermitidas.filter(Boolean).forEach(area => userAreasSet.add(resolveAreaName(area)));
         }
       }
     });
@@ -394,65 +420,8 @@ export default function TaskDetailScreen({ route, navigation }) {
     }
   }, [selectedAssignees]);
 
-  // ⚠️ REMOVIDO: Esta lógica conflictaba con la auto-selección anterior
-  // El nuevo useEffect anterior ya se encarga de agregar las áreas de los usuarios seleccionados
-  // Los comentarios de debugging que estaban aquí se movieron al useEffect anterior
-
   // Referencia para trackear áreas previas y evitar ciclos
   const prevAreasRef = useRef([]);
-
-  // DISABLED: Auto-asignar titulares cuando se agregan nuevas áreas
-  // Motivo: Causaba auto-selección de todos los directores cuando se seleccionaba un secretario
-  // Ahora los directores se mostrarán como sugerencias en un componente separado
-  // useEffect(() => {
-  //   const autoAssignTitulares = async () => {
-  //     // Si no hay áreas seleccionadas, no hacer nada
-  //     if (!selectedAreas || selectedAreas.length === 0) {
-  //       prevAreasRef.current = [];
-  //       return;
-  //     }
-  //     
-  //     // Detectar solo las áreas NUEVAS (no las que ya estaban)
-  //     const prevAreas = new Set(prevAreasRef.current);
-  //     const newAreas = selectedAreas.filter(area => !prevAreas.has(area));
-  //     
-  //     // Actualizar referencia
-  //     prevAreasRef.current = [...selectedAreas];
-  //     
-  //     // Si no hay áreas nuevas, no buscar titulares
-  //     if (newAreas.length === 0) return;
-  //     
-  //     try {
-  //       // Buscar titulares de las áreas NUEVAS
-  //       const titulares = await getTitularesByAreas(newAreas);
-  //       
-  //       if (titulares.length > 0) {
-  //         // Convertir a formato de asignados
-  //         const newAssignees = titulares.map(user => ({
-  //           email: user.email,
-  //           displayName: user.displayName || user.email,
-  //           role: user.role,
-  //           area: user.area || user.department || ''
-  //         }));
-  //         
-  //         // Agregar solo los que no estén ya seleccionados
-  //         setSelectedAssignees(prev => {
-  //           const existingEmails = new Set(prev.map(a => a.email?.toLowerCase()));
-  //           const newUnique = newAssignees.filter(a => !existingEmails.has(a.email?.toLowerCase()));
-  //           
-  //           if (newUnique.length > 0) {
-  //             return [...prev, ...newUnique];
-  //           }
-  //           return prev;
-  //         });
-  //       }
-  //     } catch (error) {
-  //       console.error('Error auto-asignando titulares:', error);
-  //     }
-  //   };
-  //   
-  //   autoAssignTitulares();
-  // }, [selectedAreas]);
 
   const filteredAreas = useMemo(() => {
     // Usar areasFromSelectedUsers en lugar de availableAreas para admin
@@ -522,7 +491,7 @@ export default function TaskDetailScreen({ route, navigation }) {
       // Inicializar estado de confirmaciones
       initializeConfirmations();
     } catch (error) {
-      console.error('Error inicializando asignados:', error);
+      if (__DEV__) console.error('Error inicializando asignados:', error);
     }
   };
   
@@ -558,12 +527,10 @@ export default function TaskDetailScreen({ route, navigation }) {
         area: currentUser.department || ''
       });
       
-      setToastMessage(result.allCompleted 
-        ? '¡Tarea lista para revisión!' 
+      showSuccess(result.allCompleted
+        ? '¡Tarea lista para revisión!'
         : `Confirmado (${result.completedCount}/${result.totalAssigned})`
       );
-      setToastType('success');
-      setToastVisible(true);
       
       // Actualizar estado local
       initializeConfirmations();
@@ -573,12 +540,10 @@ export default function TaskDetailScreen({ route, navigation }) {
         setStatus('en_revision');
       }
     } catch (error) {
-      setToastMessage(error.message);
-      setToastType('error');
-      setToastVisible(true);
+      showError(error.message);
     }
   };
-  
+
   // Quitar confirmación (solo admin)
   const handleRemoveConfirmation = async (userEmail) => {
     if (!editingTask) return;
@@ -594,15 +559,11 @@ export default function TaskDetailScreen({ route, navigation }) {
           onPress: async () => {
             try {
               await removeTaskConfirmation(editingTask.id, userEmail);
-              setToastMessage('Confirmación removida');
-              setToastType('success');
-              setToastVisible(true);
+              showSuccess('Confirmación removida');
               initializeConfirmations();
               setStatus('en_proceso');
             } catch (error) {
-              setToastMessage(error.message);
-              setToastType('error');
-              setToastVisible(true);
+              showError(error.message);
             }
           }
         }
@@ -646,7 +607,7 @@ export default function TaskDetailScreen({ route, navigation }) {
         setCanEdit(editPermission.canEdit);
         setCanDelegate(delegatePermission.canDelegate);
         setCanAddSubtask(subtaskPermission.canCreate);
-        setIsReadOnly(role === 'director');
+        setIsReadOnly(role === 'director' || role === 'secretario');
       } else {
         // Creando nueva tarea - solo admin
         const createPermission = canCreateTask(user);
@@ -691,7 +652,7 @@ export default function TaskDetailScreen({ route, navigation }) {
       
       setDelegateUsers(directors);
     } catch (error) {
-      console.error('Error cargando usuarios para delegación:', error);
+      if (__DEV__) console.error('Error cargando usuarios para delegación:', error);
     }
   };
 
@@ -739,57 +700,43 @@ export default function TaskDetailScreen({ route, navigation }) {
     // Validaciones de campos
     if (!title.trim()) {
       titleInputRef.current?.shake();
-      setToastMessage('El título es obligatorio');
-      setToastType('error');
-      setToastVisible(true);
+      showError('El título es obligatorio');
       return;
     }
 
     if (title.trim().length < 3) {
       titleInputRef.current?.shake();
-      setToastMessage('El título debe tener al menos 3 caracteres');
-      setToastType('error');
-      setToastVisible(true);
+      showError('El título debe tener al menos 3 caracteres');
       return;
     }
 
     if (title.trim().length > 100) {
       titleInputRef.current?.shake();
-      setToastMessage('El título no puede tener más de 100 caracteres');
-      setToastType('error');
-      setToastVisible(true);
+      showError('El título no puede tener más de 100 caracteres');
       return;
     }
 
     if (!description.trim()) {
       descriptionInputRef.current?.shake();
-      setToastMessage('La descripción es obligatoria');
-      setToastType('error');
-      setToastVisible(true);
+      showError('La descripción es obligatoria');
       return;
     }
 
     if (description.trim().length < 10) {
       descriptionInputRef.current?.shake();
-      setToastMessage('La descripción debe tener al menos 10 caracteres');
-      setToastType('error');
-      setToastVisible(true);
+      showError('La descripción debe tener al menos 10 caracteres');
       return;
     }
 
     // Validar múltiples asignados
     if (!selectedAssignees || selectedAssignees.length === 0) {
-      setToastMessage('Debes asignar la tarea a al menos una persona');
-      setToastType('error');
-      setToastVisible(true);
+      showError('Debes asignar la tarea a al menos una persona');
       return;
     }
 
     // Validar múltiples áreas
     if (!selectedAreas || selectedAreas.length === 0) {
-      setToastMessage('Debes seleccionar al menos una área');
-      setToastType('error');
-      setToastVisible(true);
+      showError('Debes seleccionar al menos una área');
       return;
     }
 
@@ -829,7 +776,7 @@ export default function TaskDetailScreen({ route, navigation }) {
         const { updateParentTaskProgress } = await import('../services/areaSubtasks');
         await updateParentTaskProgress(editingTask.parentTaskId);
       } catch (error) {
-        console.error('[TaskDetail] Error actualizando progreso del padre:', error);
+        if (__DEV__) console.error('[TaskDetail] Error actualizando progreso del padre:', error);
       }
     }
   };
@@ -837,10 +784,10 @@ export default function TaskDetailScreen({ route, navigation }) {
   const proceedWithSave = async () => {
     setIsSaving(true);
     setSaveProgress(0);
-    
+
     // Simular progreso
     const progressInterval = setInterval(() => {
-      setSaveProgress(prev => {
+      setSaveProgress((prev) => {
         if (prev >= 90) {
           clearInterval(progressInterval);
           return 90;
@@ -848,236 +795,55 @@ export default function TaskDetailScreen({ route, navigation }) {
         return prev + 10;
       });
     }, 100);
-    
+
     try {
-      // Validar permisos
+      // Validar autenticación
       if (!currentUser) {
         Alert.alert('Error', 'No estás autenticado');
         setIsSaving(false);
+        clearInterval(progressInterval);
         return;
       }
 
-      // NUEVO SISTEMA DE PERMISOS
-      // Verificar si puede editar usando el servicio centralizado
-      const editPermission = canEditTask(currentUser, editingTask || {});
-
-      // Secretarios solo pueden cambiar status, NO editar datos de la tarea
-      if (currentUser.role === 'secretario' && editingTask) {
-        const statusPermission = canChangeTaskStatus(currentUser, editingTask);
-        if (statusPermission.canChange) {
-          // Solo actualizar el status
-          await updateTask(editingTask.id, { status });
-          await updateParentProgressIfNeeded(); // Actualizar progreso del padre si es subtarea
-          setIsSaving(false);
-          setToastMessage('Estado actualizado');
-          setToastType('success');
-          setToastVisible(true);
-          setTimeout(() => navigation.goBack(), 800);
-          return;
-        } else {
-          Alert.alert('Sin permisos', 'Los secretarios solo pueden delegar tareas y crear subtareas');
-          setIsSaving(false);
-          return;
-        }
-      }
-      
-      // Directores solo pueden cambiar status de sus tareas (solo completar, no reabrir)
-      if (currentUser.role === 'director' && editingTask) {
-        const statusPermission = canChangeTaskStatus(currentUser, editingTask, status);
-        if (statusPermission.canChange) {
-          await updateTask(editingTask.id, { status });
-          await updateParentProgressIfNeeded(); // Actualizar progreso del padre si es subtarea
-          setIsSaving(false);
-          setToastMessage('Estado actualizado');
-          setToastType('success');
-          setToastVisible(true);
-          setTimeout(() => navigation.goBack(), 800);
-          return;
-        } else {
-          Alert.alert('Sin permisos', statusPermission.reason || 'Solo puedes avanzar la tarea hacia completado, no reabrir');
-          setIsSaving(false);
-          return;
-        }
-      }
-
-      // Solo admin y secretario pueden crear/editar tareas completas
-      if (!editPermission.canEdit) {
-        Alert.alert('Sin permisos', editPermission.reason);
-        setIsSaving(false);
-        return;
-      }
-
-      // Animación de presión
-      Animated.sequence([
-        Animated.timing(buttonScale, {
-          toValue: 0.95,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-        Animated.timing(buttonScale, {
-          toValue: 1,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-      // Construir objeto tarea con múltiples asignados y múltiples áreas
-      // 🔥 Normalizar emails a minúsculas para consistencia
-      const assignedEmails = selectedAssignees.map(a => a.email?.toLowerCase().trim()).filter(Boolean);
-      
-      // 🔥 VALIDAR Y LIMPIAR ÁREAS INVÁLIDAS PARA SECRETARIOS AL ACTUALIZAR
-      let validareas = selectedAreas;
-      if (editingTask) {
-        try {
-          const secretariosEnTarea = selectedAssignees.filter(user => user.role === 'secretario');
-          
-          if (secretariosEnTarea.length > 0) {
-            // Obtener todas las áreas válidas de los secretarios
-            const areasValidasParaSecretarios = new Set();
-            
-            for (const secretario of secretariosEnTarea) {
-              try {
-                const usersRef = collection(db, 'users');
-                const q = query(usersRef, where('email', '==', secretario.email));
-                const snapshot = await getDocs(q);
-                
-                if (!snapshot.empty) {
-                  const secretarioData = snapshot.docs[0].data();
-                  
-                  if (secretarioData.area) areasValidasParaSecretarios.add(secretarioData.area);
-                  if (secretarioData.direcciones && Array.isArray(secretarioData.direcciones)) {
-                    secretarioData.direcciones.forEach(dir => areasValidasParaSecretarios.add(dir));
-                  }
-                  if (secretarioData.areasPermitidas && Array.isArray(secretarioData.areasPermitidas)) {
-                    secretarioData.areasPermitidas.forEach(area => areasValidasParaSecretarios.add(area));
-                  }
-                  if (secretarioData.allowedAreas && Array.isArray(secretarioData.allowedAreas)) {
-                    secretarioData.allowedAreas.forEach(area => areasValidasParaSecretarios.add(area));
-                  }
-                }
-              } catch (error) {
-                console.error(`Error validando secretario ${secretario.email}:`, error);
-              }
-            }
-            
-            // Filtrar selectedAreas para dejar solo las válidas
-            if (areasValidasParaSecretarios.size > 0) {
-              validareas = selectedAreas.filter(area => areasValidasParaSecretarios.has(area));
-              
-              // Si después del filtro quedan áreas, usarlas; si no, usar todas (admin override)
-              if (validareas.length === 0) {
-                validareas = selectedAreas;
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error validando áreas de secretarios:', error);
-          validareas = selectedAreas;
-        }
-      }
-      
-      const taskData = {
+      // Usar el hook simplificado para guardar
+      const formData = {
         title: title.trim(),
         description: description.trim(),
-        assignedEmails: assignedEmails, // Array de emails para múltiples asignados
-        areas: validareas, // Array de áreas validadas
-        area: validareas[0], // Backward compatibility: primera área como principal
+        selectedAssignees,
+        selectedAreas,
         priority,
         status,
-        dueAt: dueAt.getTime(),
-        isRecurring,
-        recurrencePattern: isRecurring ? recurrencePattern : null,
-        lastRecurrenceCreated: isRecurring ? dueAt.getTime() : null,
+        dueAt,
         tags,
-        estimatedHours: estimatedHours ? parseFloat(estimatedHours) : null,
-        // Agregar timestamp de actualización para sincronización en tiempo real
-        ...(editingTask && { updatedAt: new Date().getTime() })
+        estimatedHours,
+        isRecurring,
+        recurrencePattern,
       };
 
-      let taskId;
-      
-      if (editingTask) {
-        // Actualizar tarea existente
-        taskId = editingTask.id;
-        
-        // Cancelar notificación previa solo si existe
-        if (editingTask.notificationId) {
-          await cancelNotification(editingTask.notificationId);
-        }
-        
-        setSaveProgress(60);
-        // Usar updateTaskMultiple para tareas con múltiples asignados
-        await updateTaskMultiple(taskId, taskData);
-        setSaveProgress(100);
-        
-        // Mostrar toast de éxito
-        setToastMessage('Tarea actualizada exitosamente');
-        setToastType('success');
-        setToastVisible(true);
-        
+      const result = await saveTask(formData, editingTask);
+
+      clearInterval(progressInterval);
+      setSaveProgress(100);
+
+      if (result.success) {
+        showSuccess(editingTask ? 'Tarea actualizada exitosamente' : 'Tarea creada exitosamente');
+
         // Navegar después de un breve delay
         setTimeout(() => {
           setSaveProgress(null);
           navigation.goBack();
         }, 1000);
       } else {
-        // Crear nueva tarea con múltiples asignados
-        setSaveProgress(60);
-        taskId = await createTaskMultiple(taskData);
-        
-        // Si la tarea tiene múltiples áreas, crear subtareas de coordinación
-        if (selectedAreas.length > 1) {
-          setSaveProgress(80);
-          const subtaskResult = await createAreaSubtasks(taskData, taskId);
-        }
-        
-        setSaveProgress(100);
-        
-        // Mostrar toast de éxito
-        const mensaje = selectedAreas.length > 1 
-          ? `Tarea creada con ${selectedAreas.length} subtareas de coordinación`
-          : 'Tarea creada exitosamente';
-        setToastMessage(mensaje);
-        setToastType('success');
-        setToastVisible(true);
-        
-        // Navegar después de un breve delay
-        setTimeout(() => {
-          setSaveProgress(null);
-          navigation.goBack();
-        }, 1000);
+        showError(result.error || 'Error guardando tarea');
+        setSaveProgress(null);
       }
 
-      // Crear objeto task completo con ID para notificaciones
-      const task = { ...taskData, id: taskId };
-
-      // Programar notificaciones solo si la tarea no está cerrada (async, no bloquea)
-      if (task.status !== 'cerrada') {
-        scheduleNotificationForTask(task, { minutesBefore: 10 }).then(notifId => {
-          if (notifId) {
-            updateTaskMultiple(taskId, { notificationId: notifId });
-          }
-        });
-      }
-
-      // Notificar asignación si es tarea nueva o cambió el responsable (async)
-      const isNewTask = !editingTask;
-      const assignedToChanged = editingTask && JSON.stringify(assignedEmails) !== JSON.stringify(editingTask.assignedTo);
-      if ((isNewTask || assignedToChanged) && assignedEmails.length > 0) {
-        notifyAssignment(task);
-      }
-      
       setIsSaving(false);
-      setSaveProgress(null);
     } catch (e) {
       clearInterval(progressInterval);
       setIsSaving(false);
       setSaveProgress(null);
-      
-      // Mostrar toast de error
-      setToastMessage(`Error al guardar: ${e.message || 'Error desconocido'}`);
-      setToastType('error');
-      setToastVisible(true);
+      showError(`Error al guardar: ${e.message || 'Error desconocido'}`);
     }
   };
 
@@ -1093,15 +859,17 @@ export default function TaskDetailScreen({ route, navigation }) {
           onPress: async () => {
             try {
               setIsSaving(true);
-              await deleteTask(editingTask.id);
-              setToastMessage('Tarea eliminada correctamente');
-              setToastType('success');
-              setToastVisible(true);
-              setTimeout(() => navigation.goBack(), 1000);
+              const result = await deleteTaskService(editingTask.id);
+              
+              if (result.success) {
+                showSuccess('Tarea eliminada correctamente');
+                setTimeout(() => navigation.goBack(), 1000);
+              } else {
+                showError(result.error || 'Error al eliminar la tarea');
+                setIsSaving(false);
+              }
             } catch (error) {
-              setToastMessage('Error al eliminar la tarea');
-              setToastType('error');
-              setToastVisible(true);
+              showError('Error al eliminar la tarea');
               setIsSaving(false);
             }
           }
@@ -1115,25 +883,19 @@ export default function TaskDetailScreen({ route, navigation }) {
   // Helper: auto-asignar solo director del área + secretario padre
   const autoAssignDirectorAndSecretario = useCallback(async (area) => {
     try {
-      console.log('[AutoAssign] Buscando titulares para área:', area);
       // Buscar titulares directos del área (director o secretario)
       const titulares = await getTitularesByAreas([area]);
-      console.log('[AutoAssign] Titulares encontrados:', titulares.map(u => `${u.displayName} (${u.role}, area: ${u.area})`));
       const director = titulares.find(u => u.role === 'director');
       let secretario = titulares.find(u => u.role === 'secretario');
 
       // Si el área es una dirección (no secretaría), buscar también al secretario padre
       if (!secretario) {
         const secretariaPadre = getSecretariaByDireccion(area);
-        console.log('[AutoAssign] Secretaría padre:', secretariaPadre);
         if (secretariaPadre) {
           const secretarios = await getTitularesByAreas([secretariaPadre]);
-          console.log('[AutoAssign] Secretarios encontrados:', secretarios.map(u => `${u.displayName} (${u.role}, area: ${u.area})`));
           secretario = secretarios.find(u => u.role === 'secretario');
         }
       }
-
-      console.log('[AutoAssign] Director:', director?.displayName || 'NO ENCONTRADO', '| Secretario:', secretario?.displayName || 'NO ENCONTRADO');
 
       const toAdd = [director, secretario].filter(Boolean);
       if (toAdd.length > 0) {
@@ -1153,7 +915,7 @@ export default function TaskDetailScreen({ route, navigation }) {
         });
       }
     } catch (error) {
-      console.error('[AutoAssign] Error:', error);
+      if (__DEV__) console.error('[AutoAssign] Error:', error);
     }
   }, []);
 
@@ -1202,14 +964,12 @@ export default function TaskDetailScreen({ route, navigation }) {
         const { updateParentTaskProgress } = await import('../services/areaSubtasks');
         await updateParentTaskProgress(editingTask.parentTaskId);
       } catch (error) {
-        console.error('[TaskDetail] Error actualizando progreso del padre:', error);
+        if (__DEV__) console.error('[TaskDetail] Error actualizando progreso del padre:', error);
       }
     }
     
     // Mostrar mensaje de confirmación
-    setToastMessage('Tarea iniciada correctamente');
-    setToastType('success');
-    setToastVisible(true);
+    showSuccess('Tarea iniciada correctamente');
     
     // Cerrar el modal después de un breve delay
     setTimeout(() => {
@@ -1266,19 +1026,15 @@ export default function TaskDetailScreen({ route, navigation }) {
       } catch (notifError) {
       }
       
-      setToastMessage(`Tarea delegada a ${director.displayName}`);
-      setToastType('success');
-      setToastVisible(true);
+      showSuccess(`Tarea delegada a ${director.displayName}`);
       setShowDelegateModal(false);
       
       setTimeout(() => {
         navigation.goBack();
       }, 1200);
     } catch (error) {
-      console.error('Error al delegar:', error);
-      setToastMessage('Error al delegar la tarea');
-      setToastType('error');
-      setToastVisible(true);
+      if (__DEV__) console.error('Error al delegar:', error);
+      showError('Error al delegar la tarea');
     } finally {
       setIsSaving(false);
     }
@@ -1415,9 +1171,9 @@ export default function TaskDetailScreen({ route, navigation }) {
 
       {/* Vista normal si no es read-only */}
       {!isReadOnly && (
-        <View style={styles.container}>
-      <View style={[styles.headerBar, { backgroundColor: '#9F2241' }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
+        <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={[styles.headerBar, { backgroundColor: theme.primary }]}>
+        <TouchableOpacity onPress={handleBack} style={styles.closeButton} accessibilityLabel="Cerrar" accessibilityRole="button">
           <Ionicons name="close" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
@@ -1430,7 +1186,7 @@ export default function TaskDetailScreen({ route, navigation }) {
           <Text style={styles.headerTitle}>{editingTask ? 'Editar Tarea' : 'Nueva Tarea'}</Text>
         </View>
         {editingTask && currentUser?.role === 'admin' && (
-          <TouchableOpacity onPress={handleDelete} style={styles.deleteButton}>
+          <TouchableOpacity onPress={handleDelete} style={styles.deleteButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Eliminar tarea" accessibilityRole="button">
             <Ionicons name="trash" size={22} color="#FFFFFF" />
           </TouchableOpacity>
         )}
@@ -1456,27 +1212,42 @@ export default function TaskDetailScreen({ route, navigation }) {
             <Text style={styles.label}>TÍTULO *</Text>
             <ShakeInput
               ref={titleInputRef}
-              value={title} 
-              onChangeText={setTitle} 
-              placeholder="¿Qué hay que hacer?" 
-              placeholderTextColor={isDark ? '#666' : '#A0A0A0'} 
+              value={title}
+              onChangeText={setTitle}
+              placeholder="¿Qué hay que hacer?"
+              placeholderTextColor={isDark ? '#666' : '#A0A0A0'}
               style={styles.input}
               editable={canEdit}
               error={!title.trim() && title.length > 0}
+              returnKeyType="next"
+              onSubmitEditing={() => descriptionInputRef.current?.focus()}
+              blurOnSubmit={false}
+              maxLength={120}
             />
+            {canEdit && (
+              <Text style={[styles.charCounter, { color: title.length > 100 ? theme.warning : theme.textTertiary }]}>
+                {title.length}/120
+              </Text>
+            )}
 
             <Text style={styles.label}>DESCRIPCIÓN *</Text>
             <ShakeInput
               ref={descriptionInputRef}
-              value={description} 
-              onChangeText={setDescription} 
-              placeholder="Describe los detalles de la tarea..." 
-              placeholderTextColor={isDark ? '#666' : '#A0A0A0'} 
-              style={[styles.input, {height: 100, textAlignVertical: 'top', paddingTop: 14}]} 
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Describe los detalles de la tarea..."
+              placeholderTextColor={isDark ? '#666' : '#A0A0A0'}
+              style={[styles.input, {height: 100, textAlignVertical: 'top', paddingTop: 14}]}
               multiline
               editable={canEdit}
               error={!description.trim() && description.length > 0}
+              maxLength={1000}
             />
+            {canEdit && (
+              <Text style={[styles.charCounter, { color: description.length > 900 ? theme.warning : theme.textTertiary }]}>
+                {description.length}/1000
+              </Text>
+            )}
           </View>
 
           {/* SECCIÓN ASIGNACIÓN */}
@@ -2306,13 +2077,6 @@ export default function TaskDetailScreen({ route, navigation }) {
         </View>
       </Modal>
       
-      <Toast 
-        visible={toastVisible}
-        message={toastMessage}
-        type={toastType}
-        onHide={() => setToastVisible(false)}
-      />
-      
       {/* Pomodoro Modal */}
       {editingTask && (
         <Modal
@@ -2341,14 +2105,10 @@ export default function TaskDetailScreen({ route, navigation }) {
                         ...session, 
                         userEmail: user.session.email 
                       });
-                      setToastMessage('Sesión Pomodoro completada!');
-                      setToastType('success');
-                      setToastVisible(true);
+                      showSuccess('Sesión Pomodoro completada!');
                     }
                   } catch (error) {
-                    setToastMessage('Error al guardar sesión');
-                    setToastType('error');
-                    setToastVisible(true);
+                    showError('Error al guardar sesión');
                   }
                 }}
               />
@@ -2376,7 +2136,7 @@ export default function TaskDetailScreen({ route, navigation }) {
             alignItems: 'center',
             gap: 12
           }}>
-            <LoadingIndicator type="spinner" color="#9F2241" size={12} />
+            <LoadingIndicator type="spinner" color={theme.primary} size={12} />
             <Text style={{ fontSize: 16, fontWeight: '600', color: '#1A1A1A' }}>
               {saveProgress === 100 ? '¡Completado!' : 'Guardando tarea...'}
             </Text>
@@ -2455,7 +2215,7 @@ export default function TaskDetailScreen({ route, navigation }) {
           </View>
         </View>
       </Modal>
-        </View>
+        </KeyboardAvoidingView>
       )}
     </View>
   );
@@ -2475,7 +2235,7 @@ const createStyles = (theme, isDark) => StyleSheet.create({
     paddingBottom: 16,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
-    shadowColor: '#9F2241',
+    shadowColor: theme.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
     shadowRadius: 10,
@@ -2510,15 +2270,21 @@ const createStyles = (theme, isDark) => StyleSheet.create({
   scrollContent: {
     padding: 16
   },
-  label: { 
-    marginTop: 18, 
+  label: {
+    marginTop: 18,
     marginBottom: 10,
-    color: isDark ? '#B8B8B8' : '#5A5A5A', 
-    fontWeight: '700', 
+    color: isDark ? '#B8B8B8' : '#5A5A5A',
+    fontWeight: '700',
     fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: 1.2,
     paddingLeft: 4,
+  },
+  charCounter: {
+    fontSize: 11,
+    textAlign: 'right',
+    marginTop: 4,
+    marginRight: 4,
   },
   input: { 
     padding: 16, 
@@ -2527,7 +2293,7 @@ const createStyles = (theme, isDark) => StyleSheet.create({
     color: theme.text,
     fontSize: 16,
     fontWeight: '500',
-    shadowColor: isDark ? '#000' : '#9F2241',
+    shadowColor: isDark ? '#000' : theme.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -2540,7 +2306,7 @@ const createStyles = (theme, isDark) => StyleSheet.create({
   dateButton: {
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#9F2241',
+    shadowColor: theme.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
     shadowRadius: 12,
@@ -2607,10 +2373,10 @@ const createStyles = (theme, isDark) => StyleSheet.create({
     flex: 1,
     minWidth: 100,
   },
-  optionBtnActive: { 
-    backgroundColor: '#9F2241',
-    borderColor: '#9F2241',
-    shadowColor: '#9F2241',
+  optionBtnActive: {
+    backgroundColor: theme.primary,
+    borderColor: theme.primary,
+    shadowColor: theme.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 10,
@@ -2720,12 +2486,12 @@ const createStyles = (theme, isDark) => StyleSheet.create({
     fontWeight: '500',
   },
   saveButton: {
-    backgroundColor: '#9F2241',
+    backgroundColor: theme.primary,
     padding: 18,
     borderRadius: 14,
     alignItems: 'center',
     marginTop: 36,
-    shadowColor: '#9F2241',
+    shadowColor: theme.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.35,
     shadowRadius: 16,
@@ -2756,7 +2522,7 @@ const createStyles = (theme, isDark) => StyleSheet.create({
     borderColor: isDark ? 'rgba(255,255,255,0.2)' : '#F5DEB3'
   },
   chatButtonText: {
-    color: '#9F2241',
+    color: theme.primary,
     fontSize: 17,
     fontWeight: '600'
   },
@@ -2770,7 +2536,7 @@ const createStyles = (theme, isDark) => StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#9F2241',
+    borderColor: theme.primary,
     color: '#1A1A1A',
     fontWeight: '600',
   },
@@ -2884,7 +2650,7 @@ const createStyles = (theme, isDark) => StyleSheet.create({
   },
   areaCardActive: {
     borderWidth: 2.5,
-    shadowColor: '#9F2241',
+    shadowColor: theme.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -2977,7 +2743,7 @@ const createStyles = (theme, isDark) => StyleSheet.create({
   userAvatarText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#9F2241',
+    color: theme.primary,
   },
   userName: {
     fontSize: 15,
@@ -3023,7 +2789,7 @@ const createStyles = (theme, isDark) => StyleSheet.create({
   assigneeSelectorInitial: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#9F2241',
+    color: theme.primary,
   },
   assigneeSelectorLabel: {
     fontSize: 11,
@@ -3243,7 +3009,7 @@ const createStyles = (theme, isDark) => StyleSheet.create({
     alignItems: 'center',
     gap: 16,
     minHeight: 88,
-    shadowColor: '#9F2241',
+    shadowColor: theme.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 10,
@@ -3257,7 +3023,7 @@ const createStyles = (theme, isDark) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     flexShrink: 0,
-    shadowColor: '#9F2241',
+    shadowColor: theme.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -3357,7 +3123,7 @@ const createStyles = (theme, isDark) => StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 14,
     gap: 10,
-    shadowColor: '#9F2241',
+    shadowColor: theme.primary,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,

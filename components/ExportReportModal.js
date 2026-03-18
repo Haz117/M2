@@ -14,17 +14,17 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { exportReportToPDF, sharePDF, getReportExportStats } from '../services/exportService';
-import Toast from './Toast';
+import { useNotification } from '../contexts/NotificationContext';
 import WebSafeBlur from './WebSafeBlur';
 
 const { width } = Dimensions.get('window');
 
 const ExportReportModal = ({ visible, onClose, report, task, allReports = [] }) => {
   const { theme, isDark } = useTheme();
+  const { showSuccess, showError } = useNotification();
   const [exportType, setExportType] = useState('single'); // 'single' or 'all'
   const [includeMetadata, setIncludeMetadata] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
   const [stats, setStats] = useState(null);
 
   const styles = useMemo(() => StyleSheet.create({
@@ -180,7 +180,7 @@ const ExportReportModal = ({ visible, onClose, report, task, allReports = [] }) 
 
   const handleExport = async () => {
     if (!report && exportType === 'single') {
-      setToastMessage('Error: No report selected');
+      showError('Error: No report selected');
       return;
     }
 
@@ -195,7 +195,7 @@ const ExportReportModal = ({ visible, onClose, report, task, allReports = [] }) 
           report.images || [],
           task
         );
-        setToastMessage('✅ PDF generado exitosamente');
+        showSuccess('✅ PDF generado exitosamente');
       } else if (exportType === 'all' && allReports.length > 0) {
         // Export all reports
         pdfUri = await exportReportToPDF(
@@ -203,7 +203,7 @@ const ExportReportModal = ({ visible, onClose, report, task, allReports = [] }) 
           allReports[0].images || [],
           task
         );
-        setToastMessage('✅ Reportes exportados');
+        showSuccess('✅ Reportes exportados');
       }
 
       // Ask user what to do with PDF
@@ -218,14 +218,14 @@ const ExportReportModal = ({ visible, onClose, report, task, allReports = [] }) 
                 try {
                   await sharePDF(pdfUri);
                 } catch (error) {
-                  setToastMessage('Error al compartir: ' + error.message);
+                  showError('Error al compartir: ' + error.message);
                 }
               },
             },
             {
               text: 'Descargar',
               onPress: () => {
-                setToastMessage('PDF descargado a tu dispositivo');
+                showSuccess('PDF descargado a tu dispositivo');
               },
             },
             {
@@ -239,8 +239,8 @@ const ExportReportModal = ({ visible, onClose, report, task, allReports = [] }) 
         onClose();
       }, 500);
     } catch (error) {
-      console.error('Export error:', error);
-      setToastMessage('Error: ' + error.message);
+      if (__DEV__) console.error('Export error:', error);
+      showError('Error: ' + error.message);
       setLoading(false);
     }
   };
@@ -419,10 +419,6 @@ const ExportReportModal = ({ visible, onClose, report, task, allReports = [] }) 
         </View>
       </WebSafeBlur>
 
-      <Toast
-        message={toastMessage}
-        onDismiss={() => setToastMessage('')}
-      />
     </Modal>
   );
 };

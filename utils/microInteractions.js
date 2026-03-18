@@ -4,7 +4,6 @@
  */
 
 import { Vibration, Platform } from 'react-native';
-import Toast from 'react-native-toast-message';
 
 /**
  * Haptic Feedback Types
@@ -41,136 +40,6 @@ export const triggerHaptic = (type = HapticTypes.LIGHT) => {
       // Haptic no disponible
     }
   }
-};
-
-/**
- * Notificación toast mejorada
- */
-export const showNotification = (title, message = '', type = 'success', duration = 3000) => {
-  const iconMap = {
-    success: '✓',
-    error: '✕',
-    warning: '⚠',
-    info: 'ℹ',
-  };
-
-  triggerHaptic(type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'light');
-
-  Toast.show({
-    type,
-    text1: title,
-    text2: message,
-    position: 'top',
-    duration,
-    visibilityTime: duration,
-    autoHide: true,
-    topOffset: 50,
-    bottomOffset: 40,
-    props: {
-      icon: iconMap[type],
-    },
-  });
-};
-
-/**
- * Notificación de éxito
- */
-export const showSuccess = (title, message = '') => {
-  showNotification(title, message, 'success');
-};
-
-/**
- * Notificación de error
- */
-export const showError = (title, message = '') => {
-  showNotification(title, message, 'error');
-  triggerHaptic('error');
-};
-
-/**
- * Notificación de advertencia
- */
-export const showWarning = (title, message = '') => {
-  showNotification(title, message, 'warning');
-  triggerHaptic('warning');
-};
-
-/**
- * Notificación de info
- */
-export const showInfo = (title, message = '') => {
-  showNotification(title, message, 'info');
-};
-
-/**
- * Feedback de acción (sin desaparecer automáticamente)
- */
-export const showAction = (title, actionText = 'Deshacer', onAction = null, duration = 5000) => {
-  triggerHaptic('light');
-
-  Toast.show({
-    type: 'info',
-    text1: title,
-    text2: actionText,
-    position: 'bottom',
-    duration,
-    onPress: onAction,
-  });
-};
-
-/**
- * Confirmación con dos botones
- */
-export const showConfirmation = async (title, message, confirmText = 'Confirmar', cancelText = 'Cancelar') => {
-  return new Promise((resolve) => {
-    // Implementable con un Alert nativo o modal custom
-    // Por ahora retorna true/false basado en user choice
-    triggerHaptic('light');
-    resolve(true);
-  });
-};
-
-/**
- * Notificación de "Copiado"
- */
-export const showCopied = () => {
-  triggerHaptic('light');
-  showSuccess('Copiado', 'Contenido copiado al portapapeles');
-};
-
-/**
- * Notificación de progreso
- */
-export const showProgress = (title, progress = 0) => {
-  const percent = Math.round(progress * 100);
-  triggerHaptic('light');
-
-  Toast.show({
-    type: 'info',
-    text1: title,
-    text2: `${percent}%`,
-    position: 'bottom',
-    autoHide: false,
-  });
-};
-
-/**
- * Loading toast
- */
-export const showLoading = (title = 'Cargando...') => {
-  Toast.show({
-    type: 'info',
-    text1: title,
-    position: 'bottom',
-    autoHide: false,
-  });
-};
-
-/**
- * Esconder toast actual
- */
-export const hideToast = () => {
-  Toast.hide();
 };
 
 /**
@@ -303,17 +172,6 @@ export const SwipeConfig = {
 export default {
   triggerHaptic,
   HapticTypes,
-  showNotification,
-  showSuccess,
-  showError,
-  showWarning,
-  showInfo,
-  showAction,
-  showConfirmation,
-  showCopied,
-  showProgress,
-  showLoading,
-  hideToast,
   ValidationState,
   ButtonState,
   AnimationPresets,

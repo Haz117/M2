@@ -1,7 +1,7 @@
 // screens/NotificationsScreen.js
 // Pantalla de notificaciones con historial y acciones
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,26 +14,74 @@ import {
   Platform,
   Alert,
   Pressable,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../contexts/ThemeContext';
 import { toMs } from '../utils/dateUtils';
 import { getMyNotifications, markNotificationAsRead, deleteNotification } from '../services/notificationsAdvanced';
-import LoadingIndicator from '../components/LoadingIndicator';
-import Toast from '../components/Toast';
+import { hapticSuccess, hapticLight, hapticWarning } from '../utils/haptics';
+import ShimmerEffect from '../components/ShimmerEffect';
+import { getSwipeable } from '../utils/platformComponents';
+const Swipeable = getSwipeable();
+import { useNotification } from '../contexts/NotificationContext';
 import { useResponsive } from '../utils/responsive';
 import { MAX_WIDTHS } from '../theme/tokens';
+
+const NotificationCard = React.memo(({ item, onPress, onDelete, theme, isDark, getColor, getIcon }) => (
+  <View
+    style={[
+      cardStyles.notificationCard,
+      {
+        backgroundColor: item.read ? (isDark ? '#1a1a1f' : '#f9f9fb') : (isDark ? '#2a2a2e' : '#f0f0f5'),
+        borderColor: item.read ? theme.border : getColor(item.type),
+        borderLeftWidth: item.read ? 1 : 4,
+      },
+    ]}
+  >
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={item.title}
+      accessibilityHint={item.read ? 'Ver detalles' : 'Marcar como leída y ver detalles'}
+      style={({ pressed }) => [cardStyles.notificationTouchable, pressed && { opacity: 0.7 }]}
+    >
+      <View style={[cardStyles.notificationIcon, { backgroundColor: getColor(item.type) + '20' }]}>
+        <Ionicons name={getIcon(item.type)} size={20} color={getColor(item.type)} />
+      </View>
+      <View style={cardStyles.notificationContent}>
+        <Text style={[cardStyles.notificationTitle, { color: theme.text, fontWeight: item.read ? '600' : '700' }]}>
+          {item.title}
+        </Text>
+        <Text style={[cardStyles.notificationBody, { color: theme.textSecondary }]}>{item.body}</Text>
+        <Text style={[cardStyles.notificationTime, { color: theme.textTertiary }]}>{formatTime(item.createdAt)}</Text>
+      </View>
+      {!item.read && <View style={[cardStyles.unreadBadge, { backgroundColor: getColor(item.type) }]} />}
+    </Pressable>
+    {Platform.OS === 'web' && (
+      <Pressable
+        onPress={onDelete}
+        accessibilityRole="button"
+        accessibilityLabel="Eliminar notificación"
+        style={({ pressed }) => [cardStyles.deleteButton, pressed && { opacity: 0.5, transform: [{ scale: 0.95 }] }]}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+      </Pressable>
+    )}
+  </View>
+));
 
 export default function NotificationsScreen({ navigation }) {
   const { theme, isDark } = useTheme();
   const { isDesktop } = useResponsive();
+  const { showError, showSuccess } = useNotification();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(false);
   const [filter, setFilter] = useState('all'); // all, unread, tasks, areas
-  const [toastMessage, setToastMessage] = useState('');
-  const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
     loadNotifications();
@@ -41,18 +89,34 @@ export default function NotificationsScreen({ navigation }) {
 
   const loadNotifications = async () => {
     try {
+      setError(false);
       setLoading(true);
       const data = await getMyNotifications(100);
       setNotifications(data);
-    } catch (error) {
-      console.error('Error cargando notificaciones:', error);
-      setToastMessage('Error al cargar notificaciones');
-      setShowToast(true);
+    } catch (err) {
+      if (__DEV__) console.error('Error cargando notificaciones:', err);
+      setError(true);
+      showError('Error al cargar notificaciones');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
+
+  const handleMarkAllAsRead = useCallback(async () => {
+    const unread = notifications.filter((n) => !n.read);
+    if (unread.length === 0) return;
+    hapticSuccess();
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    try {
+      await Promise.all(unread.map((n) => markNotificationAsRead(n.id)));
+      showSuccess(`${unread.length} notificaciones marcadas como leídas`);
+    } catch (err) {
+      if (__DEV__) console.error('Error marcando todas como leídas:', err);
+      await loadNotifications();
+      showError('Error al marcar como leídas');
+    }
+  }, [notifications]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -60,6 +124,7 @@ export default function NotificationsScreen({ navigation }) {
   };
 
   const handleNotificationPress = async (notification) => {
+    hapticLight();
     // Marcar como leída
     if (!notification.read) {
       try {
@@ -68,7 +133,7 @@ export default function NotificationsScreen({ navigation }) {
           prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n))
         );
       } catch (error) {
-        console.error('Error marcando como leída:', error);
+        if (__DEV__) console.error('Error marcando como leída:', error);
       }
     }
 
@@ -85,7 +150,9 @@ export default function NotificationsScreen({ navigation }) {
     }
   };
 
-  const getFilteredNotifications = () => {
+  const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
+
+  const filteredNotifications = useMemo(() => {
     switch (filter) {
       case 'unread':
         return notifications.filter((n) => !n.read);
@@ -96,7 +163,7 @@ export default function NotificationsScreen({ navigation }) {
       default:
         return notifications;
     }
-  };
+  }, [notifications, filter]);
 
   const handleDeleteNotification = async (notificationId, notificationTitle) => {
     // En web, Alert.alert no funciona - usar confirm nativo
@@ -104,15 +171,12 @@ export default function NotificationsScreen({ navigation }) {
       const confirmed = window.confirm(`¿Deseas eliminar "${notificationTitle}"?`);
       if (confirmed) {
         try {
-          console.log('Eliminando notificación (web):', notificationId);
           await deleteNotification(notificationId);
           await loadNotifications();
-          setToastMessage('Notificación eliminada');
-          setShowToast(true);
+          showSuccess('Notificación eliminada');
         } catch (error) {
-          console.error('Error eliminando notificación:', error);
-          setToastMessage(`Error: ${error.message || 'No se pudo eliminar'}`);
-          setShowToast(true);
+          if (__DEV__) console.error('Error eliminando notificación:', error);
+          showError(`Error: ${error.message || 'No se pudo eliminar'}`);
         }
       }
     } else {
@@ -126,15 +190,12 @@ export default function NotificationsScreen({ navigation }) {
             text: 'Eliminar',
             onPress: async () => {
               try {
-                console.log('Eliminando notificación (móvil):', notificationId);
                 await deleteNotification(notificationId);
                 await loadNotifications();
-                setToastMessage('Notificación eliminada');
-                setShowToast(true);
+                showSuccess('Notificación eliminada');
               } catch (error) {
-                console.error('Error eliminando notificación:', error);
-                setToastMessage(`Error: ${error.message || 'No se pudo eliminar'}`);
-                setShowToast(true);
+                if (__DEV__) console.error('Error eliminando notificación:', error);
+                showError(`Error: ${error.message || 'No se pudo eliminar'}`);
               }
             },
             style: 'destructive',
@@ -181,124 +242,72 @@ export default function NotificationsScreen({ navigation }) {
     }
   };
 
-  const filteredNotifications = getFilteredNotifications();
+  const renderNotifSwipeActions = useCallback((progress, dragX, item) => {
+    const trans = dragX.interpolate({
+      inputRange: [-80, 0],
+      outputRange: [0, 80],
+      extrapolate: 'clamp',
+    });
+    return (
+      <Animated.View style={{ transform: [{ translateX: trans }], justifyContent: 'center' }}>
+        <TouchableOpacity
+          onPress={() => handleDeleteNotification(item.id, item.title)}
+          style={{
+            backgroundColor: '#FF3B30',
+            justifyContent: 'center',
+            alignItems: 'center',
+            width: 80,
+            height: '100%',
+            borderRadius: 12,
+          }}
+          accessibilityLabel="Eliminar notificación"
+        >
+          <Ionicons name="trash-outline" size={22} color="#fff" />
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  }, [handleDeleteNotification]);
 
-  const renderNotification = ({ item }) => {
-    const onDeletePress = (e) => {
-      // Prevenir propagación del evento
-      if (e && e.stopPropagation) {
-        e.stopPropagation();
-      }
-      handleDeleteNotification(item.id, item.title);
-    };
+  const renderNotification = useCallback(({ item }) => {
+    const card = (
+      <NotificationCard
+        item={item}
+        onPress={() => handleNotificationPress(item)}
+        onDelete={() => handleDeleteNotification(item.id, item.title)}
+        theme={theme}
+        isDark={isDark}
+        getColor={getNotificationColor}
+        getIcon={getNotificationIcon}
+      />
+    );
 
-    const onCardPress = () => {
-      handleNotificationPress(item);
-    };
+    if (Platform.OS === 'web') return card;
 
     return (
-      <View
-        style={[
-          styles.notificationCard,
-          {
-            backgroundColor: item.read
-              ? isDark
-                ? '#1a1a1f'
-                : '#f9f9fb'
-              : isDark
-              ? '#2a2a2e'
-              : '#f0f0f5',
-            borderColor: item.read ? theme.border : getNotificationColor(item.type),
-            borderLeftWidth: item.read ? 1 : 4,
-          },
-        ]}
+      <Swipeable
+        renderRightActions={(progress, dragX) =>
+          renderNotifSwipeActions(progress, dragX, item)
+        }
+        friction={2}
+        overshootRight={false}
       >
-        <Pressable
-          onPress={onCardPress}
-          style={({ pressed }) => [
-            styles.notificationTouchable,
-            pressed && { opacity: 0.7 }
-          ]}
-        >
-          <View
-            style={[
-              styles.notificationIcon,
-              {
-                backgroundColor: getNotificationColor(item.type) + '20',
-              },
-            ]}
-          >
-            <Ionicons
-              name={getNotificationIcon(item.type)}
-              size={20}
-              color={getNotificationColor(item.type)}
-            />
-          </View>
-
-          <View style={styles.notificationContent}>
-            <Text
-              style={[
-                styles.notificationTitle,
-                {
-                  color: theme.text,
-                  fontWeight: item.read ? '600' : '700',
-                },
-              ]}
-            >
-              {item.title}
-            </Text>
-            <Text
-              style={[
-                styles.notificationBody,
-                {
-                  color: theme.textSecondary,
-                },
-              ]}
-            >
-              {item.body}
-            </Text>
-            <Text
-              style={[
-                styles.notificationTime,
-                {
-                  color: theme.textTertiary,
-                },
-              ]}
-            >
-              {formatTime(item.createdAt)}
-            </Text>
-          </View>
-
-          {!item.read && (
-            <View
-              style={[
-                styles.unreadBadge,
-                {
-                  backgroundColor: getNotificationColor(item.type),
-                },
-              ]}
-            />
-          )}
-        </Pressable>
-
-        <Pressable
-          onPress={onDeletePress}
-          style={({ pressed }) => [
-            styles.deleteButton,
-            pressed && { opacity: 0.5, transform: [{ scale: 0.95 }] }
-          ]}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="trash-outline" size={18} color="#FF3B30" />
-        </Pressable>
-      </View>
+        {card}
+      </Swipeable>
     );
-  };
+  }, [handleNotificationPress, handleDeleteNotification, theme, isDark, renderNotifSwipeActions]);
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <LoadingIndicator />
+      <View style={[styles.container, { backgroundColor: theme.background, paddingHorizontal: 16, paddingTop: 60 }]}>
+        {[...Array(6)].map((_, i) => (
+          <View key={i} style={{ marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <ShimmerEffect width={44} height={44} borderRadius={22} />
+            <View style={{ flex: 1, gap: 8 }}>
+              <ShimmerEffect width="70%" height={14} borderRadius={6} />
+              <ShimmerEffect width="45%" height={12} borderRadius={6} />
+            </View>
+          </View>
+        ))}
       </View>
     );
   }
@@ -317,12 +326,25 @@ export default function NotificationsScreen({ navigation }) {
           <View>
             <Text style={styles.title}>Notificaciones</Text>
             <Text style={styles.subtitle}>
-              {filteredNotifications.length} notificaciones
+              {filteredNotifications.length} notificacion{filteredNotifications.length !== 1 ? 'es' : ''}
+              {unreadCount > 0 ? ` · ${unreadCount} sin leer` : ''}
             </Text>
           </View>
-          <TouchableOpacity style={styles.closeButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="close" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+            {unreadCount > 0 && (
+              <TouchableOpacity
+                style={[styles.closeButton, { backgroundColor: 'rgba(255,255,255,0.15)' }]}
+                onPress={handleMarkAllAsRead}
+                accessibilityLabel="Marcar todas como leídas"
+                accessibilityRole="button"
+              >
+                <Ionicons name="checkmark-done" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.closeButton} onPress={() => navigation.goBack()} accessibilityLabel="Cerrar notificaciones" accessibilityRole="button">
+              <Ionicons name="close" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
         </View>
       </LinearGradient>
 
@@ -332,6 +354,9 @@ export default function NotificationsScreen({ navigation }) {
           <TouchableOpacity
             key={f}
             onPress={() => setFilter(f)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: filter === f }}
+            accessibilityLabel={f === 'all' ? 'Todas' : f === 'unread' ? 'No leídas' : f === 'tasks' ? 'Tareas' : 'Áreas'}
             style={[
               styles.filterButton,
               filter === f && {
@@ -343,27 +368,51 @@ export default function NotificationsScreen({ navigation }) {
               },
             ]}
           >
-            <Text
-              style={[
-                styles.filterLabel,
-                filter === f && { color: '#FFFFFF' },
-                { color: filter === f ? '#FFFFFF' : theme.text },
-              ]}
-            >
-              {f === 'all'
-                ? 'Todas'
-                : f === 'unread'
-                ? 'No leídas'
-                : f === 'tasks'
-                ? 'Tareas'
-                : 'Áreas'}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text
+                style={[
+                  styles.filterLabel,
+                  filter === f && { color: '#FFFFFF' },
+                  { color: filter === f ? '#FFFFFF' : theme.text },
+                ]}
+              >
+                {f === 'all'
+                  ? 'Todas'
+                  : f === 'unread'
+                  ? 'No leídas'
+                  : f === 'tasks'
+                  ? 'Tareas'
+                  : 'Áreas'}
+              </Text>
+              {f === 'unread' && unreadCount > 0 && (
+                <View style={[styles.unreadBadgeFilter, { backgroundColor: filter === 'unread' ? 'rgba(255,255,255,0.3)' : theme.primary }]}>
+                  <Text style={styles.unreadBadgeFilterText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
         ))}
       </View>
 
       {/* Lista de notificaciones */}
-      {filteredNotifications.length > 0 ? (
+      {error ? (
+        <View style={styles.emptyContainer}>
+          <View style={[styles.emptyIconWrapper, { backgroundColor: isDark ? '#1E1E22' : '#FFF0EE' }]}>
+            <Ionicons name="cloud-offline-outline" size={48} color="#FF3B30" />
+          </View>
+          <Text style={[styles.emptyTitle, { color: theme.text }]}>Error de conexión</Text>
+          <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>No se pudieron cargar las notificaciones.</Text>
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: theme.primary }]}
+            onPress={loadNotifications}
+            accessibilityLabel="Reintentar"
+            accessibilityRole="button"
+          >
+            <Ionicons name="refresh" size={16} color="#fff" style={{ marginRight: 6 }} />
+            <Text style={styles.retryButtonText}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
+      ) : filteredNotifications.length > 0 ? (
         <FlatList
           data={filteredNotifications}
           renderItem={renderNotification}
@@ -371,17 +420,28 @@ export default function NotificationsScreen({ navigation }) {
           contentContainerStyle={styles.listContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           scrollEnabled={true}
+          windowSize={5}
+          maxToRenderPerBatch={8}
+          initialNumToRender={10}
+          removeClippedSubviews={true}
         />
       ) : (
         <View style={styles.emptyContainer}>
-          <Ionicons name="notifications-off" size={64} color={theme.textSecondary} />
-          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-            {filter === 'all' ? 'Sin notificaciones' : 'Sin notificaciones en esta categoría'}
+          <View style={[styles.emptyIconWrapper, { backgroundColor: isDark ? '#1E1E22' : '#F5F5F7' }]}>
+            <Ionicons name="notifications-off-outline" size={48} color={isDark ? '#444' : '#C7C7CC'} />
+          </View>
+          <Text style={[styles.emptyTitle, { color: theme.text }]}>
+            {filter === 'all' ? 'Sin notificaciones' : 'Sin notificaciones aquí'}
+          </Text>
+          <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
+            {filter === 'unread' ? 'Estás al día, todo leído.' :
+             filter === 'tasks' ? 'No hay notificaciones de tareas.' :
+             filter === 'areas' ? 'No hay notificaciones de áreas.' :
+             'Las notificaciones aparecerán aquí cuando tengas actividad.'}
           </Text>
         </View>
       )}
 
-      <Toast visible={showToast} message={toastMessage} onDismiss={() => setShowToast(false)} />
       </View>
     </View>
   );
@@ -523,9 +583,110 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 12,
+    paddingHorizontal: 32,
+  },
+  emptyIconWrapper: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   emptyText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 4,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  unreadBadgeFilter: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  unreadBadgeFilterText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+});
+
+// Static styles for NotificationCard (no theme dependency — theme passed as prop)
+const cardStyles = StyleSheet.create({
+  notificationCard: {
+    flexDirection: 'row',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 8,
+  },
+  notificationTouchable: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingRight: 8,
+  },
+  notificationIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notificationContent: {
+    flex: 1,
+    gap: 4,
+  },
+  notificationTitle: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  notificationBody: {
+    fontSize: 12,
+  },
+  notificationTime: {
+    fontSize: 11,
+  },
+  unreadBadge: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    alignSelf: 'center',
+  },
+  deleteButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 59, 48, 0.15)',
+    zIndex: 10,
+    cursor: Platform.OS === 'web' ? 'pointer' : undefined,
   },
 });

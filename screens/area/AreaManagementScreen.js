@@ -18,20 +18,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../contexts/ThemeContext';
 import { subscribeToAreas, deleteArea } from '../../services/area/areaManagement';
-import Toast from '../../components/Toast';
+import { useNotification } from '../../contexts/NotificationContext';
 import AreaFormModal from './AreaFormModal';
 import WebSafeBlur from '../../components/WebSafeBlur';
+import ShimmerEffect from '../../components/ShimmerEffect';
 
 export default function AreaManagementScreen({ navigation }) {
   const { theme, isDark } = useTheme();
+  const { showSuccess, showError } = useNotification();
   const [areas, setAreas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingArea, setEditingArea] = useState(null);
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState('success');
 
   const styles = React.useMemo(() => createStyles(theme, isDark), [theme, isDark]);
 
@@ -49,12 +48,6 @@ export default function AreaManagementScreen({ navigation }) {
       }
     };
   }, []);
-
-  const showToast = (message, type = 'success') => {
-    setToastMessage(message);
-    setToastType(type);
-    setToastVisible(true);
-  };
 
   const handleCreateArea = () => {
     setEditingArea(null);
@@ -83,9 +76,9 @@ export default function AreaManagementScreen({ navigation }) {
     if (confirmDelete) {
       const result = await deleteArea(area.id);
       if (result.success) {
-        showToast(`Área "${area.nombre}" eliminada correctamente`, 'success');
+        showSuccess(`Área "${area.nombre}" eliminada correctamente`);
       } else {
-        showToast(result.error || 'Error al eliminar el área', 'error');
+        showError(result.error || 'Error al eliminar el área');
       }
     }
   };
@@ -99,7 +92,7 @@ export default function AreaManagementScreen({ navigation }) {
   const onModalClose = () => {
     setModalVisible(false);
     setEditingArea(null);
-    showToast('Área actualizada correctamente', 'success');
+    showSuccess('Área actualizada correctamente');
   };
 
   // Agrupar áreas por tipo
@@ -164,8 +157,12 @@ export default function AreaManagementScreen({ navigation }) {
             </View>
           </WebSafeBlur>
         </LinearGradient>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.primary} />
+        <View style={{ flex: 1, padding: 16 }}>
+          {[1,2,3,4,5].map(i => (
+            <View key={i} style={{ marginBottom: 12 }}>
+              <ShimmerEffect width="100%" height={72} borderRadius={12} />
+            </View>
+          ))}
         </View>
       </View>
     );
@@ -249,12 +246,11 @@ export default function AreaManagementScreen({ navigation }) {
         onClose={() => setModalVisible(false)}
         editingArea={editingArea}
         onSuccess={onModalClose}
-        onError={(error) => showToast(error, 'error')}
+        onError={(error) => showError(error)}
         theme={theme}
         isDark={isDark}
       />
 
-      <Toast visible={toastVisible} message={toastMessage} type={toastType} onDismiss={() => setToastVisible(false)} />
     </View>
   );
 }

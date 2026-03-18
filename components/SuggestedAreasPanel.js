@@ -90,7 +90,7 @@ export default function SuggestedAreasPanel({
             }
           }
         } catch (error) {
-          console.error(`Error cargando áreas del usuario ${user.email}:`, error);
+          if (__DEV__) console.error(`Error cargando áreas del usuario ${user.email}:`, error);
         }
       }
 
@@ -102,7 +102,7 @@ export default function SuggestedAreasPanel({
       
       setSuggestedAreas(unselectedAreas);
     } catch (error) {
-      console.error('Error cargando áreas sugeridas:', error);
+      if (__DEV__) console.error('Error cargando áreas sugeridas:', error);
       setSuggestedAreas([]);
     } finally {
       setLoading(false);
