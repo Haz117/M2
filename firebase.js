@@ -1,8 +1,12 @@
 // firebase.js
 // Configuración mínima para Firebase v9 modular + helper para Firestore
 import { initializeApp, getApps } from 'firebase/app';
-import { 
-  getFirestore, 
+import {
+  initializeFirestore,
+  getFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  memoryLocalCache,
   serverTimestamp,
   collection,
   doc,
@@ -62,8 +66,24 @@ try {
   analytics = null;
 }
 
-// Inicializar Firestore
-const db = getFirestore(app);
+// Inicializar Firestore con persistencia offline
+// - Web: IndexedDB (multi-tab) → los datos persisten aunque se cierre el navegador
+// - Nativo: memoria (AsyncStorage lo maneja la propia app)
+let db;
+try {
+  if (Platform.OS === 'web') {
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
+    });
+  } else {
+    db = getFirestore(app);
+  }
+} catch (e) {
+  // Si ya fue inicializado (hot reload), reutilizar instancia existente
+  db = getFirestore(app);
+}
 
 // Inicializar Storage
 let storage = null;
