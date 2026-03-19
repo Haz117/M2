@@ -385,6 +385,14 @@ export default function HomeScreen({ navigation }) {
     try {
       const task = tasks.find(t => t.id === taskId);
       const previousStatus = task?.status;
+
+      // Verificar permisos antes de cambiar estado
+      const permCheck = canChangeTaskStatus(currentUser, task, newStatus);
+      if (!permCheck.canChange) {
+        showWarning(permCheck.reason || 'No tienes permisos para este cambio');
+        return;
+      }
+
       hapticMedium();
       await updateTask(taskId, { status: newStatus });
 

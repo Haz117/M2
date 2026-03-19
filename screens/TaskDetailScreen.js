@@ -248,7 +248,9 @@ export default function TaskDetailScreen({ route, navigation }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const priorities = ['baja', 'media', 'alta'];
-  const statuses = ['pendiente', 'en_proceso', 'en_revision', 'cerrada'];
+  const statuses = currentUser?.role === 'admin'
+    ? ['pendiente', 'en_proceso', 'en_revision', 'cerrada']
+    : ['pendiente', 'en_proceso', 'en_revision'];
 
   // Mapeo de áreas a departamentos (usar useMemo para evitar recrear objetos)
   const areaToDepMap = useMemo(() => ({

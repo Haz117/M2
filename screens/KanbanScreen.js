@@ -1292,7 +1292,7 @@ export default function KanbanScreen({ navigation }) {
 
               <Text style={[styles.contextLabel, { color: theme.textSecondary, marginTop: 16 }]}>Cambiar estado:</Text>
               <View style={styles.statusOptions}>
-                {STATUSES.map(status => (
+                {STATUSES.filter(s => s.key !== 'cerrada' || currentUser?.role === 'admin').map(status => (
                   <TouchableOpacity
                     key={status.key}
                     style={[

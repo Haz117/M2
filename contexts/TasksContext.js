@@ -27,6 +27,30 @@ function filterTasksByRole(allTasks, user) {
   const myEmail = user.email?.toLowerCase().trim();
   if (!myEmail) return [];
 
+  // Secretario: ve sus propias tareas + tareas del área que administra (sus directores adscritos)
+  if (user.role === 'secretario') {
+    const myAreas = new Set(
+      [user.area, ...(user.direcciones || []), ...(user.areasPermitidas || [])]
+        .filter(Boolean)
+        .map(a => a.toLowerCase().trim())
+    );
+    return allTasks.filter(task => {
+      // Tareas asignadas directamente al secretario
+      const assignedTo = task.assignedTo || [];
+      const assignees = Array.isArray(assignedTo)
+        ? assignedTo.map(e => (typeof e === 'string' ? e : e?.email || '')?.toLowerCase().trim())
+        : [(assignedTo || '').toLowerCase().trim()];
+      if (assignees.includes(myEmail)) return true;
+      // Tareas del área del secretario (incluye las de sus directores adscritos)
+      if (myAreas.size > 0) {
+        const taskArea = (task.area || '').toLowerCase().trim();
+        if (myAreas.has(taskArea)) return true;
+      }
+      return false;
+    });
+  }
+
+  // Director y otros roles: solo tareas asignadas a ellos
   return allTasks.filter(task => {
     const assignedTo = task.assignedTo || [];
     const assignees = Array.isArray(assignedTo)

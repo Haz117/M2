@@ -273,19 +273,18 @@ export function canChangeTaskStatus(user, task, newStatus = null) {
     ? assignedTo.some(email => email?.toLowerCase().trim() === user.email?.toLowerCase().trim())
     : assignedTo?.toLowerCase().trim() === user.email?.toLowerCase().trim();
   
-  // 🔒 DIRECTOR: Solo puede marcar como completada (cerrada) o enviar a revisión
-  // NO puede reabrir, NO puede crear, NO puede cambiar fechas
+  // 🔒 DIRECTOR: Puede iniciar y enviar a revisión, pero NO puede cerrar
   if (user.role === ROLES.DIRECTOR) {
     if (!isAssigned) {
       return { canChange: false, reason: 'Solo puedes gestionar tareas asignadas a ti', allowedStatuses: [] };
     }
-    
+
     const currentStatus = task.status || 'pendiente';
     const allowedTransitions = {
-      'pendiente': ['en_proceso'],          // Puede iniciar tarea
-      'en_proceso': ['en_revision'],        // Puede enviar a revisión
-      'en_revision': ['cerrada'],           // Puede completar (si el admin/secretario la devuelve)
-      'cerrada': []                          // NO puede reabrir
+      'pendiente': ['en_proceso'],   // Puede iniciar tarea
+      'en_proceso': ['en_revision'], // Puede enviar a revisión
+      'en_revision': [],             // Solo el admin puede cerrar
+      'cerrada': []                  // NO puede reabrir
     };
     
     const allowed = allowedTransitions[currentStatus] || [];
@@ -301,12 +300,15 @@ export function canChangeTaskStatus(user, task, newStatus = null) {
     return { canChange: true, reason: 'Puedes avanzar el status de tu tarea', allowedStatuses: allowed };
   }
   
-  // Secretario solo puede cambiar status de tareas asignadas a él
+  // Secretario puede cambiar status de tareas asignadas a él, pero NO cerrar
   if (user.role === ROLES.SECRETARIO) {
     if (!isAssigned) {
       return { canChange: false, reason: 'Solo puedes gestionar tareas asignadas a ti', allowedStatuses: [] };
     }
-    return { canChange: true, reason: 'Secretario puede gestionar sus tareas', allowedStatuses: ['pendiente', 'en_proceso', 'en_revision', 'cerrada'] };
+    if (newStatus === 'cerrada') {
+      return { canChange: false, reason: 'Solo el administrador puede finalizar tareas', allowedStatuses: ['pendiente', 'en_proceso', 'en_revision'] };
+    }
+    return { canChange: true, reason: 'Secretario puede gestionar sus tareas', allowedStatuses: ['pendiente', 'en_proceso', 'en_revision'] };
   }
   
   return { canChange: false, reason: 'No tienes permisos para cambiar el status de esta tarea', allowedStatuses: [] };
