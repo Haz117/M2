@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Alert,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -49,6 +50,7 @@ export default function SecretarioDashboardScreen({ navigation }) {
     avgCompletionTime: 0,
   });
   const [directorMetrics, setDirectorMetrics] = useState([]);
+  const [selectedDirector, setSelectedDirector] = useState(null);
 
   useEffect(() => {
     loadInitialData();
@@ -531,6 +533,89 @@ export default function SecretarioDashboardScreen({ navigation }) {
           )}
         </View>
 
+        {/* Directores Adscritos */}
+        {directorMetrics.length > 0 && (
+          <View style={[styles.section, { backgroundColor: theme.card }]}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="people" size={20} color="#8B5CF6" />
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>Directores Adscritos</Text>
+              <View style={[styles.badge, { backgroundColor: '#8B5CF6' }]}>
+                <Text style={styles.badgeText}>{directorMetrics.length}</Text>
+              </View>
+            </View>
+
+            {directorMetrics.map((director) => (
+              <View
+                key={director.id}
+                style={[styles.directorCard, { backgroundColor: isDark ? '#2A2A30' : '#F8F7FF', borderColor: isDark ? '#3A3A45' : '#E5E7EB' }]}
+              >
+                {/* Cabecera: avatar + nombre + badge cumplimiento */}
+                <View style={styles.directorHeader}>
+                  <Avatar name={director.displayName || director.email} size={40} />
+                  <View style={styles.directorInfo}>
+                    <Text style={[styles.directorName, { color: theme.text }]} numberOfLines={1}>
+                      {director.displayName || director.email}
+                    </Text>
+                    <Text style={[styles.directorArea, { color: theme.textSecondary }]} numberOfLines={1}>
+                      {director.area || 'Sin área'}
+                    </Text>
+                  </View>
+                  <View style={[styles.complianceBadge, { backgroundColor: getCompletionColor(director.areaCompletionRate) + '20' }]}>
+                    <Text style={[styles.complianceValue, { color: getCompletionColor(director.areaCompletionRate) }]}>
+                      {director.areaCompletionRate}%
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Stats: total · pendientes · vencidas · completadas */}
+                <View style={styles.directorStats}>
+                  <View style={styles.directorStat}>
+                    <Text style={[styles.directorStatValue, { color: theme.text }]}>{director.areaTotalTasks}</Text>
+                    <Text style={[styles.directorStatLabel, { color: theme.textSecondary }]}>Total</Text>
+                  </View>
+                  <View style={styles.directorStat}>
+                    <Text style={[styles.directorStatValue, { color: '#F59E0B' }]}>{director.areaPendingTasks}</Text>
+                    <Text style={[styles.directorStatLabel, { color: theme.textSecondary }]}>Pendientes</Text>
+                  </View>
+                  <View style={styles.directorStat}>
+                    <Text style={[styles.directorStatValue, { color: '#EF4444' }]}>{director.areaOverdueTasks}</Text>
+                    <Text style={[styles.directorStatLabel, { color: theme.textSecondary }]}>Vencidas</Text>
+                  </View>
+                  <View style={styles.directorStat}>
+                    <Text style={[styles.directorStatValue, { color: '#34C759' }]}>{director.areaCompletedTasks}</Text>
+                    <Text style={[styles.directorStatLabel, { color: theme.textSecondary }]}>Completadas</Text>
+                  </View>
+                </View>
+
+                {/* Barra de cumplimiento */}
+                <ProgressBar
+                  progress={director.areaCompletionRate}
+                  color={getCompletionColor(director.areaCompletionRate)}
+                  size="small"
+                />
+
+                {/* Acciones */}
+                <View style={styles.directorActions}>
+                  <TouchableOpacity
+                    style={[styles.directorActionBtn, { borderColor: theme.border }]}
+                    onPress={() => navigation.navigate('Home', { filterArea: director.area })}
+                  >
+                    <Ionicons name="list-outline" size={15} color={theme.textSecondary} />
+                    <Text style={[styles.directorActionText, { color: theme.textSecondary }]}>Ver tareas</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.directorActionBtn, { borderColor: '#3B82F6', backgroundColor: '#3B82F620' }]}
+                    onPress={() => setSelectedDirector(director)}
+                  >
+                    <Ionicons name="chatbubble-outline" size={15} color="#3B82F6" />
+                    <Text style={[styles.directorActionText, { color: '#3B82F6' }]}>Mensajear</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Acciones Rápidas */}
         <View style={[styles.section, { backgroundColor: theme.card }]}>
           <View style={styles.sectionHeader}>
@@ -581,6 +666,82 @@ export default function SecretarioDashboardScreen({ navigation }) {
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Modal: seleccionar tarea del director para mensajear */}
+      <Modal
+        visible={!!selectedDirector}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedDirector(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modalTitle, { color: theme.text }]} numberOfLines={1}>
+                  {selectedDirector?.displayName || selectedDirector?.email}
+                </Text>
+                <Text style={[styles.modalSubtitle, { color: theme.textSecondary }]}>
+                  Selecciona una tarea para enviar mensaje
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setSelectedDirector(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={24} color={theme.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {tasks
+                .filter(t =>
+                  (Array.isArray(t.assignedTo)
+                    ? t.assignedTo.some(e => e?.toLowerCase() === selectedDirector?.email?.toLowerCase())
+                    : t.assignedTo?.toLowerCase() === selectedDirector?.email?.toLowerCase()
+                  ) || t.area === selectedDirector?.area
+                )
+                .filter(t => t.status !== 'cerrada')
+                .slice(0, 15)
+                .map(task => (
+                  <TouchableOpacity
+                    key={task.id}
+                    style={[styles.taskRow, { borderBottomColor: theme.border }]}
+                    onPress={() => {
+                      setSelectedDirector(null);
+                      navigation.navigate('TaskChat', { taskId: task.id, taskTitle: task.title });
+                    }}
+                  >
+                    <View style={[styles.taskStatusIcon, {
+                      backgroundColor: task.status === 'en_proceso' ? '#3B82F620'
+                        : task.status === 'en_revision' ? '#9C27B020' : '#F59E0B20'
+                    }]}>
+                      <Ionicons
+                        name={task.status === 'en_proceso' ? 'play-circle' : task.status === 'en_revision' ? 'eye' : 'time'}
+                        size={16}
+                        color={task.status === 'en_proceso' ? '#3B82F6' : task.status === 'en_revision' ? '#9C27B0' : '#F59E0B'}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.taskRowTitle, { color: theme.text }]} numberOfLines={1}>{task.title}</Text>
+                      <Text style={[styles.taskRowArea, { color: theme.textSecondary }]} numberOfLines={1}>{task.area || 'Sin área'}</Text>
+                    </View>
+                    <Ionicons name="chatbubble-outline" size={18} color="#3B82F6" />
+                  </TouchableOpacity>
+                ))}
+
+              {tasks.filter(t =>
+                (Array.isArray(t.assignedTo)
+                  ? t.assignedTo.some(e => e?.toLowerCase() === selectedDirector?.email?.toLowerCase())
+                  : t.assignedTo?.toLowerCase() === selectedDirector?.email?.toLowerCase()
+                ) || t.area === selectedDirector?.area
+              ).filter(t => t.status !== 'cerrada').length === 0 && (
+                <View style={styles.emptyState}>
+                  <Ionicons name="document-text-outline" size={40} color={theme.textSecondary} />
+                  <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Sin tareas activas</Text>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -778,12 +939,81 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
-  directorScore: {
-    alignItems: 'flex-end',
+  complianceBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    marginLeft: 8,
   },
-  directorScoreValue: {
-    fontSize: 20,
+  complianceValue: {
+    fontSize: 16,
     fontWeight: '700',
+  },
+  directorActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  directorActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  directorActionText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: '75%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  taskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  taskStatusIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  taskRowTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  taskRowArea: {
+    fontSize: 12,
+    marginTop: 2,
   },
   directorStats: {
     flexDirection: 'row',
