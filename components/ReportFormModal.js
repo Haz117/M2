@@ -686,7 +686,6 @@ const ReportFormModal = ({ visible, onClose, taskId, onSuccess }) => {
       visible={visible}
       transparent
       animationType="fade"
-      statusBarTranslucent
     >
       <WebSafeBlur intensity={70} style={styles.container}>
         <TouchableOpacity

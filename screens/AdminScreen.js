@@ -19,6 +19,9 @@ import { useTasks } from '../contexts/TasksContext';
 import { useResponsive } from '../utils/responsive';
 import { MAX_WIDTHS } from '../theme/tokens';
 
+const ROLE_LABELS = { director: 'Director', secretario: 'Secretario', admin: 'Admin', otros: 'Otros' };
+const ROLE_COLORS = { director: '#0EA5E9', secretario: '#8B5CF6', admin: '#EF4444', otros: '#F59E0B' };
+
 export default function AdminScreen({ navigation, onLogout }) {
   const { isDark, toggleTheme, theme } = useTheme();
   const { isDesktop } = useResponsive();
@@ -244,9 +247,6 @@ export default function AdminScreen({ navigation, onLogout }) {
       showError('No se pudo cambiar el rol: ' + error.message);
     }
   };
-
-  const ROLE_LABELS = { director: 'Director', secretario: 'Secretario', admin: 'Admin', otros: 'Otros' };
-  const ROLE_COLORS = { director: '#0EA5E9', secretario: '#8B5CF6', admin: '#EF4444', otros: '#F59E0B' };
 
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

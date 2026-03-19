@@ -250,7 +250,6 @@ const ExportReportModal = ({ visible, onClose, report, task, allReports = [] }) 
       visible={visible}
       transparent
       animationType="fade"
-      statusBarTranslucent
     >
       <WebSafeBlur intensity={70} style={styles.container}>
         <TouchableOpacity
