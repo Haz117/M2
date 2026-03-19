@@ -22,7 +22,8 @@ export const TasksContext = globalThis.__TASKS_CONTEXT__;
  * En ambos casos la regla es idéntica: el email del usuario debe estar en assignedTo.
  */
 function filterTasksByRole(allTasks, user) {
-  if (!user || user.role === 'admin') return allTasks;
+  if (!user) return []; // Sesión aún no cargada — no exponer tareas
+  if (user.role === 'admin') return allTasks;
 
   const myEmail = user.email?.toLowerCase().trim();
   if (!myEmail) return [];

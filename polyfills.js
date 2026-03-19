@@ -7,8 +7,14 @@ if (typeof global === 'undefined') {
 }
 
 // Polyfills críticos para reanimated
-window.identical = window.identical || function(a, b) { return a === b; };
-global.identical = global.identical || function(a, b) { return a === b; };
+try {
+  if (typeof window !== 'undefined') {
+    window.identical = window.identical || function(a, b) { return a === b; };
+  }
+} catch (e) {}
+if (typeof global !== 'undefined') {
+  global.identical = global.identical || function(a, b) { return a === b; };
+}
 
 // Mockear _WORKLET si no existe
 if (typeof global._WORKLET === 'undefined') {

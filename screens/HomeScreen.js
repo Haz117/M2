@@ -46,7 +46,7 @@ export default function HomeScreen({ navigation }) {
 
   // 🌍 USAR EL CONTEXT GLOBAL DE TAREAS
   const { tasks, setTasks, isLoading: tasksLoading } = useTasks();
-  const [isLoading, setIsLoading] = useState(tasksLoading);
+  const isLoading = tasksLoading; // Derivado directo, sin estado duplicado
   const [title, setTitle] = useState('');
   const [searchText, setSearchText] = useState('');
   const [quickStatusFilter, setQuickStatusFilter] = useState('todas'); // 'todas', 'pendiente', 'en-progreso', 'revision', 'cerrada'
@@ -203,38 +203,35 @@ export default function HomeScreen({ navigation }) {
     }, 1000);
   }, []);
 
-  // Suscribirse a cambios en tiempo real de Firebase (optimizado)
+  // Animar lista y detectar urgentes cuando cargan las tareas
   useEffect(() => {
-    // Actualizar isLoading desde el contexto
-    setIsLoading(tasksLoading);
-
-    // Animar entrada de la lista cuando las tareas se cargan
-    if (!tasksLoading && tasks.length > 0 && fadeAnim._value !== 1) {
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }).start();
+    if (!tasksLoading && tasks.length > 0) {
+      // Animar entrada
+      if (fadeAnim._value !== 1) {
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }).start();
+      }
+      // Detectar tareas urgentes y mostrar modal (solo la primera vez)
+      if (fadeAnim._value === 0) {
+        setTimeout(() => {
+          const now = Date.now();
+          const sixHours = 6 * 60 * 60 * 1000;
+          const urgent = tasks.filter(task => {
+            if (task.status === 'cerrada') return false;
+            const due = toMs(task.dueAt);
+            const timeLeft = due - now;
+            return timeLeft > 0 && timeLeft < sixHours;
+          });
+          if (urgent.length > 0) {
+            setShowUrgentModal(true);
+          }
+        }, 1200);
+      }
     }
-
-    // Detectar tareas urgentes y mostrar modal
-    if (!tasksLoading && tasks.length > 0 && fadeAnim._value === 0) {
-      setTimeout(() => {
-        const now = Date.now();
-        const sixHours = 6 * 60 * 60 * 1000;
-        const urgent = tasks.filter(task => {
-          if (task.status === 'cerrada') return false;
-          const due = toMs(task.dueAt);
-          const timeLeft = due - now;
-          return timeLeft > 0 && timeLeft < sixHours;
-        });
-        
-        if (urgent.length > 0) {
-          setShowUrgentModal(true);
-        }
-      }, 1200);
-    }
-  }, [tasks, tasksLoading]);
+  }, [tasksLoading]);
 
   // Navegar a pantalla para crear nueva tarea (admin)
   const goToCreate = useCallback(() => {

@@ -6,6 +6,7 @@ const __DEV__ = false; // Cambiar a true para depuración
 const log = __DEV__ ? console.log : () => {};
 import { toMs } from '../utils/dateUtils';
 import { isTaskAssignedToUser } from '../utils/taskHelpers';
+import { getDireccionesBySecretaria, resolveAreaName } from '../config/areas';
 
 import { 
   collection, 
@@ -119,25 +120,30 @@ export async function subscribeToTasks(callback) {
     
     const userRole = session.role;
     const userEmail = session.email;
-    const userDepartment = session.department;
     const userArea = session.area || '';
     const userDirecciones = session.direcciones || [];
-    const userAreasPermitidas = session.areasPermitidas || [...(session.area ? [session.area] : []), ...userDirecciones];
+
+    // Construir lista de áreas permitidas usando config/areas.js como fuente de verdad
+    // (misma lógica que SecretarioDashboardScreen, MyInboxScreen, ReportsScreen)
+    const secAreaCanonical = resolveAreaName(userArea);
+    const oficiales = getDireccionesBySecretaria(secAreaCanonical);
+    const allowedAreas = new Set(
+      [secAreaCanonical, ...oficiales, ...userDirecciones]
+        .filter(Boolean)
+        .map(a => a.toLowerCase().trim())
+    );
 
     // Función para filtrar tareas según rol
     const filterTasksByRole = (tasks) => {
       let filtered = tasks;
-      
+
       if (userRole === 'secretario') {
         filtered = tasks.filter(task => {
           const taskArea = (task.area || '').toLowerCase().trim();
-          // Verificar si está en las áreas permitidas del secretario
-          const inArea = userAreasPermitidas.some(a => a?.toLowerCase().trim() === taskArea);
-          // Verificar si la creó
+          // Solo match si taskArea no está vacío y está en las áreas del secretario
+          const inArea = taskArea !== '' && allowedAreas.has(taskArea);
           const isCreator = task.createdBy?.toLowerCase().trim() === userEmail?.toLowerCase().trim();
-          // 🔥 NUEVO: Verificar si está asignado a la tarea
           const isAssigned = isTaskAssignedToUser(task, userEmail);
-          
           return inArea || isCreator || isAssigned;
         });
         

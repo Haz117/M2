@@ -4,7 +4,7 @@
  * Eliminates duplicate toast state from 15+ screens
  */
 
-import React, { createContext, useState, useContext, useCallback } from 'react';
+import React, { createContext, useState, useContext, useCallback, useMemo, useRef } from 'react';
 import Toast from 'react-native-toast-message';
 
 // Use globalThis to ensure shared instances for lazy-loaded bundles
@@ -38,6 +38,7 @@ export const useNotification = () => {
 export const NotificationProvider = ({ children }) => {
   const [currentNotification, setCurrentNotification] = useState(null);
   const [notificationQueue, setNotificationQueue] = useState([]);
+  const notificationQueueRef = useRef([]);
 
   /**
    * Show a notification with specified type and message
@@ -81,15 +82,16 @@ export const NotificationProvider = ({ children }) => {
       onHide: () => {
         setCurrentNotification(null);
         onClose?.();
-        // Process queue if there are pending notifications
-        if (notificationQueue.length > 0) {
-          const next = notificationQueue[0];
-          setNotificationQueue(prev => prev.slice(1));
+        // Process queue using ref to avoid stale closure
+        if (notificationQueueRef.current.length > 0) {
+          const next = notificationQueueRef.current[0];
+          notificationQueueRef.current = notificationQueueRef.current.slice(1);
+          setNotificationQueue(notificationQueueRef.current);
           showNotification(next);
         }
       },
     });
-  }, [notificationQueue]);
+  }, []);
 
   /**
    * Hide current notification
@@ -151,10 +153,11 @@ export const NotificationProvider = ({ children }) => {
    * Queue a notification to show after current one
    */
   const queueNotification = useCallback((notification) => {
-    setNotificationQueue(prev => [...prev, notification]);
+    notificationQueueRef.current = [...notificationQueueRef.current, notification];
+    setNotificationQueue(notificationQueueRef.current);
   }, []);
 
-  const value = {
+  const value = useMemo(() => ({
     showNotification,
     hideNotification,
     showError,
@@ -163,7 +166,7 @@ export const NotificationProvider = ({ children }) => {
     showWarning,
     queueNotification,
     currentNotification,
-  };
+  }), [showNotification, hideNotification, showError, showSuccess, showInfo, showWarning, queueNotification, currentNotification]);
 
   return (
     <NotificationContext.Provider value={value}>

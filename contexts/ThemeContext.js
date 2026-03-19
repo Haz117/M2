@@ -1,6 +1,6 @@
 // contexts/ThemeContext.js
 // Contexto para manejar el tema (claro/oscuro) de la aplicación
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Usar globalThis para que React.lazy() bundles compartan la misma instancia de contexto
@@ -63,7 +63,7 @@ export const ThemeProvider = ({ children }) => {
     }
   };
 
-  const toggleTheme = async () => {
+  const toggleTheme = useCallback(async () => {
     try {
       const newTheme = !isDark;
       setIsDark(newTheme);
@@ -71,9 +71,10 @@ export const ThemeProvider = ({ children }) => {
     } catch (error) {
       // Error saving theme
     }
-  };
+  }, [isDark]);
 
-  const theme = {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const theme = useMemo(() => ({
     // ========== COLORES PRINCIPALES ==========
     primary: isDark ? '#B8314F' : '#9F2241',
     primaryLight: isDark ? '#C75064' : '#C72C54',
@@ -224,10 +225,16 @@ export const ThemeProvider = ({ children }) => {
     iconInactive: isDark ? '#808080' : '#8E8E93',
 
     isDark,
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [isDark]);
+
+  const contextValue = useMemo(
+    () => ({ isDark, toggleTheme, theme }),
+    [isDark, toggleTheme, theme]
+  );
 
   return (
-    <ThemeContext.Provider value={{ isDark, toggleTheme, theme }}>
+    <ThemeContext.Provider value={contextValue}>
       {children}
     </ThemeContext.Provider>
   );

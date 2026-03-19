@@ -164,11 +164,14 @@ function MainTabs({ onLogout }) {
       if (currentUser.role === 'admin') {
         userOverdue = tasks.filter(t => toMs(t.dueAt) < now && t.status !== 'cerrada');
       } else {
-        userOverdue = tasks.filter(t =>
-          toMs(t.dueAt) < now &&
-          t.status !== 'cerrada' &&
-          t.assignedTo === currentUser.email
-        );
+        const myEmail = currentUser.email?.toLowerCase().trim() || '';
+        userOverdue = tasks.filter(t => {
+          if (toMs(t.dueAt) >= now || t.status === 'cerrada') return false;
+          const at = t.assignedTo;
+          if (!at) return false;
+          if (Array.isArray(at)) return at.some(e => (typeof e === 'string' ? e : e?.email || '').toLowerCase().trim() === myEmail);
+          return (at || '').toLowerCase().trim() === myEmail;
+        });
       }
 
       // 🔔 Calcular tareas urgentes (vencidas + próximas a vencer en <24h)
@@ -599,46 +602,44 @@ export default function App() {
         {/* Indicador de reportes pendientes de sincronizar */}
         {isAuthenticated && <OfflineSyncIndicator compact={true} />}
         
+        <NotificationProvider>
+        <TasksProvider>
         <NavigationContainer ref={navigationRef} key={`navigation-${forceUpdate}`}>
-          <Stack.Navigator 
-            screenOptions={{ 
+          <Stack.Navigator
+            screenOptions={{
               headerShown: false,
               animation: 'slide_from_right',
               animationDuration: 250,
             }}
           >
             {!isAuthenticated ? (
-              <Stack.Screen 
+              <Stack.Screen
                 name="Login"
                 options={{ animation: 'fade' }}
               >
                 {(props) => (
                   <Suspense fallback={<ScreenFallback />}>
-                    <LoginScreen 
-                      {...props} 
+                    <LoginScreen
+                      {...props}
                       onLogin={() => {
                         setIsAuthenticated(true);
                         setForceUpdate(prev => prev + 1);
-                      }} 
+                      }}
                     />
                   </Suspense>
                 )}
               </Stack.Screen>
             ) : (
               <>
-                <Stack.Screen 
+                <Stack.Screen
                   name="Main"
                   options={{ animation: 'fade' }}
                 >
                   {(props) => (
-                    <NotificationProvider>
-                      <TasksProvider>
-                        <MainTabs 
-                          {...props}
-                          onLogout={handleLogout}
-                        />
-                      </TasksProvider>
-                    </NotificationProvider>
+                    <MainTabs
+                      {...props}
+                      onLogout={handleLogout}
+                    />
                   )}
                 </Stack.Screen>
                 <Stack.Screen 
@@ -777,6 +778,8 @@ export default function App() {
             )}
           </Stack.Navigator>
         </NavigationContainer>
+        </TasksProvider>
+        </NotificationProvider>
         <Toast />
         {/* Vercel Analytics - Solo en web */}
         {Platform.OS === 'web' && Analytics && <Analytics />}

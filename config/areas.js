@@ -1,22 +1,35 @@
 // config/areas.js
 // Configuración centralizada de todas las Secretarías y Direcciones del municipio
-// Actualizado: Febrero 2026
+// Actualizado: Marzo 2026 — estructura oficial del organigrama municipal
 
 export const SECRETARIAS = [
+  'Despacho de la Presidencia',
   'Secretaría General Municipal',
   'Secretaría de Tesorería Municipal',
   'Secretaría de Obras Públicas y Desarrollo Urbano',
   'Secretaría de Planeación y Evaluación',
+  'Secretaría de Desarrollo Económico y Turismo',
   'Secretaría de Bienestar Social',
   'Secretaría de Seguridad Pública, Tránsito Municipal, Auxilio Vial y Protección Civil',
   'Secretaría de Desarrollo para Pueblos y Comunidades Indígenas',
-  'Secretaría de Desarrollo Económico y Turismo',
-  // Órganos autónomos con estructura jerárquica
   'Contraloría Municipal',
 ];
 
 // Mapeo de Secretarías a sus Direcciones
+// Fuente de verdad: organigrama oficial del municipio (Marzo 2026)
 export const SECRETARIAS_DIRECCIONES = {
+  // Despacho del Presidente Municipal — José Emanuel Hernández Pascual
+  'Despacho de la Presidencia': [
+    'Dirección de Audiencias y Atención Ciudadana',
+    'Secretaría Particular y Relaciones Públicas',
+    'Dirección de Logística y Eventos',
+    'Dirección Jurídica',
+    'Instancia Municipal para el Desarrollo de las Mujeres',
+    'Dirección de Comunicación Social y Marketing Digital',
+    'Secretaría Ejecutiva de SIPINNA',
+  ],
+
+  // Secretaría General Municipal — José Manuel Zúñiga Guerrero
   'Secretaría General Municipal': [
     'Dirección de Gobierno',
     'Conciliación Municipal',
@@ -27,8 +40,10 @@ export const SECRETARIAS_DIRECCIONES = {
     'Dirección de Atención al Migrante',
     'Dirección de Recursos Materiales y Patrimonio',
     'Junta de Reclutamiento',
-    'Dirección de Enlace de la Secretaría de Relaciones Exteriores',
+    'Coordinación de Agenda y Atención Ciudadana',
   ],
+
+  // Secretaría de Tesorería Municipal — Rubén Martínez Sánchez
   'Secretaría de Tesorería Municipal': [
     'Dirección de Cuenta Pública',
     'Dirección de Control y Seguimiento de Egresos',
@@ -37,17 +52,28 @@ export const SECRETARIAS_DIRECCIONES = {
     'Dirección de Administración',
     'Dirección de Recursos Humanos y Nómina',
   ],
+
+  // Secretaría de Obras Públicas y Desarrollo Urbano — Iván Arturo Lugo Martín
   'Secretaría de Obras Públicas y Desarrollo Urbano': [
     'Dirección de Obras Públicas',
     'Dirección de Desarrollo Urbano y Ordenamiento Territorial',
     'Dirección de Servicios Públicos y Limpias',
     'Dirección de Servicios Municipales',
-    'Dirección de Medio Ambiente y Desarrollo Sostenible',
   ],
+
+  // Secretaría de Planeación y Evaluación — Rigoberto Barrera Roldán
   'Secretaría de Planeación y Evaluación': [
-    'Dirección de Planeación y Evaluación',
     'Dirección de Tecnologías de la Información',
   ],
+
+  // Secretaría de Desarrollo Económico y Turismo — Lucila Ocampo Valle
+  'Secretaría de Desarrollo Económico y Turismo': [
+    'Dirección de Turismo',
+    'Dirección de Desarrollo Agropecuario y Proyectos Productivos',
+    'Dirección de Desarrollo Económico',
+  ],
+
+  // Secretaría de Bienestar Social — Socorro Vargas Chávez
   'Secretaría de Bienestar Social': [
     'Dirección de Cultura',
     'Dirección del Deporte',
@@ -56,24 +82,18 @@ export const SECRETARIAS_DIRECCIONES = {
     'Dirección de Programas Sociales',
     'Instancia Municipal de la Juventud',
   ],
+
+  // Secretaría de Seguridad Pública — Diadymir Morelos Esquivel
   'Secretaría de Seguridad Pública, Tránsito Municipal, Auxilio Vial y Protección Civil': [
     'Dirección de Protección Civil y Bomberos',
-    'Policía de Atención a la Violencia Contra la Mujer',
-    'Dirección Administrativa',
-    'Dirección Preventiva, Tránsito Municipal y Auxilio Vial',
-    'Dirección de Prevención del Delito',
   ],
+
+  // Secretaría de Desarrollo para Pueblos y Comunidades Indígenas — Lupita Anneth Patricio Reyes
   'Secretaría de Desarrollo para Pueblos y Comunidades Indígenas': [],
-  'Secretaría de Desarrollo Económico y Turismo': [
-    'Dirección de Turismo',
-    'Dirección de Desarrollo Económico',
-    'Dirección de Desarrollo Agropecuario y Proyectos Productivos',
-  ],
-  // Órganos autónomos con estructura jerárquica
+
+  // Contraloría Municipal — Marianne Citlalli Chávez Guerrero (entidad autónoma)
   'Contraloría Municipal': [
-    'Unidad de Investigación',
-    'Unidad de Resolución',
-    'Unidad de Substanciación',
+    'Dirección de la Unidad de Investigación',
     'Unidad Municipal de Transparencia y Acceso a la Información',
   ],
 };
@@ -124,12 +144,22 @@ export const getSecretariaByDireccion = (direccion) => {
 
 // Mapeo de nombres alternativos/variantes encontrados en Firestore
 export const AREA_ALIASES = {
-  'Oficialía del Registro del Estado Familiar': 'Oficial del Registro del Estado Familiar',
-  'Dirección Técnica de Planeación y Evaluación': 'Dirección de Planeación y Evaluación',
-  'Dirección de Obra Pública': 'Dirección de Obras Públicas',
+  // Variantes de secretarías
   'Secretaría de Seguridad Pública': 'Secretaría de Seguridad Pública, Tránsito Municipal, Auxilio Vial y Protección Civil',
   'Secretaría de Desarrollo Económico y Turístico': 'Secretaría de Desarrollo Económico y Turismo',
-  'Dirección de la Unidad de Investigación': 'Unidad de Investigación',
+  'Despacho Presidencial': 'Despacho de la Presidencia',
+  // Variantes de direcciones
+  'Oficialía del Registro del Estado Familiar': 'Oficial del Registro del Estado Familiar',
+  'Dirección Técnica de Planeación y Evaluación': 'Dirección de Tecnologías de la Información',
+  'Dirección de Planeación y Evaluación': 'Dirección de Tecnologías de la Información',
+  'Dirección de Obra Pública': 'Dirección de Obras Públicas',
+  'Dirección Jurídico': 'Dirección Jurídica',
+  'Director Jurídico': 'Dirección Jurídica',
+  'Contraloría': 'Contraloría Municipal',
+  'Unidad de Investigación': 'Dirección de la Unidad de Investigación',
+  'Dirección de Audiencias': 'Dirección de Audiencias y Atención Ciudadana',
+  'Conciliador Municipal': 'Conciliación Municipal',
+  'Instancia Municipal de la Juventud': 'Instancia Municipal de la Juventud',
 };
 
 // Normalizar un nombre de área a su nombre canónico en el config
@@ -139,6 +169,19 @@ export const resolveAreaName = (name) => {
 };
 
 export const DIRECCIONES = [
+  // Despacho de la Presidencia
+  'Dirección de Audiencias y Atención Ciudadana',
+  'Secretaría Particular y Relaciones Públicas',
+  'Dirección de Logística y Eventos',
+  'Dirección Jurídica',
+  'Instancia Municipal para el Desarrollo de las Mujeres',
+  'Dirección de Comunicación Social y Marketing Digital',
+  'Secretaría Ejecutiva de SIPINNA',
+
+  // Contraloría Municipal
+  'Dirección de la Unidad de Investigación',
+  'Unidad Municipal de Transparencia y Acceso a la Información',
+
   // Secretaría General Municipal
   'Dirección de Gobierno',
   'Conciliación Municipal',
@@ -149,8 +192,8 @@ export const DIRECCIONES = [
   'Dirección de Atención al Migrante',
   'Dirección de Recursos Materiales y Patrimonio',
   'Junta de Reclutamiento',
-  'Dirección de Enlace de la Secretaría de Relaciones Exteriores',
-  
+  'Coordinación de Agenda y Atención Ciudadana',
+
   // Secretaría de Tesorería Municipal
   'Dirección de Cuenta Pública',
   'Dirección de Control y Seguimiento de Egresos',
@@ -158,23 +201,21 @@ export const DIRECCIONES = [
   'Dirección de Ingresos y Estrategias de Recaudación',
   'Dirección de Administración',
   'Dirección de Recursos Humanos y Nómina',
-  
+
   // Secretaría de Obras Públicas y Desarrollo Urbano
   'Dirección de Obras Públicas',
   'Dirección de Desarrollo Urbano y Ordenamiento Territorial',
   'Dirección de Servicios Públicos y Limpias',
   'Dirección de Servicios Municipales',
-  'Dirección de Medio Ambiente y Desarrollo Sostenible',
-  
+
   // Secretaría de Planeación y Evaluación
-  'Dirección de Planeación y Evaluación',
   'Dirección de Tecnologías de la Información',
-  
+
   // Secretaría de Desarrollo Económico y Turismo
   'Dirección de Turismo',
-  'Dirección de Desarrollo Económico',
   'Dirección de Desarrollo Agropecuario y Proyectos Productivos',
-  
+  'Dirección de Desarrollo Económico',
+
   // Secretaría de Bienestar Social
   'Dirección de Cultura',
   'Dirección del Deporte',
@@ -182,32 +223,13 @@ export const DIRECCIONES = [
   'Dirección de Educación',
   'Dirección de Programas Sociales',
   'Instancia Municipal de la Juventud',
-  
-  // Secretaría de Seguridad Pública, Tránsito Municipal, Auxilio Vial y Protección Civil
+
+  // Secretaría de Seguridad Pública
   'Dirección de Protección Civil y Bomberos',
-  'Policía de Atención a la Violencia Contra la Mujer',
-  'Dirección Administrativa',
-  'Dirección Preventiva, Tránsito Municipal y Auxilio Vial',
-  'Dirección de Prevención del Delito',
-  
-  // Contraloría Municipal
-  'Unidad de Investigación',
-  'Unidad de Resolución',
-  'Unidad de Substanciación',
-  'Unidad Municipal de Transparencia y Acceso a la Información',
 ];
 
-// Otras áreas/organismos (Despacho de la Presidencia, Asamblea, Organismos Descentralizados)
+// Otras áreas/organismos (Asamblea Municipal, organismos descentralizados)
 export const OTRAS_AREAS = [
-  'Despacho de la Presidencia',
-  'Asistente del Presidente',
-  'Secretaría Particular y Relaciones Públicas',
-  'Dirección de Logística y Eventos',
-  'Dirección de Audiencias',
-  'Dirección Jurídica',
-  'Instancia Municipal para el Desarrollo de las Mujeres',
-  'Dirección de Comunicación Social y Marketing Digital',
-  'Secretaría Ejecutiva de SIPINNA',
   'Asamblea Municipal',
   'SMDIF',
   'CAPASMIH',

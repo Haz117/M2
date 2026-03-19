@@ -24,7 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNotification } from '../contexts/NotificationContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useResponsive } from '../utils/responsive';
-import { subscribeToTasks } from '../services/tasks';
+import { useTasks } from '../contexts/TasksContext';
 import { subscribeToSubtasks } from '../services/tasksMultiple';
 import { getCurrentSession } from '../services/authFirestore';
 import LoadingIndicator from '../components/LoadingIndicator';
@@ -62,11 +62,11 @@ export default function ReportsScreen({ navigation }) {
   const { theme, isDark } = useTheme();
   const { width, isDesktop, isTablet, padding } = useResponsive();
   const { showSuccess, showError } = useNotification();
-  
+  const { tasks, isLoading: tasksLoading } = useTasks();
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [period, setPeriod] = useState('week'); // 'week' | 'month' | 'quarter'
-  const [tasks, setTasks] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   
   // Stats
@@ -245,46 +245,12 @@ export default function ReportsScreen({ navigation }) {
     };
   }, [tasks]);
 
-  // Subscribe to tasks
+  // Sync loading state from context
   useEffect(() => {
-    let mounted = true;
-    let unsubscribe = null;
-
-    // Función async para obtener la suscrita
-    (async () => {
-      try {
-        unsubscribe = await subscribeToTasks((updatedTasks) => {
-          if (mounted) {
-            setTasks(updatedTasks);
-            // Forzar que se salga de loading aunque no haya tareas
-            setLoading(false);
-          }
-        });
-      } catch (error) {
-        if (__DEV__) console.warn('Error subscribing to tasks:', error);
-        if (mounted) setLoading(false);
-      }
-    })();
-
-    // Timeout de seguridad para salir de loading después de 3 segundos
-    const timeout = setTimeout(() => {
-      if (mounted) {
-        setLoading(false);
-      }
-    }, 3000);
-
-    return () => {
-      mounted = false;
-      clearTimeout(timeout);
-      if (typeof unsubscribe === 'function') {
-        try {
-          unsubscribe();
-        } catch (error) {
-          if (__DEV__) console.warn('Error unsubscribing from tasks:', error);
-        }
-      }
-    };
-  }, []);
+    if (!tasksLoading) {
+      setLoading(false);
+    }
+  }, [tasksLoading]);
 
   // Recalcular estadísticas cuando cambian las tareas O el usuario
   useEffect(() => {
@@ -453,9 +419,10 @@ export default function ReportsScreen({ navigation }) {
         if (t.createdBy?.toLowerCase().trim() === userEmail) return true;
         if (taskArea === userAreaNorm) return true;
         // Verificar si está asignado a esta tarea
-        if (t.assignedTo?.toLowerCase().trim() === userEmail) return true;
         if (Array.isArray(t.assignedTo)) {
-          if (t.assignedTo.some(e => e?.toLowerCase().trim() === userEmail)) return true;
+          if (t.assignedTo.some(e => (typeof e === 'string' ? e : e?.email || '').toLowerCase().trim() === userEmail)) return true;
+        } else if (typeof t.assignedTo === 'string') {
+          if (t.assignedTo.toLowerCase().trim() === userEmail) return true;
         }
         if (t.assignedToMultiple && Array.isArray(t.assignedToMultiple)) {
           return t.assignedToMultiple.some(a => a.email?.toLowerCase().trim() === userEmail);

@@ -28,7 +28,7 @@ export const registerUser = async (email, password, displayName, role = 'directo
     }
     
     // Crear nuevo usuario
-    const hashedPassword = simpleHash(password + email);
+    const hashedPassword = simpleHash(password + email.toLowerCase());
     const docRef = await addDoc(usersRef, {
       email: email.toLowerCase(),
       password: hashedPassword,

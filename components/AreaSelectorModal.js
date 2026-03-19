@@ -12,6 +12,7 @@ import {
   Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SECRETARIAS, DIRECCIONES } from '../config/areas';
 
 /**
  * AreaSelectorModal - Componente premium para seleccionar múltiples áreas
@@ -34,50 +35,13 @@ export default function AreaSelectorModal({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Mapeo de áreas a tipo
-  const areaTypeMap = useMemo(() => ({
-    'Secretaría General Municipal': 'secretaria',
-    'Secretaría de Tesorería Municipal': 'secretaria',
-    'Secretaría de Obras Públicas y Desarrollo Urbano': 'secretaria',
-    'Secretaría de Planeación y Evaluación': 'secretaria',
-    'Secretaría de Bienestar Social': 'secretaria',
-    'Secretaría de Seguridad Pública, Tránsito Municipal, Auxilio Vial y Protección Civil': 'secretaria',
-    'Secretaría de Desarrollo de Pueblos y Comunidades Indígenas': 'secretaria',
-    'Secretaría de Desarrollo Económico y Turismo': 'secretaria',
-    'Secretaría Ejecutiva de SIPINNA': 'secretaria',
-    'Dirección Jurídica': 'direccion',
-    'Dirección de Comunicación Social y Marketing Digital': 'direccion',
-    'Dirección de Gobierno': 'direccion',
-    'Dirección de Reglamentos, Comercio, Mercado y Espectáculos': 'direccion',
-    'Dirección de Recursos Materiales y Patrimonio': 'direccion',
-    'Dirección de Atención al Migrante': 'direccion',
-    'Dirección de Enlace de la Secretaría de Relaciones Exteriores': 'direccion',
-    'Dirección de Control y Seguimiento de Egresos': 'direccion',
-    'Dirección de Ingresos y Estrategias de Recaudación': 'direccion',
-    'Dirección de Recursos Humanos y Nómina': 'direccion',
-    'Dirección de Cuenta Pública': 'direccion',
-    'Dirección de Catastro': 'direccion',
-    'Dirección de Administración': 'direccion',
-    'Dirección de Medio Ambiente y Desarrollo Sostenible': 'direccion',
-    'Dirección de Obras Públicas': 'direccion',
-    'Dirección de Servicios Municipales': 'direccion',
-    'Dirección de Servicios Públicos y Limpias': 'direccion',
-    'Dirección de Desarrollo Urbano y Ordenamiento Territorial': 'direccion',
-    'Dirección Técnica de Planeación y Evaluación': 'direccion',
-    'Dirección de Tecnologías de la Información': 'direccion',
-    'Dirección de Educación': 'direccion',
-    'Dirección de Salud': 'direccion',
-    'Dirección de Programas Sociales': 'direccion',
-    'Dirección del Deporte': 'direccion',
-    'Dirección de Cultura': 'direccion',
-    'Dirección de Prevención del Delito': 'direccion',
-    'Dirección de Protección Civil y Bomberos': 'direccion',
-    'Dirección Administrativa (Seguridad Pública)': 'direccion',
-    'Dirección Preventiva de Tránsito Municipal y Auxilio Vial': 'direccion',
-    'Dirección de Desarrollo Económico': 'direccion',
-    'Dirección de Desarrollo Agropecuario y Proyectos Productivos': 'direccion',
-    'Dirección de Turismo': 'direccion',
-  }), []);
+  // Mapeo de áreas a tipo — generado dinámicamente desde config/areas.js
+  const areaTypeMap = useMemo(() => {
+    const map = {};
+    SECRETARIAS.forEach(s => { map[s] = 'secretaria'; });
+    DIRECCIONES.forEach(d => { map[d] = 'direccion'; });
+    return map;
+  }, []);
 
   // Colores por tipo de área
   const getAreaColor = useCallback((areaType) => {

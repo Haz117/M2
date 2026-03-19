@@ -34,7 +34,6 @@ export function findUserByEmail(users, email) {
   const normalizedEmail = normalizeEmail(email);
   return users.find(u => normalizeEmail(u.email) === normalizedEmail);
 }
-
 /**
  * Incluir verificación case-insensitive para arrays de emails
  * @param {Array} emailArray - Array de emails
