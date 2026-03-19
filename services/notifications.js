@@ -9,14 +9,16 @@ import { notifyTaskAssigned, notifyNewComment, notifyDeadlineApproaching } from 
 import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
-// Configurar handler de notificaciones
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+// Configurar handler de notificaciones (solo en móvil — no aplica en web)
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
 
 // Keys para AsyncStorage
 const NOTIFICATION_TRACKING_KEY = '@notification_tracking';

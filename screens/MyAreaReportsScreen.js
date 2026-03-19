@@ -739,18 +739,7 @@ const MyAreaReportsScreen = ({ navigation }) => {
     },
   }), [isDark, theme]);
 
-  if (loading) {
-    return (
-      <View style={[styles.container, { paddingHorizontal: 16, paddingTop: 60 }]}>
-        {[...Array(5)].map((_, i) => (
-          <View key={i} style={{ marginBottom: 14 }}>
-            <ShimmerEffect width="100%" height={100} borderRadius={12} />
-          </View>
-        ))}
-      </View>
-    );
-  }
-
+  // ⚠️ Hooks DEBEN ir antes de cualquier return condicional
   const filteredReports = useMemo(() => getFilteredReports(), [reports, filter, currentUser]);
 
   const reportStats = useMemo(() => {
@@ -764,6 +753,18 @@ const MyAreaReportsScreen = ({ navigation }) => {
   }, [reports, currentUser]);
 
   const { myReports, teamReports, pendingCount } = reportStats;
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { paddingHorizontal: 16, paddingTop: 60 }]}>
+        {[...Array(5)].map((_, i) => (
+          <View key={i} style={{ marginBottom: 14 }}>
+            <ShimmerEffect width="100%" height={100} borderRadius={12} />
+          </View>
+        ))}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

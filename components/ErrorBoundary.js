@@ -75,11 +75,11 @@ class ErrorBoundary extends React.Component {
               La aplicación encontró un error inesperado
             </Text>
             
-            {/* Detalles técnicos (solo en desarrollo) */}
-            {isDev && error && (
+            {/* Detalles del error — siempre en web, solo en dev en nativo */}
+            {(isDev || Platform.OS === 'web') && error && (
               <ScrollView style={styles.errorDetails} showsVerticalScrollIndicator={false}>
                 <Text style={styles.errorName}>{error.name}: {error.message}</Text>
-                {errorInfo?.componentStack && (
+                {isDev && errorInfo?.componentStack && (
                   <Text style={styles.errorStack}>
                     {errorInfo.componentStack.trim().split('\n').slice(0, 5).join('\n')}
                   </Text>

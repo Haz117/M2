@@ -790,6 +790,17 @@ const AdminReportsScreen = ({ navigation }) => {
     },
   }), [isDark, theme]);
 
+  // ⚠️ Hooks DEBEN ir antes de cualquier return condicional
+  const groupedReports = useMemo(() => getGroupedReports(), [reports, filter, groupBy]);
+  const { pendingCount, ratedCount, avgRating } = useMemo(() => {
+    const rated = reports.filter(r => r.rating);
+    const pending = reports.filter(r => !r.rating);
+    const avg = rated.length > 0
+      ? (rated.reduce((sum, r) => sum + r.rating, 0) / rated.length).toFixed(1)
+      : 0;
+    return { pendingCount: pending.length, ratedCount: rated.length, avgRating: avg };
+  }, [reports]);
+
   if (loading) {
     return (
       <View style={[styles.container, { paddingHorizontal: 16, paddingTop: 60 }]}>
@@ -801,16 +812,6 @@ const AdminReportsScreen = ({ navigation }) => {
       </View>
     );
   }
-
-  const groupedReports = useMemo(() => getGroupedReports(), [reports, filter, groupBy]);
-  const { pendingCount, ratedCount, avgRating } = useMemo(() => {
-    const rated = reports.filter(r => r.rating);
-    const pending = reports.filter(r => !r.rating);
-    const avg = rated.length > 0
-      ? (rated.reduce((sum, r) => sum + r.rating, 0) / rated.length).toFixed(1)
-      : 0;
-    return { pendingCount: pending.length, ratedCount: rated.length, avgRating: avg };
-  }, [reports]);
 
   return (
     <View style={styles.container}>
