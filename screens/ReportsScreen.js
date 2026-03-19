@@ -54,7 +54,6 @@ import { exportAreaReport, exportProductivityReport } from '../services/ReportsE
 import { subscribeToAreas } from '../services/area/areaManagement';
 import { getAreaType, SECRETARIAS, DIRECCIONES, getDireccionesBySecretaria } from '../config/areas';
 import { MAX_WIDTHS } from '../theme/tokens';
-import HelpButton from '../components/HelpButton';
 import { toMs } from '../utils/dateUtils';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -832,18 +831,6 @@ export default function ReportsScreen({ navigation }) {
               </View>
               
               <View style={styles.headerRightSection}>
-                <HelpButton
-                  title="Reportes"
-                  variant="header"
-                  size="medium"
-                  items={[
-                    { icon: 'bar-chart-outline', title: 'Gráficos de Progreso', description: 'Visualiza la evolución del cumplimiento de tareas a lo largo del tiempo.' },
-                    { icon: 'calendar-outline', title: 'Selección de Período', description: 'Usa las pestañas 7D, 30D, 90D para ver datos semanales, mensuales o trimestrales.' },
-                    { icon: 'pie-chart-outline', title: 'Distribución', description: 'Los gráficos de pastel muestran la proporción de tareas por estado y área.' },
-                    { icon: 'analytics-outline', title: 'Métricas Clave', description: 'Revisa KPIs como tasa de cierre, tareas vencidas y productividad del equipo.' },
-                    { icon: 'download-outline', title: 'Exportar', description: 'Genera reportes PDF o Excel para compartir con tu equipo.', color: '#10B981' },
-                  ]}
-                />
                 {currentStats.overdue > 0 && (
                   <View style={styles.headerAlertBadge}>
                     <Ionicons name="alert" size={14} color="#FFFFFF" />

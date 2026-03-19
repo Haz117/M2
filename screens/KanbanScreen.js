@@ -34,7 +34,6 @@ import TaskStatusButtons from '../components/TaskStatusButtons';
 import { useTheme } from '../contexts/ThemeContext';
 import { canChangeTaskStatus } from '../services/permissions';
 import { toMs, isOverdue } from '../utils/dateUtils';
-import HelpButton from '../components/HelpButton';
 import QuickTip, { TIPS } from '../components/QuickTip';
 import SyncIndicator from '../components/SyncIndicator';
 import { useResponsive } from '../utils/responsive';
@@ -784,20 +783,6 @@ export default function KanbanScreen({ navigation }) {
             )}
             
             <View style={styles.headerActions}>
-              {/* Botón de ayuda */}
-              <HelpButton
-                title="Tablero Kanban"
-                variant="header"
-                size="medium"
-                items={[
-                  { icon: 'grid-outline', title: 'Columnas de Estado', description: 'Las tareas se organizan en 4 columnas: Pendiente, En proceso, En revisión y Cerrada.' },
-                  { icon: 'swap-horizontal-outline', title: 'Cambiar Estado', description: 'Pulsa una tarea para ver opciones y cambiar su estado. Las tareas se moverán a la columna correspondiente.' },
-                  { icon: 'list-outline', title: 'Vista Compacta', description: 'Usa el botón de lista/grid para alternar entre vista normal y compacta.' },
-                  { icon: 'funnel-outline', title: 'Filtros Rápidos', description: 'Los chips debajo del header filtran por estado, área o tareas asignadas a ti.' },
-                  { icon: 'stats-chart-outline', title: 'Estadísticas', description: 'El botón de gráfica muestra estadísticas del tablero con conteo por estado.', color: '#10B981' },
-                ]}
-              />
-              
               {/* Toggle vista compacta */}
               <TouchableOpacity
                 onPress={() => {

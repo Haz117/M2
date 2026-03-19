@@ -269,7 +269,7 @@ export default function OnboardingTour({ userRole, onComplete, forceShow = false
   const progress = ((currentStep + 1) / steps.length) * 100;
 
   return (
-    <Modal visible transparent animationType="fade" statusBarTranslucent>
+    <Modal visible transparent animationType="fade">
       <View style={styles.overlay}>
         <Animated.View
           style={[

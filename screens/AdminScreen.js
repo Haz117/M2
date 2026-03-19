@@ -5,7 +5,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Animat
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ensurePermissions, getAllScheduledNotifications, cancelAllNotifications } from '../services/notifications';
-import { collection, addDoc, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import * as Notifications from 'expo-notifications';
 import { getCurrentSession, logoutUser, isAdmin, registerUser } from '../services/authFirestore';
@@ -39,6 +39,7 @@ export default function AdminScreen({ navigation, onLogout }) {
   const [urgentTasks, setUrgentTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showFlowModal, setShowFlowModal] = useState(false);
+  const [editingRoleUserId, setEditingRoleUserId] = useState(null);
 
   // Disable animations on web for compatibility
   const supportsNativeDriver = Platform.OS !== 'web';
@@ -200,17 +201,52 @@ export default function AdminScreen({ navigation, onLogout }) {
     }
   };
 
-  const toggleUserStatus = async (userId, currentStatus) => {
+  const deleteUserAccount = (userId, userName) => {
+    if (userId === currentUser?.userId) {
+      showWarning('No puedes eliminar tu propia cuenta');
+      return;
+    }
+    Alert.alert(
+      'Eliminar Cuenta',
+      `¿Eliminar la cuenta de ${userName}?\n\nEsta acción no se puede deshacer.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              hapticMedium();
+              await deleteDoc(doc(db, 'users', userId));
+              showSuccess(`Cuenta de ${userName} eliminada`);
+              loadAllUsers();
+            } catch (error) {
+              showError('No se pudo eliminar: ' + error.message);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const changeUserRole = async (userId, newRole, userName) => {
+    if (userId === currentUser?.userId) {
+      showWarning('No puedes cambiar tu propio rol');
+      return;
+    }
     try {
-      await updateDoc(doc(db, 'users', userId), {
-        active: !currentStatus
-      });
-      showSuccess('El usuario ha sido ' + (!currentStatus ? 'activado' : 'desactivado'));
+      hapticLight();
+      await updateDoc(doc(db, 'users', userId), { role: newRole });
+      showSuccess(`${userName} ahora es ${ROLE_LABELS[newRole]}`);
+      setEditingRoleUserId(null);
       loadAllUsers();
     } catch (error) {
-      showError('No se pudo actualizar el estado: ' + error.message);
+      showError('No se pudo cambiar el rol: ' + error.message);
     }
   };
+
+  const ROLE_LABELS = { director: 'Director', secretario: 'Secretario', admin: 'Admin', otros: 'Otros' };
+  const ROLE_COLORS = { director: '#0EA5E9', secretario: '#8B5CF6', admin: '#EF4444', otros: '#F59E0B' };
 
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -1238,20 +1274,62 @@ export default function AdminScreen({ navigation, onLogout }) {
                             </View>
                           </View>
                         </View>
-                        <TouchableOpacity
-                          style={[styles.statusChip, { 
-                            backgroundColor: user.active 
-                              ? (isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)') 
-                              : (isDark ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.1)'),
-                            borderColor: user.active ? '#10B981' : '#EF4444'
-                          }]}
-                          onPress={() => { hapticMedium(); toggleUserStatus(user.id, user.active); }}
-                        >
-                          <View style={[styles.statusDot, { backgroundColor: user.active ? '#10B981' : '#EF4444' }]} />
-                          <Text style={[styles.statusChipText, { color: user.active ? '#10B981' : '#EF4444' }]}>
-                            {user.active ? 'Activo' : 'Inactivo'}
-                          </Text>
-                        </TouchableOpacity>
+                        <View style={styles.userActions}>
+                          {/* Rol: chip o selector inline */}
+                          {editingRoleUserId === user.id ? (
+                            <View style={styles.roleEditContainer}>
+                              {['director', 'secretario', 'admin'].map(role => (
+                                <TouchableOpacity
+                                  key={role}
+                                  style={[
+                                    styles.roleOptionChip,
+                                    { borderColor: ROLE_COLORS[role] },
+                                    user.role === role && { backgroundColor: ROLE_COLORS[role] }
+                                  ]}
+                                  onPress={() => changeUserRole(user.id, role, user.displayName)}
+                                >
+                                  <Text style={[
+                                    styles.roleOptionText,
+                                    { color: user.role === role ? '#fff' : ROLE_COLORS[role] }
+                                  ]}>
+                                    {ROLE_LABELS[role]}
+                                  </Text>
+                                </TouchableOpacity>
+                              ))}
+                              <TouchableOpacity
+                                style={styles.roleEditClose}
+                                onPress={() => setEditingRoleUserId(null)}
+                              >
+                                <Ionicons name="close" size={16} color={theme.textSecondary} />
+                              </TouchableOpacity>
+                            </View>
+                          ) : (
+                            <TouchableOpacity
+                              style={[
+                                styles.roleChip,
+                                { backgroundColor: `${ROLE_COLORS[user.role] || '#6B7280'}18`, borderColor: ROLE_COLORS[user.role] || '#6B7280' }
+                              ]}
+                              onPress={() => { hapticLight(); setEditingRoleUserId(user.id); }}
+                              disabled={user.id === currentUser?.userId}
+                            >
+                              <Ionicons name="swap-horizontal-outline" size={11} color={ROLE_COLORS[user.role] || '#6B7280'} />
+                              <Text style={[styles.roleChipText, { color: ROLE_COLORS[user.role] || '#6B7280' }]}>
+                                {ROLE_LABELS[user.role] || user.role}
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+
+                          {/* Eliminar */}
+                          {user.id !== currentUser?.userId && (
+                            <TouchableOpacity
+                              style={styles.deleteUserBtn}
+                              onPress={() => deleteUserAccount(user.id, user.displayName)}
+                            >
+                              <Ionicons name="trash-outline" size={13} color="#EF4444" />
+                              <Text style={styles.deleteUserBtnText}>Eliminar</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
                       </View>
                     ))}
                   </View>
@@ -1786,7 +1864,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 12
   },
   userInfo: {
@@ -1814,6 +1892,61 @@ const styles = StyleSheet.create({
   avatarInitial: {
     fontSize: Platform.OS === 'web' ? 20 : 18,
     fontWeight: '700',
+  },
+  userActions: {
+    alignItems: 'flex-end',
+    gap: 6,
+    flexShrink: 0,
+  },
+  roleChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 5,
+  },
+  roleChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  roleEditContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+    maxWidth: 200,
+  },
+  roleOptionChip: {
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  roleOptionText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  roleEditClose: {
+    padding: 4,
+  },
+  deleteUserBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+    backgroundColor: 'rgba(239, 68, 68, 0.07)',
+  },
+  deleteUserBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#EF4444',
   },
   statusChip: {
     flexDirection: 'row',

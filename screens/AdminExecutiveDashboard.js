@@ -27,7 +27,6 @@ import ProgressBar from '../components/ProgressBar';
 import Avatar from '../components/Avatar';
 import ShimmerEffect from '../components/ShimmerEffect';
 import TrafficLightDashboard from '../components/TrafficLightDashboard';
-import HelpButton from '../components/HelpButton';
 import { toMs } from '../utils/dateUtils';
 import { resolveAreaName } from '../config/areas';
 
@@ -795,18 +794,6 @@ export default function AdminExecutiveDashboard({ navigation }) {
             <Text style={styles.headerTitle}>Dashboard Admin</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <HelpButton
-              title="Dashboard Admin"
-              variant="header"
-              size="medium"
-              items={[
-                { icon: 'grid-outline', title: 'Resumen General', description: 'Vista rápida de KPIs: tareas totales, completadas, en proceso y vencidas.' },
-                { icon: 'speedometer-outline', title: 'Semáforo', description: 'Visualiza el estado de cada área con indicadores verde/amarillo/rojo.' },
-                { icon: 'trending-up-outline', title: 'Evolución', description: 'Gráficos de línea que muestran la tendencia de cumplimiento en el tiempo.' },
-                { icon: 'people-outline', title: 'Cumplimiento', description: 'Analiza el rendimiento individual de cada usuario y su tasa de cierre.' },
-                { icon: 'business-outline', title: 'Secretarías', description: 'Compara el desempeño entre las diferentes áreas de la organización.', color: '#10B981' },
-              ]}
-            />
             <View style={styles.headerBadge}>
               <Text style={styles.headerBadgeText}>{globalMetrics.totalTasks}</Text>
               <Text style={styles.headerBadgeLabel}>tareas</Text>

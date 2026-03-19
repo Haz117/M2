@@ -6,7 +6,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { getSwipeable } from '../utils/platformComponents';
 import TaskItem from '../components/TaskItem';
 import SearchBar from '../components/SearchBar';
-import AdvancedFilters from '../components/AdvancedFilters';
 import ThemeToggle from '../components/ThemeToggle';
 import EmptyState from '../components/EmptyState';
 import ConfettiCelebration from '../components/ConfettiCelebration';
@@ -25,7 +24,6 @@ import Card from '../components/Card';
 import SyncIndicator from '../components/SyncIndicator';
 import ProgressBar from '../components/ProgressBar';
 import PersonalWeeklyStats from '../components/PersonalWeeklyStats';
-import HelpButton from '../components/HelpButton';
 import QuickTip, { TIPS } from '../components/QuickTip';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTasks } from '../contexts/TasksContext';
@@ -685,31 +683,12 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.heading}>Mis Tareas</Text>
               </View>
               <View style={styles.headerActions}>
-                <HelpButton
-                  title="Mis Tareas"
-                  variant="header"
-                  size="medium"
-                  items={[
-                    { icon: 'list-outline', title: 'Lista de Tareas', description: 'Aquí verás todas las tareas asignadas a ti o a tu área. Desliza para ver más opciones.' },
-                    { icon: 'search-outline', title: 'Buscar y Filtrar', description: 'Usa la barra de búsqueda para encontrar tareas específicas. Los filtros avanzados te ayudan a organizar mejor.' },
-                    { icon: 'swap-vertical-outline', title: 'Cambiar Estado', description: 'Pulsa en una tarea para ver sus detalles y cambiar su estado de avance.' },
-                    { icon: 'stats-chart-outline', title: 'Estadísticas', description: 'Las estadísticas muestran tu progreso personal y del área en tiempo real.', color: '#10B981' },
-                    { icon: 'notifications-outline', title: 'Notificaciones', description: 'El ícono de campana te muestra las alertas y notificaciones pendientes.' },
-                  ]}
-                />
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.notificationButton}
                   onPress={() => navigation.navigate('Notifications')}
                 >
                   <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
                 </TouchableOpacity>
-                <AdvancedFilters
-                  filters={advancedFilters}
-                  onApplyFilters={handleApplyFilters}
-                  areas={uniqueAreas}
-                  users={uniqueUsers}
-                  tasks={tasks}
-                />
                 <ThemeToggle size={22} />
               </View>
             </View>
@@ -894,29 +873,6 @@ export default function HomeScreen({ navigation }) {
               </View>
             </View>
             */}
-
-            <View style={[styles.sectionTitleContainer, { borderTopColor: theme.borderLight }]}>
-              <View style={[styles.sectionIconSmall, { backgroundColor: theme.primary + '15' }]}>
-                <Ionicons name="list" size={16} color={theme.primary} />
-              </View>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Todas las Tareas</Text>
-              <View style={[styles.taskCountBadge, { backgroundColor: theme.primary }]}>
-                <Text style={styles.taskCountText}>{filteredTasks.length}</Text>
-              </View>
-              <TouchableOpacity
-                style={[styles.compactToggle, { backgroundColor: compactView ? theme.primary : (isDark ? '#333' : '#e0e0e0') }]}
-                onPress={() => setCompactView(!compactView)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                accessibilityLabel={compactView ? 'Vista normal' : 'Vista compacta'}
-                accessibilityRole="button"
-              >
-                <Ionicons
-                  name={compactView ? 'list' : 'grid-outline'}
-                  size={16}
-                  color={compactView ? '#fff' : theme.text}
-                />
-              </TouchableOpacity>
-            </View>
 
             {/* Chips de filtro rápido por estado */}
             <ScrollView 

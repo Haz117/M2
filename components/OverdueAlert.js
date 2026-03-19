@@ -71,17 +71,12 @@ export default function OverdueAlert({ tasks, currentUserEmail, role = 'director
 
   const total = overdue.length + urgent.length;
 
-  // Animate banner in/out
+  // Animate banner in — only when mounted (total > 0)
   useEffect(() => {
     if (total > 0) {
       Animated.parallel([
         Animated.timing(slideAnim, { toValue: 0, duration: 350, useNativeDriver: true }),
         Animated.timing(opacityAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(slideAnim, { toValue: -60, duration: 250, useNativeDriver: true }),
-        Animated.timing(opacityAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
       ]).start();
     }
   }, [total]);
@@ -112,19 +107,15 @@ export default function OverdueAlert({ tasks, currentUserEmail, role = 'director
             size={18}
             color={hasOverdue ? '#EF4444' : '#F59E0B'}
           />
-          <Text style={[styles.bannerText, { color: theme.text }]}>
-            {hasOverdue ? (
-              <Text>
-                <Text style={{ color: '#EF4444', fontWeight: '700' }}>{overdue.length} vencida{overdue.length !== 1 ? 's' : ''}</Text>
-                {hasUrgent ? <Text style={{ color: theme.textSecondary }}> · </Text> : null}
-                {hasUrgent && (
-                  <Text style={{ color: '#F59E0B', fontWeight: '700' }}>{urgent.length} urgente{urgent.length !== 1 ? 's' : ''}</Text>
-                )}
-              </Text>
-            ) : (
-              <Text style={{ color: '#F59E0B', fontWeight: '700' }}>{urgent.length} tarea{urgent.length !== 1 ? 's' : ''} urgente{urgent.length !== 1 ? 's' : ''}</Text>
-            )}
-          </Text>
+          {hasOverdue ? (
+            <Text style={[styles.bannerText, { color: theme.text }]}>
+              <Text style={{ color: '#EF4444', fontWeight: '700' }}>{overdue.length} vencida{overdue.length !== 1 ? 's' : ''}</Text>
+              {hasUrgent ? <Text style={{ color: theme.textSecondary }}> · </Text> : null}
+              {hasUrgent ? <Text style={{ color: '#F59E0B', fontWeight: '700' }}>{urgent.length} urgente{urgent.length !== 1 ? 's' : ''}</Text> : null}
+            </Text>
+          ) : (
+            <Text style={[styles.bannerText, { color: '#F59E0B', fontWeight: '700' }]}>{urgent.length} tarea{urgent.length !== 1 ? 's' : ''} urgente{urgent.length !== 1 ? 's' : ''}</Text>
+          )}
         </View>
         <TouchableOpacity
           style={[styles.bannerBtn, { backgroundColor: hasOverdue ? '#EF4444' : '#F59E0B' }]}
