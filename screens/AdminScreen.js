@@ -43,6 +43,11 @@ export default function AdminScreen({ navigation, onLogout }) {
   const [isLoading, setIsLoading] = useState(true);
   const [showFlowModal, setShowFlowModal] = useState(false);
   const [editingRoleUserId, setEditingRoleUserId] = useState(null);
+  const [userSearch, setUserSearch] = useState('');
+  const [deleteConfirmUser, setDeleteConfirmUser] = useState(null); // { id, displayName }
+  const [passwordUser, setPasswordUser] = useState(null);          // usuario seleccionado
+  const [newTempPassword, setNewTempPassword] = useState('');
+  const [showTempPass, setShowTempPass] = useState(false);
 
   // Disable animations on web for compatibility
   const supportsNativeDriver = Platform.OS !== 'web';
@@ -209,27 +214,47 @@ export default function AdminScreen({ navigation, onLogout }) {
       showWarning('No puedes eliminar tu propia cuenta');
       return;
     }
-    Alert.alert(
-      'Eliminar Cuenta',
-      `¿Eliminar la cuenta de ${userName}?\n\nEsta acción no se puede deshacer.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              hapticMedium();
-              await deleteDoc(doc(db, 'users', userId));
-              showSuccess(`Cuenta de ${userName} eliminada`);
-              loadAllUsers();
-            } catch (error) {
-              showError('No se pudo eliminar: ' + error.message);
-            }
-          }
-        }
-      ]
-    );
+    setDeleteConfirmUser({ id: userId, displayName: userName });
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!deleteConfirmUser) return;
+    try {
+      hapticMedium();
+      await deleteDoc(doc(db, 'users', deleteConfirmUser.id));
+      showSuccess(`Cuenta de ${deleteConfirmUser.displayName} eliminada`);
+      setDeleteConfirmUser(null);
+      loadAllUsers();
+    } catch (error) {
+      showError('No se pudo eliminar: ' + error.message);
+      setDeleteConfirmUser(null);
+    }
+  };
+
+  const simpleHash = (text) => {
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+      const char = text.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash).toString(16);
+  };
+
+  const saveUserPassword = async () => {
+    if (!passwordUser || !newTempPassword.trim()) return;
+    try {
+      const hashed = simpleHash(newTempPassword.trim() + passwordUser.email.toLowerCase());
+      await updateDoc(doc(db, 'users', passwordUser.id), {
+        password: hashed,
+        tempPassword: newTempPassword.trim(),
+      });
+      showSuccess('Contraseña actualizada');
+      setShowTempPass(true);
+      loadAllUsers();
+    } catch (error) {
+      showError('Error al guardar: ' + error.message);
+    }
   };
 
   const changeUserRole = async (userId, newRole, userName) => {
@@ -1187,6 +1212,23 @@ export default function AdminScreen({ navigation, onLogout }) {
 
           {showUserList && (
             <View style={styles.userListContainer}>
+              {/* Buscador */}
+              <View style={[styles.searchRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: theme.border }]}>
+                <Ionicons name="search-outline" size={16} color={theme.textSecondary} />
+                <TextInput
+                  style={[styles.searchInput, { color: theme.text }]}
+                  placeholder="Buscar por nombre, correo o área..."
+                  placeholderTextColor={theme.textSecondary}
+                  value={userSearch}
+                  onChangeText={setUserSearch}
+                />
+                {userSearch.length > 0 && (
+                  <TouchableOpacity onPress={() => setUserSearch('')}>
+                    <Ionicons name="close-circle" size={16} color={theme.textSecondary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+
               {/* Agrupar usuarios por categoría */}
               {[
                 { role: 'secretario', label: '💼 Secretarios', color: '#8B5CF6', lightBg: 'rgba(139, 92, 246, 0.08)', icon: 'briefcase' },
@@ -1197,10 +1239,18 @@ export default function AdminScreen({ navigation, onLogout }) {
                 // Filtrar usuarios según la sección
                 let sectionUsers;
                 if (section.role === 'otros') {
-                  // "Otros" incluye cualquier rol no especificado
                   sectionUsers = allUsers.filter(u => !['secretario', 'director', 'admin'].includes(u.role));
                 } else {
                   sectionUsers = allUsers.filter(u => u.role === section.role);
+                }
+                if (userSearch.trim()) {
+                  const q = userSearch.toLowerCase();
+                  sectionUsers = sectionUsers.filter(u =>
+                    (u.displayName || '').toLowerCase().includes(q) ||
+                    (u.email || '').toLowerCase().includes(q) ||
+                    (u.area || '').toLowerCase().includes(q) ||
+                    (u.position || '').toLowerCase().includes(q)
+                  );
                 }
                 if (sectionUsers.length === 0) return null;
                 
@@ -1318,6 +1368,15 @@ export default function AdminScreen({ navigation, onLogout }) {
                               </Text>
                             </TouchableOpacity>
                           )}
+
+                          {/* Ver / cambiar contraseña */}
+                          <TouchableOpacity
+                            style={[styles.deleteUserBtn, { borderColor: '#F59E0B22', backgroundColor: '#F59E0B10' }]}
+                            onPress={() => { setPasswordUser(user); setNewTempPassword(''); setShowTempPass(false); }}
+                          >
+                            <Ionicons name="key-outline" size={13} color="#F59E0B" />
+                            <Text style={[styles.deleteUserBtnText, { color: '#F59E0B' }]}>Contraseña</Text>
+                          </TouchableOpacity>
 
                           {/* Eliminar */}
                           {user.id !== currentUser?.userId && (
@@ -1527,6 +1586,101 @@ export default function AdminScreen({ navigation, onLogout }) {
         </View>
       </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* ── MODAL: Confirmar eliminación ─────────────────────────── */}
+      <Modal visible={!!deleteConfirmUser} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.confirmModal, { backgroundColor: isDark ? '#1E1E23' : '#fff' }]}>
+            <View style={styles.confirmIconWrap}>
+              <Ionicons name="trash" size={28} color="#EF4444" />
+            </View>
+            <Text style={[styles.confirmTitle, { color: theme.text }]}>Eliminar cuenta</Text>
+            <Text style={[styles.confirmMsg, { color: theme.textSecondary }]}>
+              ¿Eliminar la cuenta de{'\n'}
+              <Text style={{ fontWeight: '700', color: theme.text }}>{deleteConfirmUser?.displayName}</Text>?
+              {'\n'}Esta acción no se puede deshacer.
+            </Text>
+            <View style={styles.confirmBtns}>
+              <TouchableOpacity
+                style={[styles.confirmBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#F3F4F6' }]}
+                onPress={() => setDeleteConfirmUser(null)}
+              >
+                <Text style={[styles.confirmBtnText, { color: theme.text }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmBtn, { backgroundColor: '#EF4444' }]}
+                onPress={confirmDeleteUser}
+              >
+                <Text style={[styles.confirmBtnText, { color: '#fff' }]}>Eliminar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── MODAL: Ver / cambiar contraseña ──────────────────────── */}
+      <Modal visible={!!passwordUser} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.confirmModal, { backgroundColor: isDark ? '#1E1E23' : '#fff' }]}>
+            <View style={[styles.confirmIconWrap, { backgroundColor: '#F59E0B18' }]}>
+              <Ionicons name="key" size={28} color="#F59E0B" />
+            </View>
+            <Text style={[styles.confirmTitle, { color: theme.text }]} numberOfLines={1}>
+              {passwordUser?.displayName}
+            </Text>
+            <Text style={[styles.confirmMsg, { color: theme.textSecondary }]}>{passwordUser?.email}</Text>
+
+            {/* Contraseña actual si existe */}
+            {passwordUser?.tempPassword ? (
+              <View style={[styles.passBox, { backgroundColor: isDark ? 'rgba(245,158,11,0.1)' : '#FFFBEB', borderColor: '#F59E0B40' }]}>
+                <Text style={[{ fontSize: 11, color: theme.textSecondary, marginBottom: 4 }]}>Contraseña actual:</Text>
+                <Text style={[{ fontSize: 18, fontWeight: '700', color: '#F59E0B', fontFamily: 'monospace', letterSpacing: 2 }]}>
+                  {passwordUser.tempPassword}
+                </Text>
+              </View>
+            ) : (
+              <View style={[styles.passBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#F9FAFB', borderColor: theme.border }]}>
+                <Text style={[{ fontSize: 12, color: theme.textSecondary }]}>Sin contraseña registrada</Text>
+              </View>
+            )}
+
+            {/* Establecer nueva contraseña */}
+            <Text style={[{ fontSize: 12, color: theme.textSecondary, alignSelf: 'flex-start', marginTop: 14, marginBottom: 6 }]}>
+              Nueva contraseña:
+            </Text>
+            <View style={[styles.passInputRow, { borderColor: theme.border, backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#F9FAFB' }]}>
+              <TextInput
+                style={[{ flex: 1, color: theme.text, fontSize: 14 }]}
+                value={newTempPassword}
+                onChangeText={setNewTempPassword}
+                placeholder="Escribe la nueva contraseña"
+                placeholderTextColor={theme.textSecondary}
+                secureTextEntry={!showTempPass}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity onPress={() => setShowTempPass(v => !v)}>
+                <Ionicons name={showTempPass ? 'eye-off-outline' : 'eye-outline'} size={18} color={theme.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.confirmBtns}>
+              <TouchableOpacity
+                style={[styles.confirmBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#F3F4F6' }]}
+                onPress={() => { setPasswordUser(null); setNewTempPassword(''); }}
+              >
+                <Text style={[styles.confirmBtnText, { color: theme.text }]}>Cerrar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmBtn, { backgroundColor: newTempPassword.trim() ? '#F59E0B' : '#ccc' }]}
+                onPress={saveUserPassword}
+                disabled={!newTempPassword.trim()}
+              >
+                <Text style={[styles.confirmBtnText, { color: '#fff' }]}>Guardar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       </View>
     </View>
@@ -1947,6 +2101,96 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#EF4444',
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 14,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    paddingVertical: 0,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  confirmModal: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  confirmIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(239,68,68,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  confirmTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
+    width: '100%',
+  },
+  confirmMsg: {
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  confirmBtns: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+    marginTop: 4,
+  },
+  confirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  confirmBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  passBox: {
+    width: '100%',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 14,
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  passInputRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 16,
+    gap: 8,
   },
   statusChip: {
     flexDirection: 'row',
