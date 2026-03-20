@@ -13,6 +13,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useNotification } from '../contexts/NotificationContext';
 import OverdueAlert from '../components/OverdueAlert';
 import ShimmerEffect from '../components/ShimmerEffect';
+import OrgChartEditor from '../components/OrgChartEditor';
 import { toMs } from '../utils/dateUtils';
 import { hapticMedium, hapticLight } from '../utils/haptics';
 import { useTasks } from '../contexts/TasksContext';
@@ -1575,15 +1576,41 @@ export default function AdminScreen({ navigation, onLogout }) {
               }}
             >
               <View style={[styles.themeToggleCircle, isDark && styles.themeToggleCircleActive]}>
-                <Ionicons 
-                  name={isDark ? "moon" : "sunny"} 
-                  size={16} 
-                  color={isDark ? "#FFFFFF" : "#FFA500"} 
+                <Ionicons
+                  name={isDark ? "moon" : "sunny"}
+                  size={16}
+                  color={isDark ? "#FFFFFF" : "#FFA500"}
                 />
               </View>
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Organigrama Municipal */}
+        <View style={[
+          styles.sectionCard,
+          {
+            backgroundColor: isDark ? 'rgba(30, 30, 35, 0.95)' : 'rgba(255, 255, 255, 0.98)',
+            borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
+          }
+        ]}>
+          <View style={styles.sectionHeader}>
+            <LinearGradient
+              colors={['#8B0000', '#6B0000']}
+              style={styles.iconCircleSection}
+            >
+              <Ionicons name="git-network" size={24} color="#FFFFFF" />
+            </LinearGradient>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>Organigrama Municipal</Text>
+              <Text style={{ fontSize: 11, color: theme.textSecondary, marginTop: 1 }}>
+                Edita las direcciones — se guardan en tiempo real
+              </Text>
+            </View>
+          </View>
+          <OrgChartEditor adminName={currentUser?.displayName || 'Admin'} />
+        </View>
+
       </ScrollView>
       </KeyboardAvoidingView>
 
