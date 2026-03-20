@@ -43,6 +43,7 @@ export default function AdminScreen({ navigation, onLogout }) {
   const [urgentTasks, setUrgentTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showFlowModal, setShowFlowModal] = useState(false);
+  const [showOrgModal, setShowOrgModal] = useState(false);
   const [editingRoleUserId, setEditingRoleUserId] = useState(null);
   const [userSearch, setUserSearch] = useState('');
   const [deleteConfirmUser, setDeleteConfirmUser] = useState(null); // { id, displayName }
@@ -1118,11 +1119,11 @@ export default function AdminScreen({ navigation, onLogout }) {
       </View>
 
         {/* Gestión de Áreas */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.actionButton, { marginTop: 12 }]}
           onPress={() => {
             hapticMedium();
-            navigation.navigate('AreaManagement');
+            setShowOrgModal(true);
           }}
         >
           <LinearGradient
@@ -1586,33 +1587,33 @@ export default function AdminScreen({ navigation, onLogout }) {
           </View>
         </View>
 
-        {/* Organigrama Municipal */}
-        <View style={[
-          styles.sectionCard,
-          {
-            backgroundColor: isDark ? 'rgba(30, 30, 35, 0.95)' : 'rgba(255, 255, 255, 0.98)',
-            borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
-          }
-        ]}>
-          <View style={styles.sectionHeader}>
-            <LinearGradient
-              colors={['#8B0000', '#6B0000']}
-              style={styles.iconCircleSection}
-            >
-              <Ionicons name="git-network" size={24} color="#FFFFFF" />
-            </LinearGradient>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Organigrama Municipal</Text>
-              <Text style={{ fontSize: 11, color: theme.textSecondary, marginTop: 1 }}>
-                Edita las direcciones — se guardan en tiempo real
-              </Text>
-            </View>
-          </View>
-          <OrgChartEditor adminName={currentUser?.displayName || 'Admin'} />
-        </View>
-
       </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* ── MODAL: Organigrama Municipal ─────────────────────────── */}
+      <Modal visible={showOrgModal} animationType="slide" transparent={false} onRequestClose={() => setShowOrgModal(false)}>
+        <View style={{ flex: 1, backgroundColor: isDark ? '#0F0F14' : '#F3F4F6' }}>
+          {/* Header del modal */}
+          <LinearGradient
+            colors={isDark ? ['#2A1520', '#1A1A1A'] : ['#9F2241', '#7F1D35']}
+            style={{ paddingTop: Platform.OS === 'ios' ? 52 : 24, paddingBottom: 16, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center' }}
+          >
+            <TouchableOpacity onPress={() => setShowOrgModal(false)} style={{ marginRight: 12, padding: 4 }}>
+              <Ionicons name="close" size={24} color="#fff" />
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>Organigrama Municipal</Text>
+              <Text style={{ color: '#FECACA', fontSize: 11, marginTop: 1 }}>
+                Cambios guardados en tiempo real
+              </Text>
+            </View>
+            <Ionicons name="git-network" size={22} color="#FECACA" />
+          </LinearGradient>
+
+          {/* Editor */}
+          <OrgChartEditor />
+        </View>
+      </Modal>
 
       {/* ── MODAL: Confirmar eliminación ─────────────────────────── */}
       <Modal visible={!!deleteConfirmUser} transparent animationType="fade">
