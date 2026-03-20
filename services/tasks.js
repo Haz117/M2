@@ -138,15 +138,9 @@ export async function subscribeToTasks(callback) {
       let filtered = tasks;
 
       if (userRole === 'secretario') {
-        filtered = tasks.filter(task => {
-          const taskArea = (task.area || '').toLowerCase().trim();
-          // Solo match si taskArea no está vacío y está en las áreas del secretario
-          const inArea = taskArea !== '' && allowedAreas.has(taskArea);
-          const isCreator = task.createdBy?.toLowerCase().trim() === userEmail?.toLowerCase().trim();
-          const isAssigned = isTaskAssignedToUser(task, userEmail);
-          return inArea || isCreator || isAssigned;
-        });
-        
+        // Solo tareas asignadas directamente al secretario
+        filtered = tasks.filter(task => isTaskAssignedToUser(task, userEmail));
+
       } else if (userRole === 'director') {
         // 🔒 Director ve SOLO tareas asignadas directamente a él
         // (ya sea desde admin o delegadas por secretario)
