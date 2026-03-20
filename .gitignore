@@ -18,6 +18,12 @@ web-build/
 .env.production
 
 # Scripts de desarrollo con credenciales (NO SUBIR)
+check-area-accounts.mjs
+check-lucila.mjs
+do-merge-reyna.mjs
+find-reyna.mjs
+merge-reyna.mjs
+informacion/
 createUsers.mjs
 createTestTasks.mjs
 deleteTestTasks.mjs
