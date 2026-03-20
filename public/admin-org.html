@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — Estructura Organizacional</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #9F2241 0%, #6b1530 100%);
+      min-height: 100vh;
+      padding: 24px;
+      color: #fff;
+    }
+    h1 { text-align: center; margin-bottom: 8px; font-size: 22px; }
+    .subtitle { text-align: center; opacity: .7; font-size: 13px; margin-bottom: 28px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .card {
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 14px;
+      padding: 20px;
+      backdrop-filter: blur(8px);
+    }
+    .card h2 { font-size: 14px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .badge { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+    .badge-alta  { background: #22c55e; color: #000; }
+    .badge-baja  { background: #ef4444; color: #fff; }
+    .badge-fix   { background: #f59e0b; color: #000; }
+    .badge-util  { background: #3b82f6; color: #fff; }
+    label { display: block; font-size: 11px; opacity: .8; margin-bottom: 4px; margin-top: 10px; }
+    input, select {
+      width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,.3);
+      background: rgba(255,255,255,.15); color: #fff; font-size: 13px;
+    }
+    input::placeholder { color: rgba(255,255,255,.5); }
+    button {
+      margin-top: 14px; width: 100%; padding: 10px; border-radius: 8px; border: none;
+      font-weight: 700; font-size: 13px; cursor: pointer; transition: opacity .2s;
+    }
+    button:hover { opacity: .85; }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-alta  { background: #22c55e; color: #000; }
+    .btn-baja  { background: #ef4444; color: #fff; }
+    .btn-fix   { background: #f59e0b; color: #000; }
+    .btn-util  { background: #3b82f6; color: #fff; }
+    .log {
+      margin-top: 12px; background: rgba(0,0,0,.3); border-radius: 8px;
+      padding: 10px; font-size: 11px; max-height: 120px; overflow-y: auto; line-height: 1.7;
+    }
+    .log .ok  { color: #86efac; }
+    .log .err { color: #fca5a5; }
+    .log .info{ color: #93c5fd; }
+    .users-list { max-height: 300px; overflow-y: auto; margin-top: 12px; }
+    .user-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 10px; border-radius: 8px; margin-bottom: 6px;
+      background: rgba(255,255,255,.1); font-size: 12px;
+    }
+    .user-row .name { font-weight: 600; }
+    .user-row .meta { opacity: .7; font-size: 10px; }
+    .role-pill { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
+    .role-admin     { background: #dc2626; }
+    .role-secretario{ background: #7c3aed; }
+    .role-director  { background: #0284c7; }
+    .role-otro      { background: #6b7280; }
+    hr { border: none; border-top: 1px solid rgba(255,255,255,.15); margin: 6px 0; }
+    .full-width { grid-column: 1 / -1; }
+  </style>
+</head>
+<body>
+<h1>Admin — Estructura Organizacional</h1>
+<p class="subtitle">Ixmiquilpan 2024–2027 · Cambios Marzo 2026</p>
+
+<div class="grid">
+
+  <!-- ── ALTA: Claret Molina ── -->
+  <div class="card">
+    <h2><span class="badge badge-alta">ALTA</span> Claret Molina Pérez</h2>
+    <p style="font-size:12px;opacity:.8;margin-bottom:6px;">Misma configuración que Brenda Martínez (Secretaria Particular)</p>
+    <label>Correo electrónico *</label>
+    <input id="claret-email" type="email" placeholder="correo@ejemplo.com" />
+    <label>Contraseña temporal *</label>
+    <input id="claret-pass" type="text" placeholder="Contraseña para el nuevo usuario" />
+    <button class="btn-alta" onclick="addClaret()">Agregar Claret Molina</button>
+    <div class="log" id="log-claret"></div>
+  </div>
+
+  <!-- ── ALTA: José Martín Ángeles Bautista ── -->
+  <div class="card">
+    <h2><span class="badge badge-alta">ALTA</span> José Martín Ángeles Bautista</h2>
+    <p style="font-size:12px;opacity:.8;margin-bottom:6px;">Director de Gobierno · Secretaría General Municipal</p>
+    <label>Correo electrónico *</label>
+    <input id="josemartin-email" type="email" placeholder="correo@ejemplo.com" />
+    <label>Contraseña temporal *</label>
+    <input id="josemartin-pass" type="text" placeholder="Contraseña para el nuevo usuario" />
+    <button class="btn-alta" onclick="addJoseMartin()">Agregar José Martín</button>
+    <div class="log" id="log-josemartin"></div>
+  </div>
+
+  <!-- ── ALTA: Juan Carlos Aquino Ortega ── -->
+  <div class="card">
+    <h2><span class="badge badge-alta">ALTA</span> Juan Carlos Aquino Ortega</h2>
+    <p style="font-size:12px;opacity:.8;margin-bottom:6px;">Asesor Técnico Especializado · Despacho · aquinojcazul@gmail.com</p>
+    <label>Contraseña temporal *</label>
+    <input id="juancarlos-pass" type="text" placeholder="Contraseña para el nuevo usuario" />
+    <button class="btn-alta" onclick="addJuanCarlos()">Agregar Juan Carlos Aquino</button>
+    <div class="log" id="log-juancarlos"></div>
+  </div>
+
+  <!-- ── BAJA: Gerardo Mendoza ── -->
+  <div class="card">
+    <h2><span class="badge badge-baja">BAJA</span> Gerardo Mendoza</h2>
+    <p style="font-size:12px;opacity:.8;margin-bottom:12px;">Elimina todos los registros que coincidan con "Gerardo Mendoza"</p>
+    <button class="btn-baja" onclick="deleteUser('gerardo')">Eliminar Gerardo Mendoza</button>
+    <div class="log" id="log-gerardo"></div>
+  </div>
+
+  <!-- ── BAJA: Efraín (Director de Planeación) ── -->
+  <div class="card">
+    <h2><span class="badge badge-baja">BAJA</span> Efraín — Director de Planeación</h2>
+    <p style="font-size:12px;opacity:.8;margin-bottom:12px;">Elimina usuarios con displayName "Efrain" + cargo relacionado con Planeación</p>
+    <button class="btn-baja" onclick="deleteUser('efrain')">Eliminar Efraín Volteada</button>
+    <div class="log" id="log-efrain"></div>
+  </div>
+
+  <!-- ── FIX: Duplicados Adrián Logística ── -->
+  <div class="card">
+    <h2><span class="badge badge-fix">DUPLICADO</span> Adrián — Logística</h2>
+    <p style="font-size:12px;opacity:.8;margin-bottom:12px;">Detecta duplicados de Adrián en Logística y elimina el más reciente (conserva el más antiguo)</p>
+    <button class="btn-fix" onclick="fixDuplicate('adrian')">Limpiar duplicado Adrián</button>
+    <div class="log" id="log-adrian"></div>
+  </div>
+
+  <!-- ── FIX: Duplicados Comunicación ── -->
+  <div class="card">
+    <h2><span class="badge badge-fix">DUPLICADO</span> Comunicación Social</h2>
+    <p style="font-size:12px;opacity:.8;margin-bottom:12px;">Detecta y elimina duplicados en el área de Comunicación</p>
+    <button class="btn-fix" onclick="fixDuplicate('comunicacion')">Limpiar duplicados Comunicación</button>
+    <div class="log" id="log-comunicacion"></div>
+  </div>
+
+  <!-- ── UTIL: Poner nombres en MAYÚSCULAS ── -->
+  <div class="card">
+    <h2><span class="badge badge-util">FORMATO</span> Nombres a MAYÚSCULAS</h2>
+    <p style="font-size:12px;opacity:.8;margin-bottom:12px;">Convierte displayName de todos los directores y secretarios a MAYÚSCULAS en Firestore</p>
+    <button class="btn-util" onclick="uppercaseNames()">Aplicar MAYÚSCULAS</button>
+    <div class="log" id="log-uppercase"></div>
+  </div>
+
+  <!-- ── UTIL: Ver todos los usuarios ── -->
+  <div class="card full-width">
+    <h2><span class="badge badge-util">LISTA</span> Usuarios actuales en Firestore</h2>
+    <button class="btn-util" style="margin-top:0;margin-bottom:12px;" onclick="loadUsers()">Cargar / Refrescar lista</button>
+    <div class="users-list" id="users-list"><p style="opacity:.5;font-size:12px;text-align:center;padding:20px;">Haz clic en "Cargar" para ver los usuarios</p></div>
+  </div>
+
+</div>
+
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+  import {
+    getFirestore, collection, getDocs, addDoc, deleteDoc, updateDoc,
+    query, where, doc, orderBy
+  } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDNo2YzEqelUXBcMuSJq1n-eOKN5sHhGKM",
+    authDomain: "infra-sublime-464215-m5.firebaseapp.com",
+    projectId: "infra-sublime-464215-m5",
+    storageBucket: "infra-sublime-464215-m5.firebasestorage.app",
+    messagingSenderId: "205062729291",
+    appId: "1:205062729291:web:da314180f361bf2a3367ce"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+
+  // ── Hash idéntico al de authFirestore.js ──────────────────────────────────
+  function simpleHash(text) {
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+      const char = text.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash).toString(16);
+  }
+
+  function log(id, msg, type = 'info') {
+    const el = document.getElementById('log-' + id);
+    if (!el) return;
+    el.innerHTML += `<div class="${type}">${msg}</div>`;
+    el.scrollTop = el.scrollHeight;
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  async function getAllUsers() {
+    const snap = await getDocs(collection(db, 'users'));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  }
+
+  async function userExists(email) {
+    const q = query(collection(db, 'users'), where('email', '==', email.toLowerCase()));
+    const snap = await getDocs(q);
+    return !snap.empty;
+  }
+
+  async function createUser(logId, { email, password, displayName, role, area, position, direcciones }) {
+    if (await userExists(email)) {
+      log(logId, `Ya existe: ${email}`, 'err');
+      return false;
+    }
+    const hashed = simpleHash(password + email.toLowerCase());
+    await addDoc(collection(db, 'users'), {
+      email: email.toLowerCase(),
+      password: hashed,
+      displayName: displayName.toUpperCase(),
+      role,
+      area: area || '',
+      position: position || '',
+      direcciones: direcciones || [],
+      active: true,
+      createdAt: new Date()
+    });
+    log(logId, `Creado: ${displayName.toUpperCase()} (${email})`, 'ok');
+    return true;
+  }
+
+  // ── ALTA: Claret Molina ───────────────────────────────────────────────────
+  window.addClaret = async () => {
+    const email = document.getElementById('claret-email').value.trim();
+    const pass  = document.getElementById('claret-pass').value.trim();
+    if (!email || !pass) { log('claret', 'Rellena correo y contraseña', 'err'); return; }
+
+    log('claret', 'Buscando configuración de Brenda…', 'info');
+    const users = await getAllUsers();
+    const brenda = users.find(u =>
+      (u.displayName || '').toLowerCase().includes('brenda') ||
+      (u.email || '').toLowerCase().includes('brenda')
+    );
+
+    if (!brenda) { log('claret', 'No se encontró el usuario de Brenda', 'err'); return; }
+    log('claret', `Config copiada de: ${brenda.displayName} (${brenda.email})`, 'info');
+
+    await createUser('claret', {
+      email,
+      password: pass,
+      displayName: 'CLARET MOLINA PEREZ',
+      role: brenda.role,
+      area: brenda.area,
+      position: brenda.position || brenda.area,
+      direcciones: brenda.direcciones || []
+    });
+  };
+
+  // ── ALTA: José Martín Ángeles Bautista ───────────────────────────────────
+  window.addJoseMartin = async () => {
+    const email = document.getElementById('josemartin-email').value.trim();
+    const pass  = document.getElementById('josemartin-pass').value.trim();
+    if (!email || !pass) { log('josemartin', 'Rellena correo y contraseña', 'err'); return; }
+
+    await createUser('josemartin', {
+      email,
+      password: pass,
+      displayName: 'JOSE MARTIN ANGELES BAUTISTA',
+      role: 'director',
+      area: 'Secretaría General Municipal',
+      position: 'Director de Gobierno',
+      direcciones: []
+    });
+  };
+
+  // ── ALTA: Juan Carlos Aquino Ortega ──────────────────────────────────────
+  window.addJuanCarlos = async () => {
+    const pass = document.getElementById('juancarlos-pass').value.trim();
+    if (!pass) { log('juancarlos', 'Rellena la contraseña', 'err'); return; }
+
+    await createUser('juancarlos', {
+      email: 'aquinojcazul@gmail.com',
+      password: pass,
+      displayName: 'JUAN CARLOS AQUINO ORTEGA',
+      role: 'director',
+      area: 'Despacho de la Presidencia',
+      position: 'Asesor Técnico Especializado',
+      direcciones: []
+    });
+  };
+
+  // ── BAJA genérica ─────────────────────────────────────────────────────────
+  window.deleteUser = async (target) => {
+    const logId = target;
+    log(logId, 'Buscando usuarios…', 'info');
+    const users = await getAllUsers();
+
+    let matches = [];
+    if (target === 'gerardo') {
+      matches = users.filter(u =>
+        (u.displayName || '').toLowerCase().includes('gerardo') &&
+        (u.displayName || '').toLowerCase().includes('mendoza')
+      );
+    } else if (target === 'efrain') {
+      matches = users.filter(u => {
+        const name = (u.displayName || '').toLowerCase();
+        const area = (u.area || '').toLowerCase();
+        const pos  = (u.position || '').toLowerCase();
+        const isEfrain = name.includes('efrain') || name.includes('volteada');
+        const isPlaneacion = area.includes('planeaci') || pos.includes('planeaci');
+        return isEfrain || isPlaneacion;
+      });
+    }
+
+    if (matches.length === 0) {
+      log(logId, 'No se encontraron registros que coincidan', 'err');
+      return;
+    }
+
+    for (const u of matches) {
+      await deleteDoc(doc(db, 'users', u.id));
+      log(logId, `Eliminado: ${u.displayName || u.email} (${u.id})`, 'ok');
+    }
+  };
+
+  // ── FIX duplicados ────────────────────────────────────────────────────────
+  window.fixDuplicate = async (target) => {
+    const logId = target;
+    log(logId, 'Buscando duplicados…', 'info');
+    const users = await getAllUsers();
+
+    let matches = [];
+    if (target === 'adrian') {
+      matches = users.filter(u => {
+        const name = (u.displayName || '').toLowerCase();
+        const area = (u.area || '').toLowerCase();
+        const pos  = (u.position || '').toLowerCase();
+        return name.includes('adrian') && (area.includes('log') || pos.includes('log') || name.includes('log'));
+      });
+    } else if (target === 'comunicacion') {
+      matches = users.filter(u => {
+        const area = (u.area || '').toLowerCase();
+        const pos  = (u.position || '').toLowerCase();
+        return area.includes('comunicaci') || pos.includes('comunicaci');
+      });
+    }
+
+    log(logId, `Encontrados: ${matches.length} registro(s)`, 'info');
+
+    if (matches.length <= 1) {
+      log(logId, 'Sin duplicados detectados', 'ok');
+      return;
+    }
+
+    // Ordenar por createdAt: conservar el más antiguo, eliminar el resto
+    matches.sort((a, b) => {
+      const ta = a.createdAt?.toMillis?.() || 0;
+      const tb = b.createdAt?.toMillis?.() || 0;
+      return ta - tb;
+    });
+
+    const [keep, ...toDelete] = matches;
+    log(logId, `Conservando: ${keep.displayName || keep.email}`, 'info');
+
+    for (const u of toDelete) {
+      await deleteDoc(doc(db, 'users', u.id));
+      log(logId, `Eliminado duplicado: ${u.displayName || u.email} (${u.id})`, 'ok');
+    }
+  };
+
+  // ── FORMATO: Nombres a MAYÚSCULAS ─────────────────────────────────────────
+  window.uppercaseNames = async () => {
+    log('uppercase', 'Cargando usuarios…', 'info');
+    const users = await getAllUsers();
+    const targets = users.filter(u =>
+      ['director', 'secretario'].includes(u.role) &&
+      u.displayName &&
+      u.displayName !== u.displayName.toUpperCase()
+    );
+
+    log('uppercase', `${targets.length} nombre(s) a actualizar`, 'info');
+
+    for (const u of targets) {
+      const upper = u.displayName.toUpperCase();
+      await updateDoc(doc(db, 'users', u.id), { displayName: upper });
+      log('uppercase', `${u.displayName} → ${upper}`, 'ok');
+    }
+
+    if (targets.length === 0) log('uppercase', 'Todos los nombres ya están en mayúsculas', 'ok');
+  };
+
+  // ── LISTA de usuarios ─────────────────────────────────────────────────────
+  window.loadUsers = async () => {
+    const container = document.getElementById('users-list');
+    container.innerHTML = '<p style="opacity:.5;font-size:12px;text-align:center;padding:10px;">Cargando…</p>';
+    const users = await getAllUsers();
+
+    users.sort((a, b) => {
+      const order = { admin: 0, secretario: 1, director: 2 };
+      return (order[a.role] ?? 3) - (order[b.role] ?? 3);
+    });
+
+    container.innerHTML = users.map(u => {
+      const roleClass = ['admin','secretario','director'].includes(u.role) ? u.role : 'otro';
+      return `
+        <div class="user-row">
+          <div>
+            <div class="name">${u.displayName || '—'}</div>
+            <div class="meta">${u.email || '—'} · ${u.position || u.area || '—'}</div>
+          </div>
+          <span class="role-pill role-${roleClass}">${u.role || '?'}</span>
+        </div>`;
+    }).join('');
+  };
+</script>
+</body>
+</html>

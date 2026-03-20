@@ -6,6 +6,15 @@
   "framework": null,
   "headers": [
     {
+      "source": "/index.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
       "source": "/(.*)",
       "headers": [
         {
@@ -68,6 +77,10 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/admin/org-update",
+      "destination": "/public/admin-org.html"
+    },
     {
       "source": "/admin/download",
       "destination": "/public/download.html"
