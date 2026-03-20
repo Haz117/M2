@@ -27,7 +27,7 @@ import PersonalWeeklyStats from '../components/PersonalWeeklyStats';
 import QuickTip, { TIPS } from '../components/QuickTip';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTasks } from '../contexts/TasksContext';
-import { subscribeToTasks, deleteTask as deleteTaskFirebase, updateTask, createTask } from '../services/tasks';
+import { deleteTask as deleteTaskFirebase, updateTask, createTask } from '../services/tasks';
 import { hapticLight, hapticMedium, hapticHeavy } from '../utils/haptics';
 import { getCurrentSession, refreshSession } from '../services/authFirestore';
 import { useResponsive } from '../utils/responsive';

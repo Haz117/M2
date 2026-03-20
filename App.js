@@ -32,7 +32,7 @@ import { View, Text, ActivityIndicator, StyleSheet, Alert, TouchableOpacity, Pla
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
-import { TasksProvider } from './contexts/TasksContext';
+import { TasksProvider, useTasks } from './contexts/TasksContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { getGestureHandlerRootView } from './utils/platformComponents';
 
@@ -107,6 +107,7 @@ let globalNavigationRef = null;
 // Tab Navigator con todas las pantallas
 function MainTabs({ onLogout }) {
   const { theme, isDark } = useTheme();
+  const { tasks: contextTasks } = useTasks();
   const [currentUser, setCurrentUser] = useState(null);
   const [overdueCount, setOverdueCount] = useState(0);
   const [urgentCount, setUrgentCount] = useState(0); // 🔔 Tareas urgentes (vencidas + próximas <24h)
@@ -146,76 +147,24 @@ function MainTabs({ onLogout }) {
     };
   }, []);
 
-  // Suscribirse a tareas solo cuando currentUser esté disponible
-  const unsubscribeTasksRef = useRef(null);
+  // Calcular badges de vencidas/urgentes desde el context (ya filtrado por rol)
   useEffect(() => {
-    if (!currentUser) return;
+    const now = Date.now();
+    const tomorrow = now + 24 * 60 * 60 * 1000;
 
-    let mounted = true;
-    const { subscribeToTasks } = require('./services/tasks');
+    const overdueNow = contextTasks.filter(t => toMs(t.dueAt) < now && t.status !== 'cerrada');
+    const urgent = contextTasks.filter(t => t.status !== 'cerrada' && toMs(t.dueAt) < tomorrow);
 
-    subscribeToTasks((tasks) => {
-      if (!mounted) return;
+    setOverdueCount(overdueNow.length);
+    setUrgentCount(urgent.length);
 
-      let userOverdue = [];
-      const now = Date.now();
-      const tomorrow = now + (24 * 60 * 60 * 1000); // 24 horas
-
-      if (currentUser.role === 'admin') {
-        userOverdue = tasks.filter(t => toMs(t.dueAt) < now && t.status !== 'cerrada');
-      } else {
-        const myEmail = currentUser.email?.toLowerCase().trim() || '';
-        userOverdue = tasks.filter(t => {
-          if (toMs(t.dueAt) >= now || t.status === 'cerrada') return false;
-          const at = t.assignedTo;
-          if (!at) return false;
-          if (Array.isArray(at)) return at.some(e => (typeof e === 'string' ? e : e?.email || '').toLowerCase().trim() === myEmail);
-          return (at || '').toLowerCase().trim() === myEmail;
-        });
-      }
-
-      // 🔔 Calcular tareas urgentes (vencidas + próximas a vencer en <24h)
-      let urgentTasks = [];
-      if (currentUser.role === 'admin') {
-        urgentTasks = tasks.filter(t =>
-          t.status !== 'cerrada' &&
-          toMs(t.dueAt) < tomorrow
-        );
-      } else {
-        urgentTasks = tasks.filter(t =>
-          t.status !== 'cerrada' &&
-          toMs(t.dueAt) < tomorrow &&
-          (Array.isArray(t.assignedTo)
-            ? t.assignedTo.some(e => (typeof e === 'string' ? e : e?.email || '').toLowerCase().trim() === currentUser.email?.toLowerCase().trim())
-            : (t.assignedTo?.toLowerCase().trim() === currentUser.email?.toLowerCase().trim()))
-        );
-      }
-
-      const newCount = userOverdue.length;
-      setOverdueCount(newCount);
-      setUrgentCount(urgentTasks.length);
-
-      // Actualizar badge de app (solo si cambió)
-      try {
-        const Notifications = require('expo-notifications');
-        Notifications.default?.setBadgeCountAsync(newCount).catch(() => {});
-      } catch (error) {
-        // Ignorar si no está disponible
-      }
-    }).then(unsub => {
-      if (mounted) {
-        unsubscribeTasksRef.current = unsub;
-      } else {
-        unsub?.();
-      }
-    }).catch(() => {});
-
-    return () => {
-      mounted = false;
-      unsubscribeTasksRef.current?.();
-      unsubscribeTasksRef.current = null;
-    };
-  }, [currentUser?.email, currentUser?.role]);
+    try {
+      const Notifications = require('expo-notifications');
+      Notifications.default?.setBadgeCountAsync(overdueNow.length).catch(() => {});
+    } catch {
+      // no-op
+    }
+  }, [contextTasks]);
 
   const isAdmin = currentUser?.role === 'admin';
   const isSecretario = currentUser?.role === 'secretario';

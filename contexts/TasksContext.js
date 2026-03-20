@@ -45,6 +45,8 @@ function filterTasksByRole(allTasks, user) {
         ? assignedTo.map(e => (typeof e === 'string' ? e : e?.email || '')?.toLowerCase().trim())
         : [(assignedTo || '').toLowerCase().trim()];
       if (assignees.includes(myEmail)) return true;
+      // Tarea creada por el secretario (para que la vea en Bandeja)
+      if ((task.createdBy || '').toLowerCase().trim() === myEmail) return true;
       // Pertenece a su área o a una dirección adscrita
       const taskArea = (task.area || (Array.isArray(task.areas) ? task.areas[0] : '') || '').toLowerCase().trim();
       return taskArea && allowedAreas.has(taskArea);

@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../contexts/ThemeContext';
 import { getCurrentSession } from '../services/authFirestore';
-import { subscribeToTasks } from '../services/tasks';
+import { useTasks } from '../contexts/TasksContext';
 import ShimmerEffect from '../components/ShimmerEffect';
 import ProgressBar from '../components/ProgressBar';
 import Avatar from '../components/Avatar';
@@ -28,7 +28,6 @@ const { width } = Dimensions.get('window');
 export default function AreaChiefDashboard({ navigation }) {
   const { theme, isDark } = useTheme();
   const [currentUser, setCurrentUser] = useState(null);
-  const [areaData, setAreaData] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -37,54 +36,39 @@ export default function AreaChiefDashboard({ navigation }) {
   const [filter, setFilter] = useState('all'); // all, pendiente, en_progreso, completed
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const unsubscribeRef = useRef(null);
+  const { tasks: contextTasks, isLoading: contextLoading } = useTasks();
 
+  // Load session once on mount
   useEffect(() => {
-    loadChiefData();
-    return () => {
-      if (unsubscribeRef.current) unsubscribeRef.current();
-    };
+    getCurrentSession().then((result) => {
+      if (result.success) {
+        setCurrentUser(result.session);
+      } else {
+        setLoadError(true);
+        setLoading(false);
+      }
+    });
   }, []);
 
-  const loadChiefData = async () => {
-    try {
-      setLoading(true);
-      const sessionResult = await getCurrentSession();
+  // Recalculate whenever context tasks update
+  useEffect(() => {
+    if (contextLoading) return;
+    // TasksContext already filters by email for director role — use directly
+    setTasks(contextTasks);
+    calculateMetrics(contextTasks);
+    setLoading(false);
+    setRefreshing(false);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: true,
+    }).start();
+  }, [contextTasks, contextLoading]);
 
-      if (!sessionResult.success) {
-        setLoading(false);
-        return;
-      }
-
-      const session = sessionResult.session;
-      setCurrentUser(session);
-
-      const unsub = await subscribeToTasks((allTasks) => {
-        const userTasks = allTasks.filter(
-          (t) =>
-            Array.isArray(t.assignedTo)
-              ? t.assignedTo.some(e => e?.toLowerCase().trim() === session.email?.toLowerCase().trim())
-              : (t.assignedTo?.toLowerCase().trim() === session.email?.toLowerCase().trim())
-        );
-
-        setTasks(userTasks);
-        calculateMetrics(userTasks);
-        setLoading(false);
-        setRefreshing(false);
-
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }).start();
-      });
-
-      unsubscribeRef.current = unsub;
-    } catch (error) {
-      setLoadError(true);
-      setLoading(false);
-      setRefreshing(false);
-    }
+  const loadChiefData = () => {
+    setRefreshing(true);
+    // Refresh is automatic via context; just reset the flag after a brief delay
+    setTimeout(() => setRefreshing(false), 600);
   };
 
   const calculateMetrics = (taskList) => {

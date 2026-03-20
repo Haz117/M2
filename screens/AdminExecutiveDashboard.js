@@ -20,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 const LineChart = React.lazy(() => import('react-native-chart-kit').then(module => ({ default: module.LineChart })));
 import { useTheme } from '../contexts/ThemeContext';
-import { subscribeToTasks } from '../services/tasks';
+import { useTasks } from '../contexts/TasksContext';
 import { collection, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import ProgressBar from '../components/ProgressBar';
@@ -35,9 +35,9 @@ const chartWidth = Math.min(width - 48, 500);
 
 export default function AdminExecutiveDashboard({ navigation }) {
   const { theme, isDark } = useTheme();
+  const { tasks } = useTasks();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [tasks, setTasks] = useState([]);
   const [users, setUsers] = useState([]);
   const [activeTab, setActiveTab] = useState('overview'); // overview, evolution, compliance, performance
   const [selectedPeriod, setSelectedPeriod] = useState('month'); // week, month, quarter
@@ -263,22 +263,8 @@ export default function AdminExecutiveDashboard({ navigation }) {
   
   useEffect(() => {
     loadInitialData();
-    
+
     let mounted = true;
-    let unsubscribeTasks = null;
-
-    const setupTasksSubscription = async () => {
-      const unsub = await subscribeToTasks((updatedTasks) => {
-        setTasks(updatedTasks);
-      });
-      if (mounted) {
-        unsubscribeTasks = unsub;
-      } else {
-        unsub?.();
-      }
-    };
-
-    setupTasksSubscription();
 
     const usersRef = collection(db, 'users');
     const unsubscribeUsers = onSnapshot(usersRef, (snapshot) => {
@@ -287,13 +273,12 @@ export default function AdminExecutiveDashboard({ navigation }) {
     });
 
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
-      Animated.spring(slideAnim, { toValue: 0, tension: 50, friction: 8, useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver }),
+      Animated.spring(slideAnim, { toValue: 0, tension: 50, friction: 8, useNativeDriver }),
     ]).start();
 
     return () => {
       mounted = false;
-      if (typeof unsubscribeTasks === 'function') unsubscribeTasks();
       if (unsubscribeUsers) unsubscribeUsers();
     };
   }, []);

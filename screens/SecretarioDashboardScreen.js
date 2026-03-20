@@ -17,8 +17,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTasks } from '../contexts/TasksContext';
 import { getCurrentSession } from '../services/authFirestore';
-import { subscribeToTasks } from '../services/tasks';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { getDireccionesBySecretaria, resolveAreaName } from '../config/areas';
@@ -31,13 +31,13 @@ const { width } = Dimensions.get('window');
 
 export default function SecretarioDashboardScreen({ navigation }) {
   const { theme, isDark } = useTheme();
+  const { tasks: contextTasks } = useTasks();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [directors, setDirectors] = useState([]);
-  const unsubscribeRef = useRef(null);
   const [metrics, setMetrics] = useState({
     totalTasks: 0,
     pendingTasks: 0,
@@ -54,14 +54,36 @@ export default function SecretarioDashboardScreen({ navigation }) {
 
   useEffect(() => {
     loadInitialData();
-    
-    // Cleanup de suscripción al desmontar
-    return () => {
-      if (unsubscribeRef.current && typeof unsubscribeRef.current === 'function') {
-        unsubscribeRef.current();
-      }
-    };
   }, []);
+
+  // Recalcular métricas cuando cambian las tareas del context o los directores
+  useEffect(() => {
+    if (!currentUser) return;
+    const secArea = resolveAreaName(currentUser.area || '');
+    const direccionesOficiales = getDireccionesBySecretaria(secArea);
+    const direccionesFirebase = currentUser.direcciones || [];
+    const direcciones = [...new Set([...direccionesOficiales, ...direccionesFirebase])].filter(Boolean);
+
+    const areaTasks = contextTasks.filter(task => {
+      const taskArea = task.area || '';
+      const taskAreas = task.areas || [taskArea];
+      const isInMyArea = direcciones.some(dir =>
+        taskAreas.map(a => resolveAreaName(a)).includes(resolveAreaName(dir)) ||
+        resolveAreaName(taskArea) === resolveAreaName(dir)
+      );
+      const isAssignedToMyDirector = directors.some(dir =>
+        Array.isArray(task.assignedTo)
+          ? task.assignedTo.includes(dir.email)
+          : task.assignedTo === dir.email
+      );
+      const isCoordinationWithMyArea = task.isCoordinationTask &&
+        taskAreas.some(area => direcciones.map(resolveAreaName).includes(resolveAreaName(area)));
+      return isInMyArea || isAssignedToMyDirector || isCoordinationWithMyArea;
+    });
+
+    setTasks(areaTasks);
+    calculateMetrics(areaTasks, directors);
+  }, [contextTasks, directors, currentUser]);
 
   const loadInitialData = async () => {
     setLoadError(false);
@@ -105,51 +127,9 @@ export default function SecretarioDashboardScreen({ navigation }) {
       });
       
       setDirectors(myDirectors);
-      
-      // Suscribirse a las tareas de estas áreas
-      subscribeToAreaTasks(user, direcciones, myDirectors);
     } catch (error) {
       if (__DEV__) console.error('Error loading directors:', error);
     }
-  };
-
-  const subscribeToAreaTasks = async (user, direcciones, myDirectors) => {
-    // Limpiar suscripción anterior si existe
-    if (unsubscribeRef.current && typeof unsubscribeRef.current === 'function') {
-      unsubscribeRef.current();
-    }
-
-    const unsubscribe = await subscribeToTasks((allTasks) => {
-      // Filtrar solo tareas de las direcciones del secretario
-      const areaTasks = allTasks.filter(task => {
-        const taskArea = task.area || '';
-        const taskAreas = task.areas || [taskArea];
-
-        // Tareas donde el área coincide con las direcciones del secretario
-        const isInMyArea = direcciones.some(dir =>
-          taskAreas.map(a => resolveAreaName(a)).includes(resolveAreaName(dir)) ||
-          resolveAreaName(taskArea) === resolveAreaName(dir)
-        );
-
-        // O tareas asignadas a sus directores
-        const isAssignedToMyDirector = myDirectors.some(dir =>
-          task.assignedTo?.includes(dir.email)
-        );
-
-        // O tareas de coordinación que incluyen sus áreas
-        const isCoordinationWithMyArea = task.isCoordinationTask &&
-          taskAreas.some(area => direcciones.map(resolveAreaName).includes(resolveAreaName(area)));
-
-        return isInMyArea || isAssignedToMyDirector || isCoordinationWithMyArea;
-      });
-
-      setTasks(areaTasks);
-      calculateMetrics(areaTasks, myDirectors);
-    });
-
-    // Guardar referencia para cleanup
-    unsubscribeRef.current = unsubscribe;
-    return unsubscribe;
   };
 
   const calculateMetrics = (areaTasks, myDirectors) => {

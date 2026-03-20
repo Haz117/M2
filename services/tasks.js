@@ -166,6 +166,13 @@ export async function subscribeToTasks(callback) {
       return uniqueTasks;
     };
 
+    // 🧹 Migración única: eliminar cache global contaminado entre sesiones
+    // La nueva implementación usa claves por usuario, el global ya no se necesita
+    try {
+      const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
+      await AsyncStorage.removeItem('@offline_tasks');
+    } catch (_) {}
+
     // 📦 PASO 2: Cargar del cache local del usuario actual (clave por email)
     // Cada usuario tiene su propia clave → no se contamina entre sesiones
     const cachedTasks = await getCachedTasks(userEmail);

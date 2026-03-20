@@ -14,19 +14,28 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../contexts/ThemeContext';
 import ShimmerEffect from '../components/ShimmerEffect';
 import { getReportStatistics } from '../services/reportsService';
-import { getOverallTaskMetrics, subscribeToTasks } from '../services/tasks';
+import { getOverallTaskMetrics } from '../services/tasks';
+import { useTasks } from '../contexts/TasksContext';
 
 const { width } = Dimensions.get('window');
 
 const AnalyticsScreen = ({ navigation }) => {
   const { theme, isDark } = useTheme();
+  const { tasks: contextTasks } = useTasks();
+  // Top 5 tasks by quality rating — derived from role-filtered context tasks
+  const tasks = useMemo(() =>
+    contextTasks
+      .filter(t => t.qualityRating)
+      .sort((a, b) => (b.qualityRating || 0) - (a.qualityRating || 0))
+      .slice(0, 5),
+    [contextTasks]
+  );
   const [reportStats, setReportStats] = useState(null);
   const [taskMetrics, setTaskMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
-  const [tasks, setTasks] = useState([]);
   
   // ✨ Animaciones premium
   const headerAnim = useRef(new Animated.Value(0)).current;
@@ -520,8 +529,6 @@ const AnalyticsScreen = ({ navigation }) => {
 
   useEffect(() => {
     let mounted = true;
-    let unsubTasksRef = null;
-
     const loadData = async () => {
       try {
         // Load report statistics
@@ -534,22 +541,7 @@ const AnalyticsScreen = ({ navigation }) => {
         if (!mounted) return;
         setTaskMetrics(metrics);
 
-        // Subscribe to tasks for top performers
-        const unsub = await subscribeToTasks((allTasks) => {
-          if (!mounted) return;
-          // Get top 5 tasks with highest ratings
-          const topTasks = allTasks
-            .filter((t) => t.qualityRating)
-            .sort((a, b) => (b.qualityRating || 0) - (a.qualityRating || 0))
-            .slice(0, 5);
-          setTasks(topTasks);
-        });
-        unsubTasksRef = unsub;
-
-        if (!mounted) {
-          unsubTasksRef?.();
-          return;
-        }
+        if (!mounted) return;
         setLoading(false);
 
         // ✨ Ejecutar animaciones de entrada
@@ -564,7 +556,6 @@ const AnalyticsScreen = ({ navigation }) => {
 
     return () => {
       mounted = false;
-      unsubTasksRef?.();
     };
   }, [retryCount]);
 
