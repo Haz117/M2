@@ -187,12 +187,13 @@ export async function subscribeToTasks(callback) {
       } else if (userRole === 'secretario') {
         tasksQuery = query(
           collection(db, COLLECTION_NAME),
+          where('assignedTo', 'array-contains', userEmail),
           orderBy('createdAt', 'desc')
         );
       } else if (userRole === 'director') {
-        // Director ve tareas de su área
         tasksQuery = query(
           collection(db, COLLECTION_NAME),
+          where('assignedTo', 'array-contains', userEmail),
           orderBy('createdAt', 'desc')
         );
       } else {

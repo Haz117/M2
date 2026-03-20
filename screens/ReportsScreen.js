@@ -397,38 +397,9 @@ export default function ReportsScreen({ navigation }) {
     if (currentUser.role === 'admin') {
       // Admin ve todas las tareas
       userTasks = allTasks;
-    } else if (currentUser.role === 'secretario') {
-      // Secretario ve tareas de su secretaría, sus direcciones, o que haya creado
-      const misDirecciones = getDireccionesBySecretaria(currentUser.area || '');
-      userTasks = allTasks.filter(t => {
-        const taskArea = (t.area || '').toLowerCase().trim();
-        if (t.createdBy?.toLowerCase().trim() === userEmail) return true;
-        if (taskArea === userAreaNorm) return true;
-        // Usar mapeo oficial de direcciones (no depende de datos de Firebase)
-        if (misDirecciones.some(d => d?.toLowerCase().trim() === taskArea)) return true;
-        // Fallback: verificar si la tarea está en alguna de sus direcciones de Firebase
-        if (currentUser.direcciones && Array.isArray(currentUser.direcciones)) {
-          if (currentUser.direcciones.some(d => d?.toLowerCase().trim() === taskArea)) return true;
-        }
-        return false;
-      });
-    } else if (currentUser.role === 'director') {
-      // Director ve tareas de su área específica o asignadas a él
-      userTasks = allTasks.filter(t => {
-        const taskArea = (t.area || '').toLowerCase().trim();
-        if (t.createdBy?.toLowerCase().trim() === userEmail) return true;
-        if (taskArea === userAreaNorm) return true;
-        // Verificar si está asignado a esta tarea
-        if (Array.isArray(t.assignedTo)) {
-          if (t.assignedTo.some(e => (typeof e === 'string' ? e : e?.email || '').toLowerCase().trim() === userEmail)) return true;
-        } else if (typeof t.assignedTo === 'string') {
-          if (t.assignedTo.toLowerCase().trim() === userEmail) return true;
-        }
-        if (t.assignedToMultiple && Array.isArray(t.assignedToMultiple)) {
-          return t.assignedToMultiple.some(a => a.email?.toLowerCase().trim() === userEmail);
-        }
-        return false;
-      });
+    } else {
+      // Secretario y director: allTasks ya viene filtrado por email desde useTasks()
+      userTasks = allTasks;
     }
 
     // Weekly stats
