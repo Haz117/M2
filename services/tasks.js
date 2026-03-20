@@ -166,11 +166,14 @@ export async function subscribeToTasks(callback) {
       return uniqueTasks;
     };
 
-    // 📦 PASO 2: Cargar del cache local inmediatamente
-    const cachedTasks = await getCachedTasks();
-    if (cachedTasks.length > 0) {
-      log('📦 Cargando', cachedTasks.length, 'tareas del cache local');
-      callback(filterTasksByRole(cachedTasks));
+    // 📦 PASO 2: Cargar del cache local SOLO si estamos offline
+    // Si hay conexión, esperar Firebase directamente para evitar mostrar datos de otra sesión
+    if (!getConnectionState()) {
+      const cachedTasks = await getCachedTasks();
+      if (cachedTasks.length > 0) {
+        log('📴 Sin conexión - cargando', cachedTasks.length, 'tareas del cache local');
+        callback(filterTasksByRole(cachedTasks));
+      }
     }
 
     // 🌐 PASO 3: Si hay conexión, suscribirse a Firebase
