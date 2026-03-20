@@ -138,14 +138,19 @@ export async function subscribeToTasks(callback) {
       let filtered = tasks;
 
       if (userRole === 'secretario') {
-        // Solo tareas asignadas directamente al secretario
-        filtered = tasks.filter(task => isTaskAssignedToUser(task, userEmail));
+        // Secretario ve: tareas asignadas a su email + tareas cuya área pertenece
+        // a su secretaría o a alguna de sus direcciones adscritas
+        filtered = tasks.filter(task => {
+          if (isTaskAssignedToUser(task, userEmail)) return true;
+          const taskArea = (task.area || (Array.isArray(task.areas) ? task.areas[0] : '') || '').toLowerCase().trim();
+          return taskArea && allowedAreas.has(taskArea);
+        });
 
       } else if (userRole === 'director') {
-        // 🔒 Director ve SOLO tareas asignadas directamente a él
-        // (ya sea desde admin o delegadas por secretario)
+        // Director ve SOLO tareas asignadas directamente a él
+        // (directamente por admin o delegadas por su secretario — ambas van con su email en assignedTo)
         filtered = tasks.filter(task => isTaskAssignedToUser(task, userEmail));
-        
+
       }
       
       // Deduplicación
@@ -187,13 +192,11 @@ export async function subscribeToTasks(callback) {
       } else if (userRole === 'secretario') {
         tasksQuery = query(
           collection(db, COLLECTION_NAME),
-          where('assignedTo', 'array-contains', userEmail),
           orderBy('createdAt', 'desc')
         );
       } else if (userRole === 'director') {
         tasksQuery = query(
           collection(db, COLLECTION_NAME),
-          where('assignedTo', 'array-contains', userEmail),
           orderBy('createdAt', 'desc')
         );
       } else {

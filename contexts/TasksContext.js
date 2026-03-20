@@ -6,6 +6,7 @@ import React, { createContext, useState, useEffect, useCallback, useRef, useMemo
 import { subscribeToTasks } from '../services/tasks';
 import { getCurrentSession } from '../services/authFirestore';
 import { deleteManager } from '../utils/deleteManager';
+import { getDireccionesBySecretaria, resolveAreaName } from '../config/areas';
 
 // Usar globalThis para que React.lazy() bundles compartan la misma instancia de contexto
 if (!globalThis.__TASKS_CONTEXT__) {
@@ -16,10 +17,8 @@ export const TasksContext = globalThis.__TASKS_CONTEXT__;
 /**
  * Filtra tareas según el rol del usuario:
  * - admin: ve todas
- * - secretario: solo las que el admin le asignó directamente a su email
- * - director: solo las que le asignó el admin o delegó un secretario a su email
- *
- * En ambos casos la regla es idéntica: el email del usuario debe estar en assignedTo.
+ * - secretario: las asignadas a su email + las de áreas de su secretaría y direcciones adscritas
+ * - director: solo las asignadas directamente a su email (admin directo o delegación del secretario)
  */
 function filterTasksByRole(allTasks, user) {
   if (!user) return []; // Sesión aún no cargada — no exponer tareas
@@ -28,7 +27,31 @@ function filterTasksByRole(allTasks, user) {
   const myEmail = user.email?.toLowerCase().trim();
   if (!myEmail) return [];
 
-  // Secretario y director: solo tareas asignadas directamente a ellos
+  if (user.role === 'secretario') {
+    // Construir set de áreas permitidas: su secretaría + todas sus direcciones adscritas
+    const secArea = resolveAreaName(user.area || '');
+    const direcciones = getDireccionesBySecretaria(secArea);
+    const extraDirecciones = user.direcciones || [];
+    const allowedAreas = new Set(
+      [secArea, ...direcciones, ...extraDirecciones]
+        .filter(Boolean)
+        .map(a => a.toLowerCase().trim())
+    );
+
+    return allTasks.filter(task => {
+      // Asignada directamente a su email
+      const assignedTo = task.assignedTo || [];
+      const assignees = Array.isArray(assignedTo)
+        ? assignedTo.map(e => (typeof e === 'string' ? e : e?.email || '')?.toLowerCase().trim())
+        : [(assignedTo || '').toLowerCase().trim()];
+      if (assignees.includes(myEmail)) return true;
+      // Pertenece a su área o a una dirección adscrita
+      const taskArea = (task.area || (Array.isArray(task.areas) ? task.areas[0] : '') || '').toLowerCase().trim();
+      return taskArea && allowedAreas.has(taskArea);
+    });
+  }
+
+  // Director: solo tareas asignadas directamente a él
   return allTasks.filter(task => {
     const assignedTo = task.assignedTo || [];
     const assignees = Array.isArray(assignedTo)

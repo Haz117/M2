@@ -27,7 +27,7 @@ export const SECRETARIAS_DIRECCIONES = {
     'Instancia Municipal para el Desarrollo de las Mujeres',
     'Dirección de Comunicación Social y Marketing Digital',
     'Secretaría Ejecutiva de SIPINNA',
-    'Asesor Técnico Especializado',
+    'Secretario Técnico',
   ],
 
   // Secretaría General Municipal — José Manuel Zúñiga Guerrero
