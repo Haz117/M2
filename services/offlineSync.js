@@ -53,9 +53,13 @@ export const getConnectionState = () => isOnline;
 // ============ CACHE LOCAL DE TAREAS ============
 
 // Guardar tareas en cache local
-export const cacheTasksLocally = async (tasks) => {
+// userEmail opcional: si se pasa, usa clave por usuario para evitar contaminación entre sesiones
+export const cacheTasksLocally = async (tasks, userEmail) => {
   try {
-    await AsyncStorage.setItem(OFFLINE_TASKS_KEY, JSON.stringify(tasks));
+    const key = userEmail
+      ? `${OFFLINE_TASKS_KEY}_${userEmail.toLowerCase().replace(/[^a-z0-9]/g, '_')}`
+      : OFFLINE_TASKS_KEY;
+    await AsyncStorage.setItem(key, JSON.stringify(tasks));
     await AsyncStorage.setItem(LAST_SYNC_KEY, Date.now().toString());
   } catch (error) {
     console.error('Error guardando cache:', error);
@@ -63,9 +67,13 @@ export const cacheTasksLocally = async (tasks) => {
 };
 
 // Obtener tareas del cache local
-export const getCachedTasks = async () => {
+// userEmail opcional: si se pasa, lee de la clave por usuario
+export const getCachedTasks = async (userEmail) => {
   try {
-    const cached = await AsyncStorage.getItem(OFFLINE_TASKS_KEY);
+    const key = userEmail
+      ? `${OFFLINE_TASKS_KEY}_${userEmail.toLowerCase().replace(/[^a-z0-9]/g, '_')}`
+      : OFFLINE_TASKS_KEY;
+    const cached = await AsyncStorage.getItem(key);
     if (cached) {
       const parsed = JSON.parse(cached);
       // Validar que sea un array

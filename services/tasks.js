@@ -166,14 +166,12 @@ export async function subscribeToTasks(callback) {
       return uniqueTasks;
     };
 
-    // 📦 PASO 2: Cargar del cache local SOLO si estamos offline
-    // Si hay conexión, esperar Firebase directamente para evitar mostrar datos de otra sesión
-    if (!getConnectionState()) {
-      const cachedTasks = await getCachedTasks();
-      if (cachedTasks.length > 0) {
-        log('📴 Sin conexión - cargando', cachedTasks.length, 'tareas del cache local');
-        callback(filterTasksByRole(cachedTasks));
-      }
+    // 📦 PASO 2: Cargar del cache local del usuario actual (clave por email)
+    // Cada usuario tiene su propia clave → no se contamina entre sesiones
+    const cachedTasks = await getCachedTasks(userEmail);
+    if (cachedTasks.length > 0) {
+      log('📦 Cargando', cachedTasks.length, 'tareas del cache de', userEmail);
+      callback(filterTasksByRole(cachedTasks));
     }
 
     // 🌐 PASO 3: Si hay conexión, suscribirse a Firebase
@@ -223,16 +221,16 @@ export async function subscribeToTasks(callback) {
         });
         
         const filteredTasks = filterTasksByRole(tasks);
-        
-        // 💾 Guardar en cache local
-        cacheTasksLocally(filteredTasks);
+
+        // 💾 Guardar en cache local del usuario actual (clave por email)
+        cacheTasksLocally(filteredTasks, userEmail);
         
         callback(filteredTasks);
       },
       (error) => {
         console.error('❌ Error en listener de tareas:', error);
-        // En caso de error, usar cache
-        getCachedTasks().then(cached => {
+        // En caso de error, usar cache del usuario
+        getCachedTasks(userEmail).then(cached => {
           if (cached.length > 0) {
             callback(filterTasksByRole(cached));
           }
