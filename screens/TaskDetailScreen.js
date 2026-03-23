@@ -56,7 +56,7 @@ if (Platform.OS !== 'web') {
 export default function TaskDetailScreen({ route, navigation }) {
   const { theme, isDark } = useTheme();
   const { showSuccess, showError } = useNotification();
-  const { currentUser } = useTasks();
+  const { currentUser, tasks } = useTasks();
   // Si route.params.task está presente, estamos editando; si no, creamos nueva
   const editingTask = route.params?.task || null;
 
