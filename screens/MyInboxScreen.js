@@ -911,6 +911,14 @@ export default function MyInboxScreen({ navigation }) {
                 </TouchableOpacity>
               )}
               
+              {/* Botón ayuda */}
+              <TouchableOpacity
+                style={styles.headerIconBtn}
+                onPress={() => { hapticLight(); setShowHelpModal(true); }}
+              >
+                <Ionicons name="help-circle-outline" size={22} color="#FFFFFF" />
+              </TouchableOpacity>
+
               {/* Botón crear */}
               <TouchableOpacity style={styles.addButton} onPress={goToCreate}>
                 <Ionicons name="add" size={26} color={theme.primary} />
@@ -1297,9 +1305,9 @@ export default function MyInboxScreen({ navigation }) {
           <View style={[styles.helpModalContent, { backgroundColor: theme.card }]}>
             <View style={styles.helpModalHeader}>
               <Ionicons name="help-circle" size={32} color={theme.primary} />
-              <Text style={[styles.helpModalTitle, { color: theme.text }]}>Acciones Rápidas</Text>
+              <Text style={[styles.helpModalTitle, { color: theme.text }]}>Guía de Mi Bandeja</Text>
             </View>
-            
+
             <View style={styles.helpModalItem}>
               <View style={[styles.helpModalIcon, { backgroundColor: '#8B5CF6' }]}>
                 <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
@@ -1329,9 +1337,33 @@ export default function MyInboxScreen({ navigation }) {
                 <Ionicons name="chatbubble" size={18} color="#FFFFFF" />
               </View>
               <View style={styles.helpModalTextContainer}>
-                <Text style={[styles.helpModalItemTitle, { color: theme.text }]}>Chat</Text>
+                <Text style={[styles.helpModalItemTitle, { color: theme.text }]}>Chat de tarea</Text>
                 <Text style={[styles.helpModalItemDesc, { color: theme.textSecondary }]}>
-                  Abre la conversación de la tarea para comunicarte
+                  Abre la conversación de la tarea para comunicarte con el equipo
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.helpModalItem}>
+              <View style={[styles.helpModalIcon, { backgroundColor: '#F59E0B' }]}>
+                <Ionicons name="warning" size={18} color="#FFFFFF" />
+              </View>
+              <View style={styles.helpModalTextContainer}>
+                <Text style={[styles.helpModalItemTitle, { color: theme.text }]}>Alerta de riesgo (IA)</Text>
+                <Text style={[styles.helpModalItemDesc, { color: theme.textSecondary }]}>
+                  Las tareas con "Riesgo alto" o "Riesgo medio" tienen mayor probabilidad de retrasarse según el historial del área
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.helpModalItem}>
+              <View style={[styles.helpModalIcon, { backgroundColor: '#6366F1' }]}>
+                <Ionicons name="options" size={18} color="#FFFFFF" />
+              </View>
+              <View style={styles.helpModalTextContainer}>
+                <Text style={[styles.helpModalItemTitle, { color: theme.text }]}>Filtros avanzados</Text>
+                <Text style={[styles.helpModalItemDesc, { color: theme.textSecondary }]}>
+                  Usa el botón ⊞ en la barra de búsqueda para filtrar por estado, prioridad, área y vencidas
                 </Text>
               </View>
             </View>

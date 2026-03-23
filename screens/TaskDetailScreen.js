@@ -20,6 +20,8 @@ import TagInput from '../components/TagInput';
 import TaskStatusButtons from '../components/TaskStatusButtons';
 import MultiUserSelector from '../components/MultiUserSelector';
 import { toMs } from '../utils/dateUtils';
+import { findSimilarTasks, suggestTaskMetadata, generateSubtasks } from '../utils/aiFeatures';
+import { addSubtask } from '../services/tasksMultiple';
 import SuggestedDirectionsPanel from '../components/SuggestedDirectionsPanel';
 import SuggestedDirectorsPanel from '../components/SuggestedDirectorsPanel';
 import SuggestedAreasPanel from '../components/SuggestedAreasPanel';
@@ -213,6 +215,30 @@ export default function TaskDetailScreen({ route, navigation }) {
   // Refs para inputs
   const titleInputRef = useRef(null);
   const descriptionInputRef = useRef(null);
+
+  // ─── IA Features 2, 3, 4 ────────────────────────────────────────────────────
+  const [similarTasks, setSimilarTasks] = useState([]);       // Feature 2: duplicados
+  const [metaSuggestion, setMetaSuggestion] = useState(null); // Feature 3: área/responsable
+  const [showAiSubtasksModal, setShowAiSubtasksModal] = useState(false); // Feature 4
+  const [aiSubtaskOptions, setAiSubtaskOptions] = useState([]); // { title, checked }
+  const [aiPendingSubtasks, setAiPendingSubtasks] = useState([]); // seleccionadas para crear
+  const aiDebounceRef = useRef(null);
+
+  // Disparar análisis de IA cuando cambia el título (solo al crear)
+  useEffect(() => {
+    if (editingTask || !title || title.length < 6) {
+      setSimilarTasks([]);
+      setMetaSuggestion(null);
+      return;
+    }
+    clearTimeout(aiDebounceRef.current);
+    aiDebounceRef.current = setTimeout(() => {
+      setSimilarTasks(findSimilarTasks(title, tasks));
+      const suggestion = suggestTaskMetadata(title, tasks);
+      setMetaSuggestion(suggestion.area ? suggestion : null);
+    }, 600);
+    return () => clearTimeout(aiDebounceRef.current);
+  }, [title, tasks, editingTask]);
 
   const hasUnsavedChanges = editingTask
     ? title !== (editingTask.title ?? '') || description !== (editingTask.description ?? '')
@@ -821,6 +847,17 @@ export default function TaskDetailScreen({ route, navigation }) {
       setSaveProgress(100);
 
       if (result.success) {
+        // Feature 4: crear subtareas sugeridas si hay alguna seleccionada (solo al crear)
+        if (!editingTask && aiPendingSubtasks.length > 0 && result.taskId) {
+          try {
+            await Promise.all(
+              aiPendingSubtasks.map(st => addSubtask(result.taskId, { title: st, description: '' }))
+            );
+          } catch (_) {
+            // No bloquear si falla la creación de subtareas
+          }
+        }
+
         showSuccess(editingTask ? 'Tarea actualizada exitosamente' : 'Tarea creada exitosamente');
 
         // Navegar después de un breve delay
@@ -1225,6 +1262,47 @@ export default function TaskDetailScreen({ route, navigation }) {
               </Text>
             )}
 
+            {/* IA Feature 2: Alerta de duplicado */}
+            {similarTasks.length > 0 && (
+              <View style={[styles.aiWarningCard, { backgroundColor: isDark ? '#2D2215' : '#FFFBF0', borderColor: '#F59E0B' }]}>
+                <Ionicons name="copy-outline" size={16} color="#F59E0B" style={{ marginTop: 2 }} />
+                <View style={{ flex: 1, marginLeft: 8 }}>
+                  <Text style={[styles.aiWarningTitle, { color: '#F59E0B' }]}>Posible duplicado detectado</Text>
+                  {similarTasks.slice(0, 2).map((r, i) => (
+                    <TouchableOpacity key={i} onPress={() => navigation.navigate('TaskDetail', { task: r.task })}>
+                      <Text style={[styles.aiWarningItem, { color: theme.textSecondary }]} numberOfLines={1}>
+                        • "{r.task.title}" ({Math.round(r.score * 100)}% similar)
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* IA Feature 3: Sugerencia de área y responsable */}
+            {metaSuggestion && (
+              <View style={[styles.aiSuggestionCard, { backgroundColor: isDark ? '#152015' : '#F0FFF4', borderColor: '#10B981' }]}>
+                <Ionicons name="sparkles" size={16} color="#10B981" style={{ marginTop: 2 }} />
+                <View style={{ flex: 1, marginLeft: 8 }}>
+                  <Text style={[styles.aiWarningTitle, { color: '#10B981' }]}>Sugerencia IA</Text>
+                  <Text style={[styles.aiWarningItem, { color: theme.textSecondary }]}>
+                    Área: {metaSuggestion.area}{metaSuggestion.assignedTo ? ` · Responsable: ${metaSuggestion.assignedTo}` : ''}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.aiApplyBtn, { backgroundColor: '#10B981' }]}
+                  onPress={() => {
+                    if (metaSuggestion.area && !selectedAreas.includes(metaSuggestion.area)) {
+                      setSelectedAreas([...selectedAreas, metaSuggestion.area]);
+                    }
+                    setMetaSuggestion(null);
+                  }}
+                >
+                  <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '700' }}>Aplicar</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             <Text style={styles.label}>DESCRIPCIÓN *</Text>
             <ShakeInput
               ref={descriptionInputRef}
@@ -1242,6 +1320,38 @@ export default function TaskDetailScreen({ route, navigation }) {
               <Text style={[styles.charCounter, { color: description.length > 900 ? theme.warning : theme.textTertiary }]}>
                 {description.length}/1000
               </Text>
+            )}
+
+            {/* IA Feature 4: Generar subtareas */}
+            {canEdit && title.length >= 6 && (
+              <View>
+                <TouchableOpacity
+                  style={[styles.aiSubtasksBtn, { backgroundColor: isDark ? '#1E1B4B' : '#EEF2FF', borderColor: '#6366F1' }]}
+                  onPress={() => {
+                    const result = generateSubtasks(title, description);
+                    setAiSubtaskOptions(result.subtasks.map(st => ({ title: st, checked: true })));
+                    setShowAiSubtasksModal(true);
+                  }}
+                >
+                  <Ionicons name="sparkles" size={15} color="#6366F1" />
+                  <Text style={[styles.aiSubtasksBtnText, { color: '#6366F1' }]}>Sugerir subtareas con IA</Text>
+                </TouchableOpacity>
+                {aiPendingSubtasks.length > 0 && (
+                  <View style={[styles.aiPendingChips, { backgroundColor: isDark ? '#1A1A2E' : '#F5F3FF' }]}>
+                    <Text style={[styles.aiPendingLabel, { color: theme.textSecondary }]}>
+                      Se crearán {aiPendingSubtasks.length} subtarea{aiPendingSubtasks.length > 1 ? 's' : ''} al guardar:
+                    </Text>
+                    {aiPendingSubtasks.map((st, i) => (
+                      <View key={i} style={[styles.aiPendingChip, { backgroundColor: isDark ? '#2D2B5E' : '#E0E7FF' }]}>
+                        <Text style={{ fontSize: 12, color: '#6366F1', flex: 1 }} numberOfLines={1}>{st}</Text>
+                        <TouchableOpacity onPress={() => setAiPendingSubtasks(prev => prev.filter((_, j) => j !== i))}>
+                          <Ionicons name="close-circle" size={14} color="#6366F1" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
             )}
           </View>
 
@@ -1990,6 +2100,59 @@ export default function TaskDetailScreen({ route, navigation }) {
         </ScrollView>
       </Animated.View>
       
+      {/* IA Feature 4: Modal de selección de subtareas sugeridas */}
+      <Modal visible={showAiSubtasksModal} transparent animationType="slide" onRequestClose={() => setShowAiSubtasksModal(false)}>
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={[styles.aiSubtasksModal, { backgroundColor: theme.background }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 10 }}>
+              <Ionicons name="sparkles" size={22} color="#6366F1" />
+              <View style={{ flex: 1 }}>
+                <Text style={[{ fontSize: 17, fontWeight: '700', color: theme.text }]}>Subtareas sugeridas</Text>
+                <Text style={[{ fontSize: 12, color: theme.textSecondary }]}>Selecciona las que quieras agregar</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowAiSubtasksModal(false)}>
+                <Ionicons name="close" size={22} color={theme.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: 360 }} showsVerticalScrollIndicator={false}>
+              {aiSubtaskOptions.map((opt, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={[styles.aiSubtaskRow, { backgroundColor: opt.checked ? (isDark ? '#1E1B4B' : '#EEF2FF') : (isDark ? '#2A2A2A' : '#F9F9F9'), borderColor: opt.checked ? '#6366F1' : theme.border }]}
+                  onPress={() => setAiSubtaskOptions(prev => prev.map((o, j) => j === i ? { ...o, checked: !o.checked } : o))}
+                >
+                  <View style={[styles.aiSubtaskCheck, { backgroundColor: opt.checked ? '#6366F1' : 'transparent', borderColor: opt.checked ? '#6366F1' : theme.border }]}>
+                    {opt.checked && <Ionicons name="checkmark" size={13} color="#FFF" />}
+                  </View>
+                  <Text style={{ flex: 1, fontSize: 13, color: theme.text, lineHeight: 18 }}>{opt.title}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+              <TouchableOpacity
+                style={[styles.aiSubtasksCancel, { borderColor: theme.border }]}
+                onPress={() => setShowAiSubtasksModal(false)}
+              >
+                <Text style={{ color: theme.textSecondary, fontWeight: '600' }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.aiSubtasksConfirm, { backgroundColor: '#6366F1' }]}
+                onPress={() => {
+                  const selected = aiSubtaskOptions.filter(o => o.checked).map(o => o.title);
+                  setAiPendingSubtasks(selected);
+                  setShowAiSubtasksModal(false);
+                }}
+              >
+                <Ionicons name="add-circle" size={16} color="#FFF" />
+                <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 14 }}>
+                  Agregar {aiSubtaskOptions.filter(o => o.checked).length} subtarea{aiSubtaskOptions.filter(o => o.checked).length !== 1 ? 's' : ''}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* 🔥 MODAL DE CONFIRMACIÓN DE CAMBIOS EN ASIGNADOS */}
       <Modal
         visible={showAssigneeChangeConfirm}
@@ -3442,5 +3605,113 @@ const createStyles = (theme, isDark) => StyleSheet.create({
   confirmButtonText: {
     fontSize: 16,
     fontWeight: '700',
+  },
+  // ─── IA Feature styles ───────────────────────────────────────────────────────
+  aiWarningCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
+    marginTop: 6,
+  },
+  aiWarningTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 3,
+  },
+  aiWarningItem: {
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  aiSuggestionCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
+    marginTop: 2,
+  },
+  aiApplyBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 7,
+    alignSelf: 'center',
+  },
+  aiSubtasksBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    marginTop: 10,
+    alignSelf: 'flex-start',
+  },
+  aiSubtasksBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  aiPendingChips: {
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 8,
+    gap: 6,
+  },
+  aiPendingLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  aiPendingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  aiSubtasksModal: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 36,
+  },
+  aiSubtaskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+  },
+  aiSubtaskCheck: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aiSubtasksCancel: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiSubtasksConfirm: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 12,
+    paddingVertical: 13,
   },
 });

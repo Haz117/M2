@@ -13,6 +13,7 @@ import { useNotification } from '../contexts/NotificationContext';
 import { deleteManager } from '../utils/deleteManager';
 import QuickActionButton from '../components/QuickActionButton';
 import { toMs } from '../utils/dateUtils';
+import { generateDailySummary } from '../utils/aiFeatures';
 import ShimmerEffect from '../components/ShimmerEffect';
 import SkeletonLoader from '../components/SkeletonLoader';
 import OverdueAlert from '../components/OverdueAlert';
@@ -43,6 +44,7 @@ export default function HomeScreen({ navigation }) {
   const isLoading = tasksLoading; // Derivado directo, sin estado duplicado
   const [searchText, setSearchText] = useState('');
   const [quickStatusFilter, setQuickStatusFilter] = useState('todas'); // 'todas', 'pendiente', 'en-progreso', 'revision', 'cerrada'
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
   // 💾 Cargar búsqueda guardada — clave por usuario para evitar contaminación entre sesiones
   useEffect(() => {
@@ -450,6 +452,13 @@ export default function HomeScreen({ navigation }) {
     });
   }, [tasks]);
 
+  // IA Feature 1: Resumen inteligente del día
+  const [showBriefing, setShowBriefing] = useState(true);
+  const smartBriefing = useMemo(
+    () => generateDailySummary(tasks, currentUser),
+    [tasks, currentUser]
+  );
+
   // Conteo por estado para chips de filtro rápido
   const statusCounts = useMemo(() => ({
     todas: tasks.length,
@@ -544,6 +553,12 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.heading}>Mis Tareas</Text>
               </View>
               <View style={styles.headerActions}>
+                <TouchableOpacity
+                  style={styles.notificationButton}
+                  onPress={() => { hapticLight(); setShowHelpModal(true); }}
+                >
+                  <Ionicons name="help-circle-outline" size={22} color="#FFFFFF" />
+                </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.notificationButton}
                   onPress={() => navigation.navigate('Notifications')}
@@ -701,6 +716,52 @@ export default function HomeScreen({ navigation }) {
           ) : (
           <View style={styles.bentoGrid}>
 
+            {/* IA Feature 1: Resumen inteligente del día */}
+            {showBriefing && (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => setShowBriefing(false)}
+                style={[
+                  styles.briefingCard,
+                  {
+                    backgroundColor: smartBriefing.overdueCount > 0
+                      ? (isDark ? '#2D1515' : '#FFF5F5')
+                      : smartBriefing.urgentCount > 0
+                        ? (isDark ? '#2D2215' : '#FFFBF0')
+                        : (isDark ? '#152015' : '#F0FFF4'),
+                    borderColor: smartBriefing.overdueCount > 0 ? '#EF4444'
+                      : smartBriefing.urgentCount > 0 ? '#F59E0B' : '#10B981',
+                  }
+                ]}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+                  <View style={[
+                    styles.briefingIconWrap,
+                    {
+                      backgroundColor: smartBriefing.overdueCount > 0 ? '#EF444420'
+                        : smartBriefing.urgentCount > 0 ? '#F59E0B20' : '#10B98120'
+                    }
+                  ]}>
+                    <Ionicons
+                      name={smartBriefing.overdueCount > 0 ? 'warning' : smartBriefing.urgentCount > 0 ? 'time' : 'sparkles'}
+                      size={18}
+                      color={smartBriefing.overdueCount > 0 ? '#EF4444' : smartBriefing.urgentCount > 0 ? '#F59E0B' : '#10B981'}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.briefingHeadline, { color: theme.text }]}>
+                      {smartBriefing.headline}
+                    </Text>
+                    {smartBriefing.details.slice(0, 2).map((detail, i) => (
+                      <Text key={i} style={[styles.briefingDetail, { color: theme.textSecondary }]}>
+                        • {detail}
+                      </Text>
+                    ))}
+                  </View>
+                  <Ionicons name="close" size={16} color={theme.textSecondary} />
+                </View>
+              </TouchableOpacity>
+            )}
 
             {/* Chips de filtro rápido por estado */}
             <ScrollView 
@@ -818,6 +879,52 @@ export default function HomeScreen({ navigation }) {
         />
         </Animated.View>
         
+        {/* Modal de Ayuda */}
+        <Modal visible={showHelpModal} transparent animationType="fade" onRequestClose={() => setShowHelpModal(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.urgentModalContent, { backgroundColor: theme.card }]}>
+              <View style={[styles.urgentModalHeader, { borderBottomWidth: 1, borderBottomColor: theme.border, paddingBottom: 12 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Ionicons name="help-circle" size={28} color={theme.primary} />
+                  <View>
+                    <Text style={[styles.urgentModalTitle, { color: theme.text }]}>Guía de Inicio</Text>
+                    <Text style={[styles.urgentModalSubtitle, { color: theme.textSecondary }]}>Cómo usar la pantalla principal</Text>
+                  </View>
+                </View>
+                <TouchableOpacity onPress={() => setShowHelpModal(false)}>
+                  <Ionicons name="close-circle" size={28} color={theme.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={{ maxHeight: 360 }} showsVerticalScrollIndicator={false}>
+                {[
+                  { icon: 'sparkles', color: '#6366F1', title: 'Resumen IA del día', desc: 'El card de colores en la parte superior analiza tus tareas y te da un briefing inmediato. Tócalo para ocultarlo.' },
+                  { icon: 'apps', color: theme.primary, title: 'Filtros de estado', desc: 'Los chips Pendiente / En progreso / Revisión / Cerradas filtran la lista al instante.' },
+                  { icon: 'search', color: '#3B82F6', title: 'Búsqueda', desc: 'Escribe en la barra para buscar por título, descripción, responsable o etiqueta.' },
+                  { icon: 'warning', color: '#F59E0B', title: 'Riesgo de retraso (IA)', desc: 'Las tareas con badge naranja o rojo tienen mayor probabilidad de retrasarse según patrones históricos.' },
+                  { icon: 'hand-left', color: '#10B981', title: 'Swipe / Arrastrar', desc: 'En móvil arrastra una tarea hacia la izquierda para opciones rápidas (editar, borrar, duplicar).' },
+                  { icon: 'add-circle', color: theme.primary, title: 'Crear tarea (Admin)', desc: 'Usa el botón ✛ flotante en la esquina inferior derecha para crear nueva tarea, ver notificaciones o estadísticas.' },
+                ].map((item, i) => (
+                  <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 10, borderBottomWidth: i < 5 ? 1 : 0, borderBottomColor: theme.border }}>
+                    <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: item.color + '20', justifyContent: 'center', alignItems: 'center' }}>
+                      <Ionicons name={item.icon} size={18} color={item.color} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text, marginBottom: 2 }}>{item.title}</Text>
+                      <Text style={{ fontSize: 12, color: theme.textSecondary, lineHeight: 17 }}>{item.desc}</Text>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+              <TouchableOpacity
+                style={[styles.urgentModalButton, { backgroundColor: theme.primary, marginTop: 16 }]}
+                onPress={() => setShowHelpModal(false)}
+              >
+                <Text style={styles.urgentModalButtonText}>¡Entendido!</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
         {/* Confetti celebration */}
         <ConfettiCelebration trigger={showConfetti} />
         
@@ -1552,5 +1659,33 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
   quickFilterBadgeText: {
     fontSize: 11,
     fontWeight: '700',
+  },
+  // IA Feature 1: SmartBriefing
+  briefingCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+  },
+  briefingIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 1,
+  },
+  briefingHeadline: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
+    lineHeight: 19,
+  },
+  briefingDetail: {
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 1,
   },
 });

@@ -420,6 +420,7 @@ export default function CalendarScreen({ navigation }) {
     if (taskStatusFilter === 'todas') return true;
     if (taskStatusFilter === 'pendiente') return task.status === 'pendiente';
     if (taskStatusFilter === 'en-progreso') return task.status === 'en_proceso' || task.status === 'en-progreso';
+    if (taskStatusFilter === 'revision') return task.status === 'en_revision' || task.status === 'revision';
     if (taskStatusFilter === 'cerrada') return task.status === 'cerrada';
     return true;
   });
@@ -429,6 +430,7 @@ export default function CalendarScreen({ navigation }) {
     todas: selectedDateTasks.length,
     pendiente: selectedDateTasks.filter(t => t.status === 'pendiente').length,
     'en-progreso': selectedDateTasks.filter(t => t.status === 'en_proceso' || t.status === 'en-progreso').length,
+    revision: selectedDateTasks.filter(t => t.status === 'en_revision' || t.status === 'revision').length,
     cerrada: selectedDateTasks.filter(t => t.status === 'cerrada').length,
   };
 
@@ -704,6 +706,7 @@ export default function CalendarScreen({ navigation }) {
                     { key: 'todas', label: 'Todas', icon: 'apps' },
                     { key: 'pendiente', label: 'Pendientes', icon: 'time-outline' },
                     { key: 'en-progreso', label: 'En progreso', icon: 'play-circle' },
+                    { key: 'revision', label: 'Revisión', icon: 'eye' },
                     { key: 'cerrada', label: 'Cerradas', icon: 'checkmark-circle' },
                   ].map(filter => (
                     <TouchableOpacity

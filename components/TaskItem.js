@@ -1,6 +1,6 @@
 // components/TaskItem.js
 // TaskItem moderno con animaciones y glassmorphism - Compatible con web
-import React, { useEffect, useState, memo, useRef } from 'react';
+import React, { useEffect, useState, memo, useRef, useMemo } from 'react';
 import { TouchableOpacity, Pressable, View, Text, StyleSheet, Animated, Dimensions, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,6 +15,8 @@ import PulsingDot from './PulsingDot';
 import ProgressBar from './ProgressBar';
 import { subscribeToTaskProgress } from '../services/taskProgress';
 import { toMs } from '../utils/dateUtils';
+import { useTasks } from '../contexts/TasksContext';
+import { predictDelayRisk, riskLevelDisplay } from '../utils/aiFeatures';
 
 const Swipeable = getSwipeable();
 
@@ -45,6 +47,7 @@ const TaskItem = memo(function TaskItem({
 }) {
   const { theme, isDark } = useTheme();
   const { width: screenWidth } = useResponsive();
+  const { tasks: allTasks } = useTasks();
   const isSmallDevice = screenWidth < 400;
   const [now, setNow] = useState(Date.now());
   const [showContextMenu, setShowContextMenu] = useState(false);
@@ -241,6 +244,16 @@ const TaskItem = memo(function TaskItem({
   const priorityStyle = getPriorityStyle();
   const dueStatus = getDueStatus();
 
+  // IA Feature 5: Alerta predictiva de retraso
+  // Usar el conteo de tareas como proxy para cambios (evita recompute O(n²) con cada update)
+  const allTasksCount = allTasks?.length ?? 0;
+  const delayRisk = useMemo(() => {
+    if (task.status === 'cerrada' || compact) return null;
+    const risk = predictDelayRisk(task, allTasks);
+    return risk.level !== 'low' ? { ...risk, display: riskLevelDisplay(risk.level) } : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task.id, task.status, task.dueAt, task.priority, task.assignedTo, task.area, allTasksCount, compact]);
+
   // Estilos compactos
   const compactStyles = compact ? {
     container: { paddingVertical: 10, paddingHorizontal: 12, marginHorizontal: 12, marginVertical: 4 },
@@ -392,6 +405,16 @@ const TaskItem = memo(function TaskItem({
                     {task.tags.length > 3 && (
                       <Text style={[styles.tagMore, { color: theme.textSecondary }]}>+{task.tags.length - 3}</Text>
                     )}
+                  </View>
+                )}
+
+                {/* IA Feature 5: Badge de riesgo de retraso */}
+                {delayRisk && (
+                  <View style={[styles.riskBadge, { backgroundColor: delayRisk.display.color + '18', borderColor: delayRisk.display.color }]}>
+                    <Ionicons name={delayRisk.display.icon} size={12} color={delayRisk.display.color} />
+                    <Text style={[styles.riskBadgeText, { color: delayRisk.display.color }]}>
+                      {delayRisk.display.label}
+                    </Text>
                   </View>
                 )}
 
@@ -860,5 +883,20 @@ const styles = StyleSheet.create({
   quickActionText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  riskBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    marginTop: 5,
+  },
+  riskBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
 });

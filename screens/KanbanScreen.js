@@ -59,6 +59,7 @@ export default function KanbanScreen({ navigation }) {
   const [compactView, setCompactView] = useState(false);
   const [sortBy, setSortBy] = useState('date'); // 'date' o 'priority'
   const [showFiltersModal, setShowFiltersModal] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
   const [contextMenu, setContextMenu] = useState({ visible: false, task: null, position: { x: 0, y: 0 } });
   
   // Animaciones
@@ -793,11 +794,19 @@ export default function KanbanScreen({ navigation }) {
               </TouchableOpacity>
               
               {/* Estadísticas */}
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => setShowStats(!showStats)}
                 style={styles.iconButton}
               >
                 <Ionicons name="stats-chart" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+
+              {/* Ayuda */}
+              <TouchableOpacity
+                onPress={() => { hapticLight(); setShowHelpModal(true); }}
+                style={styles.iconButton}
+              >
+                <Ionicons name="help-circle-outline" size={20} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
           </View>
@@ -1171,6 +1180,53 @@ export default function KanbanScreen({ navigation }) {
           </View>
         </Modal>
         
+        {/* Modal de Ayuda - Kanban */}
+        <Modal visible={showHelpModal} transparent animationType="fade" onRequestClose={() => setShowHelpModal(false)}>
+          <View style={[styles.filterModalOverlay]}>
+            <View style={[styles.filterModalContainer, { backgroundColor: theme.background, maxHeight: '80%' }]}>
+              <LinearGradient colors={['#9F2241', '#BE3356']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.filterModalHeader}>
+                <View style={styles.filterModalHeaderContent}>
+                  <View>
+                    <Text style={styles.filterModalTitle}>Guía del Tablero Kanban</Text>
+                    <Text style={styles.filterModalSubtitle}>Cómo usar cada elemento</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setShowHelpModal(false)} style={styles.filterModalCloseBtn}>
+                    <Ionicons name="close" size={24} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              </LinearGradient>
+              <ScrollView style={styles.filterModalBody} showsVerticalScrollIndicator={false}>
+                {[
+                  { icon: 'grid', color: '#9F2241', title: 'Columnas de estado', desc: 'Cada columna representa un estado: Pendiente → En proceso → En revisión → Cerrada. Las tareas se muestran en su columna actual.' },
+                  { icon: 'options', color: '#6366F1', title: 'Filtros avanzados', desc: 'Toca el ícono ⊞ para filtrar por búsqueda, área, responsable, prioridad, vencidas o fecha.' },
+                  { icon: 'person', color: '#3B82F6', title: 'Mis tareas', desc: 'El chip "Mis tareas" en la barra de filtros muestra solo las tareas asignadas a ti.' },
+                  { icon: 'warning', color: '#F59E0B', title: 'Riesgo de retraso (IA)', desc: 'Cada tarea muestra un badge de riesgo bajo/medio/alto calculado con IA basado en el historial del área.' },
+                  { icon: 'time-outline', color: '#EF4444', title: 'Ordenamiento', desc: 'Cambia entre ordenar por fecha (⏱) o por prioridad (⚑) con el botón en el encabezado.' },
+                  { icon: 'stats-chart', color: '#10B981', title: 'Estadísticas', desc: 'Activa el panel de estadísticas para ver tasas de completitud, tareas vencidas y prioridad por columna.' },
+                ].map((item, i) => (
+                  <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 12, borderBottomWidth: i < 5 ? 1 : 0, borderBottomColor: theme.border }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: item.color + '20', justifyContent: 'center', alignItems: 'center' }}>
+                      <Ionicons name={item.icon} size={18} color={item.color} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text, marginBottom: 2 }}>{item.title}</Text>
+                      <Text style={{ fontSize: 12, color: theme.textSecondary, lineHeight: 17 }}>{item.desc}</Text>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+              <View style={styles.filterModalFooter}>
+                <TouchableOpacity style={[styles.filterModalApply, { flex: 1 }]} onPress={() => setShowHelpModal(false)}>
+                  <LinearGradient colors={['#9F2241', '#BE3356']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.filterModalApplyGradient, { borderRadius: 14 }]}>
+                    <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                    <Text style={styles.filterModalApplyText}>¡Entendido!</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
         {/* Wrapper para las columnas - diferente layout en web vs mobile */}
         {Platform.OS === 'web' ? (
           <View 

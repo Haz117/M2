@@ -16,8 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
 
-// v2 key: force re-show for all users who saw the old tour
-const ONBOARDING_KEY = '@onboarding_v2';
+// v3 key: force re-show for all users (new AI features added)
+const ONBOARDING_KEY = '@onboarding_v3';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // ─── Pasos por rol ────────────────────────────────────────────────────────────
@@ -73,6 +73,13 @@ const STEPS_ADMIN = [
     color: '#6366F1',
   },
   {
+    id: 'ai_features',
+    title: 'Inteligencia Artificial integrada',
+    description: 'El sistema detecta tareas duplicadas, sugiere área y responsable mientras escribes, y genera subtareas automáticamente. Cada tarea muestra también una alerta de riesgo de retraso.',
+    icon: 'sparkles-outline',
+    color: '#6366F1',
+  },
+  {
     id: 'ready',
     title: '¡Todo listo!',
     description: 'Tienes el control total. Si necesitas ayuda, el ícono "?" en cada pantalla te explica qué hace cada sección.',
@@ -125,6 +132,13 @@ const STEPS_SECRETARIO = [
     color: '#EF4444',
   },
   {
+    id: 'ai_subtasks',
+    title: 'IA: Genera subtareas al instante',
+    description: 'Al crear o editar una tarea, el botón "✨ Sugerir subtareas con IA" analiza el título y sugiere los pasos necesarios. Selecciona los que quieras y se crean automáticamente.',
+    icon: 'sparkles-outline',
+    color: '#6366F1',
+  },
+  {
     id: 'ready',
     title: '¡Listo para coordinar!',
     description: 'Ya conoces tu flujo de trabajo. Toca el ícono "?" en cualquier pantalla para obtener ayuda contextual.',
@@ -175,6 +189,13 @@ const STEPS_DIRECTOR = [
     description: 'Cada tarea tiene su propio chat. Puedes enviar mensajes, imágenes y actualizaciones directamente a tu secretario.',
     icon: 'chatbubbles-outline',
     color: '#6366F1',
+  },
+  {
+    id: 'ai_risk',
+    title: 'IA: Alerta de riesgo de retraso',
+    description: 'Cada tarea muestra automáticamente si tiene "Riesgo alto" o "Riesgo medio" de retrasarse, basado en el historial del área y del responsable. Sin hacer nada extra.',
+    icon: 'warning-outline',
+    color: '#F59E0B',
   },
   {
     id: 'ready',
