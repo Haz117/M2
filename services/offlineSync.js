@@ -99,6 +99,19 @@ export const getLastSyncTime = async () => {
   }
 };
 
+// Limpiar caché de tareas de un usuario específico
+// Se usa en logout para evitar que el caché de usuarios anteriores persista
+export const clearUserTaskCache = async (userEmail) => {
+  try {
+    if (!userEmail) return;
+    const key = `${OFFLINE_TASKS_KEY}_${userEmail.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+    await AsyncStorage.removeItem(key);
+    log('🗑️ Caché limpiado para usuario:', userEmail);
+  } catch (error) {
+    console.error('Error limpiando caché de usuario:', error);
+  }
+};
+
 // ============ COLA DE OPERACIONES PENDIENTES ============
 
 // Tipos de operaciones
@@ -277,7 +290,29 @@ const syncCreateOperation = async (op) => {
   delete taskData.isOffline;
   delete taskData.tempId;
   
-  await addDoc(tasksRef, taskData);
+  const docRef = await addDoc(tasksRef, taskData);
+  
+  // 🧹 Actualizar caché local: reemplazar tarea temporal con la tarea sincronizada
+  try {
+    const cached = await getCachedTasks();
+    // Eliminar la tarea temporal
+    const filtered = cached.filter(t => t.id !== op.taskId);
+    // Agregar la tarea sincronizada con el nuevo ID de Firebase
+    const syncedTask = {
+      ...op.data,
+      id: docRef.id,
+      isOffline: false, // Remover el flag de offline
+      createdAt: op.data.createdAt,
+      updatedAt: op.data.updatedAt,
+      dueAt: op.data.dueAt,
+      syncedAt: Date.now()
+    };
+    filtered.unshift(syncedTask);
+    await cacheTasksLocally(filtered);
+    log('✅ Caché actualizado: tarea temporal reemplazada por tarea sincronizada');
+  } catch (cacheError) {
+    console.error('Error actualizando caché después de sincronizar:', cacheError);
+  }
 };
 
 // Sincronizar operación UPDATE
@@ -315,6 +350,25 @@ const syncUpdateOperation = async (op) => {
   });
   
   await updateDoc(taskRef, updateData);
+  
+  // 🧹 Actualizar caché local: remover isOffline
+  try {
+    const cached = await getCachedTasks();
+    const taskIndex = cached.findIndex(t => t.id === op.taskId);
+    if (taskIndex !== -1) {
+      cached[taskIndex] = {
+        ...cached[taskIndex],
+        ...op.data,
+        isOffline: false, // Remover el flag de offline
+        updatedAt: Date.now(),
+        syncedAt: Date.now()
+      };
+      await cacheTasksLocally(cached);
+      log('✅ Caché actualizado: isOffline removido para tarea', op.taskId);
+    }
+  } catch (cacheError) {
+    console.error('Error actualizando caché después de sincronizar update:', cacheError);
+  }
 };
 
 // Sincronizar operación DELETE
@@ -416,11 +470,21 @@ export const deleteTaskOffline = async (taskId) => {
 // Limpiar todo el cache (para logout)
 export const clearOfflineData = async () => {
   try {
-    await AsyncStorage.multiRemove([
-      OFFLINE_TASKS_KEY,
-      PENDING_OPERATIONS_KEY,
-      LAST_SYNC_KEY
-    ]);
+    // Obtener todas las claves de AsyncStorage
+    const allKeys = await AsyncStorage.getAllKeys();
+    
+    // Filtrar las claves que pertenecen al cache de tareas (global y por usuario)
+    const keysToRemove = allKeys.filter(key => 
+      key === OFFLINE_TASKS_KEY || 
+      key.startsWith(OFFLINE_TASKS_KEY + '_') ||
+      key === PENDING_OPERATIONS_KEY ||
+      key === LAST_SYNC_KEY
+    );
+    
+    if (keysToRemove.length > 0) {
+      await AsyncStorage.multiRemove(keysToRemove);
+      log(`🗑️ Limpiadas ${keysToRemove.length} claves de cache (incluyendo @offline_tasks_*)`);
+    }
   } catch (error) {
     console.error('Error limpiando cache:', error);
   }

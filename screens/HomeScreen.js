@@ -29,7 +29,6 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useTasks } from '../contexts/TasksContext';
 import { deleteTask as deleteTaskFirebase, updateTask, createTask } from '../services/tasks';
 import { hapticLight, hapticMedium, hapticHeavy } from '../utils/haptics';
-import { getCurrentSession, refreshSession } from '../services/authFirestore';
 import { useResponsive } from '../utils/responsive';
 import { SPACING, TYPOGRAPHY, RADIUS, SHADOWS, MAX_WIDTHS } from '../theme/tokens';
 import { canChangeTaskStatus, canDeleteTask, ROLES } from '../services/permissions';
@@ -45,7 +44,7 @@ export default function HomeScreen({ navigation }) {
   const { showSuccess, showError, showWarning, showInfo, showNotification } = useNotification();
 
   // 🌍 USAR EL CONTEXT GLOBAL DE TAREAS
-  const { tasks, setTasks, isLoading: tasksLoading } = useTasks();
+  const { tasks, setTasks, isLoading: tasksLoading, currentUser } = useTasks();
   const isLoading = tasksLoading; // Derivado directo, sin estado duplicado
   const [title, setTitle] = useState('');
   const [searchText, setSearchText] = useState('');
@@ -91,7 +90,6 @@ export default function HomeScreen({ navigation }) {
     };
     saveFilters();
   }, [advancedFilters, searchText]);
-  const [currentUser, setCurrentUser] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
 
@@ -174,24 +172,6 @@ export default function HomeScreen({ navigation }) {
   const flatListRef = useRef(null);
   const deletingTasksRef = useRef(new Set());
 
-
-  // Cargar usuario actual
-  useEffect(() => {
-    loadCurrentUser();
-  }, []);
-
-  const loadCurrentUser = useCallback(async () => {
-    const result = await getCurrentSession();
-    if (result.success) {
-      setCurrentUser(result.session);
-      
-      // Refrescar sesión desde Firestore para asegurar datos actualizados
-      const refreshResult = await refreshSession();
-      if (refreshResult.success) {
-        setCurrentUser(refreshResult.session);
-      }
-    }
-  }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

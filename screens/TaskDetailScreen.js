@@ -10,8 +10,8 @@ import useTaskCreation from '../hooks/useTaskCreation';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { scheduleNotificationForTask, cancelNotification, notifyAssignment } from '../services/notifications';
-import { getCurrentSession } from '../services/authFirestore';
 import { useNotification } from '../contexts/NotificationContext';
+import { useTasks } from '../contexts/TasksContext';
 import ShakeInput from '../components/ShakeInput';
 import LoadingIndicator from '../components/LoadingIndicator';
 import PressableButton from '../components/PressableButton';
@@ -54,6 +54,7 @@ if (Platform.OS !== 'web') {
 export default function TaskDetailScreen({ route, navigation }) {
   const { theme, isDark } = useTheme();
   const { showSuccess, showError } = useNotification();
+  const { currentUser } = useTasks();
   // Si route.params.task está presente, estamos editando; si no, creamos nueva
   const editingTask = route.params?.task || null;
 
@@ -176,9 +177,8 @@ export default function TaskDetailScreen({ route, navigation }) {
   const [tempDate, setTempDate] = useState(dueAt);
   const [peopleNames, setPeopleNames] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
+  const userRole = currentUser?.role ?? null;
   const [canEdit, setCanEdit] = useState(false);
-  const [userRole, setUserRole] = useState(null);
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [canDelegate, setCanDelegate] = useState(false);
   const [canAddSubtask, setCanAddSubtask] = useState(false);
@@ -449,9 +449,8 @@ export default function TaskDetailScreen({ route, navigation }) {
 
   useEffect(() => {
     loadUserNames();
-    checkPermissions();
     initializeAssignees();
-    
+
     // Animar entrada del formulario
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -459,6 +458,10 @@ export default function TaskDetailScreen({ route, navigation }) {
       useNativeDriver: true,
     }).start();
   }, []);
+
+  useEffect(() => {
+    if (currentUser) checkPermissions(currentUser);
+  }, [currentUser?.email]);
 
   // Inicializar asignados múltiples desde tarea existente
   const initializeAssignees = async () => {
@@ -578,51 +581,41 @@ export default function TaskDetailScreen({ route, navigation }) {
     setPeopleNames(names);
   };
 
-  const checkPermissions = async () => {
-    const result = await getCurrentSession();
-    if (result.success) {
-      setCurrentUser(result.session);
-      const role = result.session.role;
-      setUserRole(role);
-      
-      // BLOQUEAR creación de tareas principales para secretarios y directores
-      if (!editingTask && (role === 'secretario' || role === 'director')) {
-        Alert.alert(
-          'Acción no permitida',
-          role === 'secretario' 
-            ? 'Los secretarios solo pueden crear subtareas desde las tareas asignadas por el administrador.'
-            : 'Los directores no pueden crear tareas. Contacta a tu secretario o administrador.',
-          [{ text: 'Entendido', onPress: () => navigation.goBack() }]
-        );
-        return;
-      }
-      
-      // NUEVO SISTEMA DE PERMISOS
-      const user = result.session;
-      
-      if (editingTask) {
-        // Verificar permisos específicos para tarea existente
-        const editPermission = canEditTask(user, editingTask);
-        const delegatePermission = canDelegateTask(user, editingTask);
-        const subtaskPermission = canCreateSubtask(user, editingTask);
-        
-        setCanEdit(editPermission.canEdit);
-        setCanDelegate(delegatePermission.canDelegate);
-        setCanAddSubtask(subtaskPermission.canCreate);
-        setIsReadOnly(role === 'director' || role === 'secretario');
-      } else {
-        // Creando nueva tarea - solo admin
-        const createPermission = canCreateTask(user);
-        setCanEdit(createPermission.canCreate);
-        setCanDelegate(false);
-        setCanAddSubtask(false);
-        setIsReadOnly(!createPermission.canCreate);
-      }
-      
-      // Cargar usuarios para delegación si es secretario
-      if (role === 'secretario' && editingTask) {
-        loadDelegateUsers(user);
-      }
+  const checkPermissions = (user) => {
+    if (!user) return;
+    const role = user.role;
+
+    // BLOQUEAR creación de tareas principales para secretarios y directores
+    if (!editingTask && (role === 'secretario' || role === 'director')) {
+      Alert.alert(
+        'Acción no permitida',
+        role === 'secretario'
+          ? 'Los secretarios solo pueden crear subtareas desde las tareas asignadas por el administrador.'
+          : 'Los directores no pueden crear tareas. Contacta a tu secretario o administrador.',
+        [{ text: 'Entendido', onPress: () => navigation.goBack() }]
+      );
+      return;
+    }
+
+    if (editingTask) {
+      const editPermission = canEditTask(user, editingTask);
+      const delegatePermission = canDelegateTask(user, editingTask);
+      const subtaskPermission = canCreateSubtask(user, editingTask);
+
+      setCanEdit(editPermission.canEdit);
+      setCanDelegate(delegatePermission.canDelegate);
+      setCanAddSubtask(subtaskPermission.canCreate);
+      setIsReadOnly(role === 'director' || role === 'secretario');
+    } else {
+      const createPermission = canCreateTask(user);
+      setCanEdit(createPermission.canCreate);
+      setCanDelegate(false);
+      setCanAddSubtask(false);
+      setIsReadOnly(!createPermission.canCreate);
+    }
+
+    if (role === 'secretario' && editingTask) {
+      loadDelegateUsers(user);
     }
   };
   
@@ -2101,11 +2094,10 @@ export default function TaskDetailScreen({ route, navigation }) {
                 taskTitle={title}
                 onSessionComplete={async (session) => {
                   try {
-                    const user = await getCurrentSession();
-                    if (user.success) {
-                      await savePomodoroSession({ 
-                        ...session, 
-                        userEmail: user.session.email 
+                    if (currentUser) {
+                      await savePomodoroSession({
+                        ...session,
+                        userEmail: currentUser.email
                       });
                       showSuccess('Sesión Pomodoro completada!');
                     }

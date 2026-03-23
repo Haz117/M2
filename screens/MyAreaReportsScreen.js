@@ -20,17 +20,17 @@ import { useTheme } from '../contexts/ThemeContext';
 import ShimmerEffect from '../components/ShimmerEffect';
 import { subscribeToAreaReports, subscribeToMyReports, rateTaskReport, deleteTaskReport } from '../services/reportsService';
 import { hapticSuccess, hapticWarning } from '../utils/haptics';
-import { getCurrentSession } from '../services/authFirestore';
 import { getDireccionesBySecretaria } from '../config/areas';
 import { useNotification } from '../contexts/NotificationContext';
+import { useTasks } from '../contexts/TasksContext';
 
 const MyAreaReportsScreen = ({ navigation }) => {
   const { theme, isDark } = useTheme();
   const { showError, showSuccess } = useNotification();
+  const { currentUser } = useTasks();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
   const [selectedReport, setSelectedReport] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter] = useState('all'); // 'all', 'mine', 'team'
@@ -38,68 +38,60 @@ const MyAreaReportsScreen = ({ navigation }) => {
 
   const unsubscribeRef = React.useRef(null);
 
-  useEffect(() => {
-    loadData();
-    return () => {
-      if (unsubscribeRef.current) unsubscribeRef.current();
-    };
-  }, []);
-
   const onSubError = useCallback(() => {
     setLoadError(true);
     setLoading(false);
     setRefreshing(false);
   }, []);
 
-  const loadData = async () => {
+  // Re-suscribir cuando el usuario del contexto esté disponible
+  useEffect(() => {
+    if (!currentUser) return;
     setLoadError(false);
-    const result = await getCurrentSession();
-    if (result.success && result.session) {
-      setCurrentUser(result.session);
 
-      const userRole = result.session.role;
-      const userEmail = result.session.email;
+    const userRole = currentUser.role;
+    const userEmail = currentUser.email;
 
-      // Limpiar suscripción anterior
-      if (unsubscribeRef.current) unsubscribeRef.current();
+    // Limpiar suscripción anterior
+    if (unsubscribeRef.current) unsubscribeRef.current();
 
-      if (userRole === 'secretario') {
-        // Secretario ve todos los reportes de sus áreas
-        // Combinar áreas de Firebase con mapeo oficial
-        const direccionesOficiales = getDireccionesBySecretaria(result.session.area || '');
-        const areasFirebase = result.session.areasPermitidas || [];
-        const todasAreas = [...new Set([
-          result.session.area,
-          ...direccionesOficiales,
-          ...areasFirebase
-        ])].filter(Boolean);
+    if (userRole === 'secretario') {
+      const direccionesOficiales = getDireccionesBySecretaria(currentUser.area || '');
+      const areasFirebase = currentUser.areasPermitidas || [];
+      const todasAreas = [...new Set([
+        currentUser.area,
+        ...direccionesOficiales,
+        ...areasFirebase
+      ])].filter(Boolean);
 
-        unsubscribeRef.current = subscribeToAreaReports(todasAreas, (data) => {
-          setReports(data);
-          setLoading(false);
-          setRefreshing(false);
-        }, onSubError);
-      } else if (userRole === 'director') {
-        // Director ve reportes de su área específica
-        const directorArea = result.session.area;
-        unsubscribeRef.current = subscribeToAreaReports([directorArea], (data) => {
-          setReports(data);
-          setLoading(false);
-          setRefreshing(false);
-        }, onSubError);
-      } else {
-        unsubscribeRef.current = subscribeToMyReports(userEmail, (data) => {
-          setReports(data);
-          setLoading(false);
-          setRefreshing(false);
-        }, onSubError);
-      }
+      unsubscribeRef.current = subscribeToAreaReports(todasAreas, (data) => {
+        setReports(data);
+        setLoading(false);
+        setRefreshing(false);
+      }, onSubError);
+    } else if (userRole === 'director') {
+      unsubscribeRef.current = subscribeToAreaReports([currentUser.area], (data) => {
+        setReports(data);
+        setLoading(false);
+        setRefreshing(false);
+      }, onSubError);
+    } else {
+      unsubscribeRef.current = subscribeToMyReports(userEmail, (data) => {
+        setReports(data);
+        setLoading(false);
+        setRefreshing(false);
+      }, onSubError);
     }
-  };
+
+    return () => {
+      if (unsubscribeRef.current) unsubscribeRef.current();
+    };
+  }, [currentUser?.email]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    loadData();
+    // La re-suscripción es automática; solo mostrar el indicador brevemente
+    setTimeout(() => setRefreshing(false), 800);
   }, []);
 
   const getFilteredReports = () => {

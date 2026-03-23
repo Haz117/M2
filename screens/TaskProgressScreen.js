@@ -16,8 +16,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { subscribeToTaskProgress } from '../services/taskProgress';
-import { getCurrentSession } from '../services/authFirestore';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTasks } from '../contexts/TasksContext';
 import ProgressBar from '../components/ProgressBar';
 import LoadingIndicator from '../components/LoadingIndicator';
 import ShimmerEffect from '../components/ShimmerEffect';
@@ -31,26 +31,15 @@ export default function TaskProgressScreen({ route, navigation }) {
   const { taskId, task } = route.params;
   const { theme, isDark } = useTheme();
   const { isDesktop } = useResponsive();
+  const { currentUser } = useTasks();
 
   const [expandedSubtask, setExpandedSubtask] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [progressData, setProgressData] = useState(null);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(100)).current;
-
-  // Cargar usuario actual
-  useEffect(() => {
-    const loadUser = async () => {
-      const result = await getCurrentSession();
-      if (result.success) {
-        setCurrentUser(result.session);
-      }
-    };
-    loadUser();
-  }, []);
 
   // Suscribir a cambios de progreso en tiempo real
   useEffect(() => {

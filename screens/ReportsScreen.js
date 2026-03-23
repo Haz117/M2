@@ -26,7 +26,6 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useResponsive } from '../utils/responsive';
 import { useTasks } from '../contexts/TasksContext';
 import { subscribeToSubtasks } from '../services/tasksMultiple';
-import { getCurrentSession } from '../services/authFirestore';
 import LoadingIndicator from '../components/LoadingIndicator';
 import ShimmerEffect from '../components/ShimmerEffect';
 import EmptyState from '../components/EmptyState';
@@ -62,12 +61,11 @@ export default function ReportsScreen({ navigation }) {
   const { theme, isDark } = useTheme();
   const { width, isDesktop, isTablet, padding } = useResponsive();
   const { showSuccess, showError } = useNotification();
-  const { tasks, isLoading: tasksLoading } = useTasks();
+  const { tasks, isLoading: tasksLoading, currentUser } = useTasks();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [period, setPeriod] = useState('week'); // 'week' | 'month' | 'quarter'
-  const [currentUser, setCurrentUser] = useState(null);
   
   // Stats
   const [weeklyStats, setWeeklyStats] = useState({
@@ -156,16 +154,6 @@ export default function ReportsScreen({ navigation }) {
   // ⚠️ En web, useNativeDriver puede causar problemas
   const useNativeDriver = Platform.OS !== 'web';
 
-  // Load current user
-  useEffect(() => {
-    let mounted = true;
-    getCurrentSession().then((result) => {
-      if (result.success && mounted) {
-        setCurrentUser(result.session);
-      }
-    });
-    return () => { mounted = false; };
-  }, []);
 
   // Load subtasks for progress tracking
   useEffect(() => {

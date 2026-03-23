@@ -1,14 +1,14 @@
 // screens/AdminScreen.js
 // Pantalla de configuración y administración
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Animated, Platform, Modal, ActivityIndicator, Alert, KeyboardAvoidingView } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, Modal, Alert, KeyboardAvoidingView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ensurePermissions, getAllScheduledNotifications, cancelAllNotifications } from '../services/notifications';
-import { collection, addDoc, query, where, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import * as Notifications from 'expo-notifications';
-import { getCurrentSession, logoutUser, isAdmin, registerUser } from '../services/authFirestore';
+import { registerUser } from '../services/authFirestore';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNotification } from '../contexts/NotificationContext';
 import OverdueAlert from '../components/OverdueAlert';
@@ -26,15 +26,14 @@ const ROLE_COLORS = { director: '#0EA5E9', secretario: '#8B5CF6', admin: '#EF444
 export default function AdminScreen({ navigation, onLogout }) {
   const { isDark, toggleTheme, theme } = useTheme();
   const { isDesktop } = useResponsive();
-  const { tasks } = useTasks();
+  const { tasks, currentUser } = useTasks();
+  const isUserAdmin = currentUser?.role === 'admin';
   const { showSuccess, showError, showWarning } = useNotification();
   const [notificationCount, setNotificationCount] = useState(0);
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userPassword, setUserPassword] = useState('');
   const [userRole, setUserRole] = useState('director');
-  const [currentUser, setCurrentUser] = useState(null);
-  const [isUserAdmin, setIsUserAdmin] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
   const [showUserList, setShowUserList] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
@@ -51,25 +50,13 @@ export default function AdminScreen({ navigation, onLogout }) {
   const [newTempPassword, setNewTempPassword] = useState('');
   const [showTempPass, setShowTempPass] = useState(false);
 
-  // Disable animations on web for compatibility
-  const supportsNativeDriver = Platform.OS !== 'web';
 
-  // Animation refs for stagger effect
-  const headerOpacity = useRef(new Animated.Value(supportsNativeDriver ? 0 : 1)).current;
-  const headerSlide = useRef(new Animated.Value(supportsNativeDriver ? -20 : 0)).current;
-  const statsOpacity = useRef(new Animated.Value(supportsNativeDriver ? 0 : 1)).current;
-  const statsSlide = useRef(new Animated.Value(supportsNativeDriver ? 30 : 0)).current;
-  const formOpacity = useRef(new Animated.Value(supportsNativeDriver ? 0 : 1)).current;
-  const formSlide = useRef(new Animated.Value(supportsNativeDriver ? 30 : 0)).current;
-  const usersOpacity = useRef(new Animated.Value(supportsNativeDriver ? 0 : 1)).current;
-  const usersSlide = useRef(new Animated.Value(supportsNativeDriver ? 30 : 0)).current;
 
   // Load data on mount
   useEffect(() => {
     const loadData = async () => {
       try {
         setIsLoading(true);
-        await loadCurrentUser();
         await loadNotificationCount();
         await loadAllUsers();
       } catch (error) {
@@ -108,20 +95,6 @@ export default function AdminScreen({ navigation, onLogout }) {
 
   // Removed duplicate useEffect - new one handles data loading
   
-  const loadCurrentUser = async () => {
-    try {
-      const result = await getCurrentSession();
-      if (result.success && result.session) {
-        setCurrentUser(result.session);
-        const adminStatus = await isAdmin();
-        setIsUserAdmin(adminStatus);
-      } else {
-        showWarning('No hay sesión activa. Inicia sesión primero');
-      }
-    } catch (error) {
-      showError('Error al cargar usuario');
-    }
-  };
 
   const loadNotificationCount = async () => {
     try {
@@ -736,9 +709,9 @@ export default function AdminScreen({ navigation, onLogout }) {
               
               {/* Credenciales */}
               <View style={styles.flowSection}>
-                <View style={styles.flowSectionHeader}>
+                <View style={styles.sectionHeader}>
                   <Ionicons name="key" size={20} color={theme.primary} />
-                  <Text style={[styles.flowSectionTitle, { color: theme.text }]}>🔐 Credenciales de Acceso</Text>
+                  <Text style={[styles.sectionTitle, { color: theme.text }]}>🔐 Credenciales de Acceso</Text>
                 </View>
                 
                 <View style={[styles.credentialsBox, { backgroundColor: isDark ? '#2A2A2A' : '#F5F5F5' }]}>

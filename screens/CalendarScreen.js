@@ -17,7 +17,6 @@ import { hapticLight, hapticMedium, hapticSuccess, hapticWarning } from '../util
 import { useTheme } from '../contexts/ThemeContext';
 import { useNotification } from '../contexts/NotificationContext';
 import OverdueAlert from '../components/OverdueAlert';
-import { getCurrentSession } from '../services/authFirestore';
 import { useResponsive } from '../utils/responsive';
 import { SPACING, TYPOGRAPHY, RADIUS, SHADOWS, MAX_WIDTHS } from '../theme/tokens';
 import WebSafeBlur from '../components/WebSafeBlur';
@@ -31,12 +30,11 @@ export default function CalendarScreen({ navigation }) {
   const { theme, isDark } = useTheme();
   const { width, isDesktop, isTablet, columns, padding } = useResponsive();
   // 🌍 USAR EL CONTEXT GLOBAL DE TAREAS
-  const { tasks, isLoading } = useTasks();
+  const { tasks, isLoading, currentUser } = useTasks();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const { showSuccess, showInfo } = useNotification();
-  const [currentUser, setCurrentUser] = useState(null);
   const [monthDirection, setMonthDirection] = useState(0); // -1 prev, 1 next
   const [compactTaskView, setCompactTaskView] = useState(false); // Vista compacta de tareas
   const [taskStatusFilter, setTaskStatusFilter] = useState('todas'); // Filtro por estado en modal
@@ -51,16 +49,6 @@ export default function CalendarScreen({ navigation }) {
   const legendSlide = useRef(new Animated.Value(50)).current;
   const legendOpacity = useRef(new Animated.Value(0)).current;
 
-  // Suscribirse a cambios en tiempo real
-  useEffect(() => {
-    // Cargar usuario actual
-    getCurrentSession().then(result => {
-      if (result.success) {
-        setCurrentUser(result.session);
-      }
-    });
-  }, []);
-  
   // Animar elementos de entrada
   useEffect(() => {
     const startAnimations = () => {

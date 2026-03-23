@@ -16,7 +16,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../contexts/ThemeContext';
-import { getCurrentSession } from '../services/authFirestore';
 import { useTasks } from '../contexts/TasksContext';
 import ShimmerEffect from '../components/ShimmerEffect';
 import ProgressBar from '../components/ProgressBar';
@@ -27,7 +26,6 @@ const { width } = Dimensions.get('window');
 
 export default function AreaChiefDashboard({ navigation }) {
   const { theme, isDark } = useTheme();
-  const [currentUser, setCurrentUser] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -36,19 +34,7 @@ export default function AreaChiefDashboard({ navigation }) {
   const [filter, setFilter] = useState('all'); // all, pendiente, en_progreso, completed
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const { tasks: contextTasks, isLoading: contextLoading } = useTasks();
-
-  // Load session once on mount
-  useEffect(() => {
-    getCurrentSession().then((result) => {
-      if (result.success) {
-        setCurrentUser(result.session);
-      } else {
-        setLoadError(true);
-        setLoading(false);
-      }
-    });
-  }, []);
+  const { tasks: contextTasks, isLoading: contextLoading, currentUser } = useTasks();
 
   // Recalculate whenever context tasks update
   useEffect(() => {

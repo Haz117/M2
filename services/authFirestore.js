@@ -76,6 +76,15 @@ export const loginUser = async (email, password) => {
       return { success: false, error: 'Usuario desactivado' };
     }
     
+    // 🧹 LIMPIAR TODO EL CACHÉ de tareas al iniciar sesión
+    // Asegurar que se carguen datos frescos de Firestore sin contaminación
+    try {
+      const { clearOfflineData } = await import('./offlineSync');
+      await clearOfflineData();
+    } catch (cleanupError) {
+      console.error('Error limpiando caché en login:', cleanupError);
+    }
+    
     // Guardar sesión en AsyncStorage
     const session = {
       userId: userDoc.id,
@@ -99,6 +108,20 @@ export const loginUser = async (email, password) => {
 // Cerrar sesión
 export const logoutUser = async () => {
   try {
+    // Obtener el usuario actual antes de borrar la sesión
+    const sessionData = await AsyncStorage.getItem('userSession');
+    if (sessionData) {
+      try {
+        const session = JSON.parse(sessionData);
+        // Limpiar caché de tareas del usuario que está haciendo logout
+        const { clearUserTaskCache } = await import('./offlineSync');
+        await clearUserTaskCache(session.email);
+      } catch (cleanupError) {
+        console.error('Error limpiando caché en logout:', cleanupError);
+      }
+    }
+    
+    // Remover la sesión
     await AsyncStorage.removeItem('userSession');
     return { success: true };
   } catch (error) {

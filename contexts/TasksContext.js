@@ -2,66 +2,16 @@
 // Context global para sincronizar tareas entre todas las pantallas en tiempo real
 // ⚡ Optimizado con useMemo para evitar re-renders innecesarios
 
-import React, { createContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { createContext, useState, useEffect, useRef, useMemo } from 'react';
 import { subscribeToTasks } from '../services/tasks';
 import { getCurrentSession } from '../services/authFirestore';
 import { deleteManager } from '../utils/deleteManager';
-import { getDireccionesBySecretaria, resolveAreaName } from '../config/areas';
 
 // Usar globalThis para que React.lazy() bundles compartan la misma instancia de contexto
 if (!globalThis.__TASKS_CONTEXT__) {
   globalThis.__TASKS_CONTEXT__ = createContext();
 }
 export const TasksContext = globalThis.__TASKS_CONTEXT__;
-
-/**
- * Filtra tareas según el rol del usuario:
- * - admin: ve todas
- * - secretario: las asignadas a su email + las de áreas de su secretaría y direcciones adscritas
- * - director: solo las asignadas directamente a su email (admin directo o delegación del secretario)
- */
-function filterTasksByRole(allTasks, user) {
-  if (!user) return []; // Sesión aún no cargada — no exponer tareas
-  if (user.role === 'admin') return allTasks;
-
-  const myEmail = user.email?.toLowerCase().trim();
-  if (!myEmail) return [];
-
-  if (user.role === 'secretario') {
-    // Construir set de áreas permitidas: su secretaría + todas sus direcciones adscritas
-    const secArea = resolveAreaName(user.area || '');
-    const direcciones = getDireccionesBySecretaria(secArea);
-    const extraDirecciones = user.direcciones || [];
-    const allowedAreas = new Set(
-      [secArea, ...direcciones, ...extraDirecciones]
-        .filter(Boolean)
-        .map(a => a.toLowerCase().trim())
-    );
-
-    return allTasks.filter(task => {
-      // Asignada directamente a su email
-      const assignedTo = task.assignedTo || [];
-      const assignees = Array.isArray(assignedTo)
-        ? assignedTo.map(e => (typeof e === 'string' ? e : e?.email || '')?.toLowerCase().trim())
-        : [(assignedTo || '').toLowerCase().trim()];
-      if (assignees.includes(myEmail)) return true;
-      // Tarea creada por el secretario (para que la vea en Bandeja)
-      if ((task.createdBy || '').toLowerCase().trim() === myEmail) return true;
-      // Pertenece a su área o a una dirección adscrita
-      const taskArea = (task.area || (Array.isArray(task.areas) ? task.areas[0] : '') || '').toLowerCase().trim();
-      return taskArea && allowedAreas.has(taskArea);
-    });
-  }
-
-  // Director: solo tareas asignadas directamente a él
-  return allTasks.filter(task => {
-    const assignedTo = task.assignedTo || [];
-    const assignees = Array.isArray(assignedTo)
-      ? assignedTo.map(e => (typeof e === 'string' ? e : e?.email || '')?.toLowerCase().trim())
-      : [(assignedTo || '').toLowerCase().trim()];
-    return assignees.includes(myEmail);
-  });
-}
 
 export function TasksProvider({ children }) {
   const [tasks, setTasks] = useState([]);
@@ -101,57 +51,43 @@ export function TasksProvider({ children }) {
     };
   }, []);
 
-  // Ref para acceder al usuario actual dentro del listener sin recrear suscripción
-  const currentUserRef = useRef(null);
-  useEffect(() => {
-    currentUserRef.current = currentUser;
-  }, [currentUser]);
-
   // 🔍 EFECTO 2: Suscribirse al listener SOLO cuando hay sesión
   useEffect(() => {
-    if (!hasSession) {
-      return; // Esperar a que haya sesión antes de conectarse
+    if (!hasSession || !currentUser?.email) {
+      setTasks([]);
+      setIsLoading(true);
+      return;
     }
 
     let mounted = true;
     let retryCount = 0;
-    const MAX_RETRIES = 5; // Más reintentos para mayor robustez
+    const MAX_RETRIES = 5;
     const hasLoadedOnce = { current: false };
 
     const setupSubscription = async () => {
       try {
         unsubscribeTasksRef.current = await subscribeToTasks((updatedTasks) => {
           if (!mounted) return;
-
-          // Filter out deleted tasks using deleteManager
           const visibleTasks = deleteManager.filterVisible(updatedTasks);
-
-          // Filter by user role (admin sees all, others see only their tasks)
-          const filteredTasks = filterTasksByRole(visibleTasks, currentUserRef.current);
-          setTasks(filteredTasks);
+          setTasks(visibleTasks);
 
           if (!hasLoadedOnce.current) {
             hasLoadedOnce.current = true;
             setIsLoading(false);
           }
 
-          retryCount = 0; // Reset retry counter on success
+          retryCount = 0;
         });
       } catch (error) {
         if (__DEV__) console.error('❌ Error en setupSubscription:', error.message);
-        // Si falla y aún tenemos reintentos, esperar y volver a intentar
         if (retryCount < MAX_RETRIES && mounted) {
           retryCount++;
-          const delayMs = 500 * retryCount; // 500ms, 1s, 1.5s, 2s, 2.5s
+          const delayMs = 500 * retryCount;
           if (__DEV__) console.warn(`Reintentando suscripción (${retryCount}/${MAX_RETRIES}) en ${delayMs}ms...`);
-
           setTimeout(() => {
-            if (mounted) {
-              setupSubscription();
-            }
+            if (mounted) setupSubscription();
           }, delayMs);
         } else {
-          // No hay más reintentos
           setIsLoading(false);
           if (__DEV__) console.error('❌ Agotados reintentos de suscripción a tareas');
         }
@@ -171,7 +107,7 @@ export function TasksProvider({ children }) {
         }
       }
     };
-  }, [hasSession]);
+  }, [hasSession, currentUser?.email]);
 
   // ⚡ Memoize context value to prevent unnecessary re-renders
   const value = useMemo(() => ({

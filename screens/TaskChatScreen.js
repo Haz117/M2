@@ -9,11 +9,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, addDoc, onSnapshot, query, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, getServerTimestamp } from '../firebase';
-import { getCurrentSession } from '../services/authFirestore';
 import { notifyNewComment } from '../services/fcm';
 import { notifyNewChatMessage } from '../services/emailNotifications';
 import ChatImageUpload from '../components/ChatImageUpload';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTasks } from '../contexts/TasksContext';
 
 // Helper function to check if a task is assigned to a user (supports both string and array formats)
 function isTaskAssignedToUser(task, userEmail) {
@@ -33,53 +33,36 @@ function isTaskAssignedToUser(task, userEmail) {
 export default function TaskChatScreen({ route, navigation }) {
   const { theme, isDark } = useTheme();
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
+  const { currentUser: ctxUser } = useTasks();
   const { taskId, taskTitle } = route.params;
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
-  const [currentUser, setCurrentUser] = useState('');
-  const [currentUserId, setCurrentUserId] = useState(null);
+  const currentUser = ctxUser?.displayName || ctxUser?.email || 'Usuario';
+  const currentUserId = ctxUser?.userId ?? null;
   const [hasAccess, setHasAccess] = useState(false);
   const [taskData, setTaskData] = useState(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState(null);
   const flatRef = useRef();
 
-  // Cargar usuario actual y verificar acceso a la tarea
+  // Verificar acceso a la tarea cuando el usuario del contexto esté disponible
   useEffect(() => {
-    loadCurrentUserAndCheckAccess();
-  }, []);
-
-  const loadCurrentUserAndCheckAccess = async () => {
-    const result = await getCurrentSession();
-
-    if (result.success) {
-      const displayName = result.session.displayName || result.session.email || 'Usuario';
-      setCurrentUser(displayName);
-      setCurrentUserId(result.session.userId);
-
+    if (!ctxUser) return;
+    const checkAccess = async () => {
       try {
         const taskDoc = await getDoc(doc(db, 'tasks', taskId));
         if (taskDoc.exists()) {
-          const task = taskDoc.data();
-          setTaskData(task);
-
-          const userRole = result.session.role;
-          if (userRole === 'admin' || userRole === 'director' || userRole === 'secretario') {
-            setHasAccess(true);
-          } else {
-            setHasAccess(false);
-          }
+          setTaskData(taskDoc.data());
+          const role = ctxUser.role;
+          setHasAccess(role === 'admin' || role === 'director' || role === 'secretario');
         }
       } catch (error) {
         if (__DEV__) console.error('[TaskChat] Error loading task:', error);
         setHasAccess(false);
       }
-    } else {
-      setCurrentUser('Usuario');
-      setCurrentUserId(null);
-      setHasAccess(false);
-    }
-  };
+    };
+    checkAccess();
+  }, [ctxUser?.userId, taskId]);
 
   useEffect(() => {
     if (!hasAccess) return;

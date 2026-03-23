@@ -27,7 +27,6 @@ import PulsingDot from '../components/PulsingDot';
 import RippleButton from '../components/RippleButton';
 import { updateTask } from '../services/tasks';
 import { useTasks } from '../contexts/TasksContext';
-import { getCurrentSession } from '../services/authFirestore';
 import { hapticMedium, hapticHeavy, hapticLight, hapticSuccess, hapticWarning } from '../utils/haptics';
 import { useNotification } from '../contexts/NotificationContext';
 import TaskStatusButtons from '../components/TaskStatusButtons';
@@ -50,9 +49,8 @@ export default function KanbanScreen({ navigation }) {
   const { theme, isDark } = useTheme();
   const { isDesktop } = useResponsive();
   // 🌍 USAR EL CONTEXT GLOBAL DE TAREAS
-  const { tasks, setTasks, isLoading } = useTasks();
-  const [currentUserRole, setCurrentUserRole] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
+  const { tasks, setTasks, isLoading, currentUser } = useTasks();
+  const currentUserRole = currentUser?.role ?? null;
   const [filters, setFilters] = useState({ searchText: '', area: '', responsible: '', priority: '', overdue: false, dueToday: false, dueThisWeek: false });
   const [refreshing, setRefreshing] = useState(false);
   const [draggingTask, setDraggingTask] = useState(null);
@@ -132,15 +130,6 @@ export default function KanbanScreen({ navigation }) {
 
   const columnWidth = useMemo(() => getColumnWidth(), [dimensions.width]);
 
-  // Obtener rol del usuario
-  useEffect(() => {
-    getCurrentSession().then(result => {
-      if (result.success) {
-        setCurrentUserRole(result.session.role);
-        setCurrentUser(result.session);
-      }
-    });
-  }, []);
 
   // Animación de entrada
   useEffect(() => {

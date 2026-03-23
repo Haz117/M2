@@ -13,7 +13,6 @@ import EmptyState from '../components/EmptyState';
 import ShimmerEffect from '../components/ShimmerEffect';
 import { updateTask, deleteTask as deleteTaskFirebase } from '../services/tasks';
 import { scheduleNotificationForTask, cancelNotification } from '../services/notifications';
-import { getCurrentSession } from '../services/authFirestore';
 import { hapticMedium, hapticLight } from '../utils/haptics';
 import { useNotification } from '../contexts/NotificationContext';
 import { isTaskAssignedToUser } from '../utils/taskHelpers';
@@ -35,8 +34,7 @@ export default function MyInboxScreen({ navigation }) {
   const { width, isDesktop, isTablet, columns, padding } = useResponsive();
   const { showSuccess, showError, showWarning, showInfo } = useNotification();
   // 🌍 USAR EL CONTEXT GLOBAL DE TAREAS
-  const { tasks, setTasks, isLoading: tasksLoading } = useTasks();
-  const [currentUser, setCurrentUser] = useState(null);
+  const { tasks, setTasks, isLoading: tasksLoading, currentUser } = useTasks();
   const [refreshing, setRefreshing] = useState(false);
   const [recentMessages, setRecentMessages] = useState([]);
   const [showMessagesModal, setShowMessagesModal] = useState(false);
@@ -100,18 +98,9 @@ export default function MyInboxScreen({ navigation }) {
   }, []);
 
   useEffect(() => {
-    loadCurrentUser();
-    
     // 💾 al montar: restaurar tareas en proceso de borrado
     restoreDeletingTasks();
   }, []);
-
-  const loadCurrentUser = async () => {
-    const result = await getCurrentSession();
-    if (result.success) {
-      setCurrentUser(result.session);
-    }
-  };
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

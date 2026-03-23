@@ -21,16 +21,16 @@ import ShimmerEffect from '../components/ShimmerEffect';
 import { subscribeToAllReports, rateTaskReport, deleteTaskReport } from '../services/reportsService';
 import { hapticSuccess, hapticWarning } from '../utils/haptics';
 import { toMs } from '../utils/dateUtils';
-import { getCurrentSession } from '../services/authFirestore';
 import { useNotification } from '../contexts/NotificationContext';
+import { useTasks } from '../contexts/TasksContext';
 
 const AdminReportsScreen = ({ navigation }) => {
   const { theme, isDark } = useTheme();
   const { showSuccess, showError } = useNotification();
+  const { currentUser } = useTasks();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
   const [selectedReport, setSelectedReport] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter] = useState('all'); // 'all', 'pending', 'rated'
@@ -40,7 +40,6 @@ const AdminReportsScreen = ({ navigation }) => {
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
-    loadUser();
     setLoadError(false);
     const unsubscribe = subscribeToAllReports(
       (data) => {
@@ -59,13 +58,6 @@ const AdminReportsScreen = ({ navigation }) => {
       if (unsubscribe) unsubscribe();
     };
   }, []);
-
-  const loadUser = async () => {
-    const result = await getCurrentSession();
-    if (result.success) {
-      setCurrentUser(result.session);
-    }
-  };
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

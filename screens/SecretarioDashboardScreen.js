@@ -18,7 +18,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTasks } from '../contexts/TasksContext';
-import { getCurrentSession } from '../services/authFirestore';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { getDireccionesBySecretaria, resolveAreaName } from '../config/areas';
@@ -31,11 +30,10 @@ const { width } = Dimensions.get('window');
 
 export default function SecretarioDashboardScreen({ navigation }) {
   const { theme, isDark } = useTheme();
-  const { tasks: contextTasks } = useTasks();
+  const { tasks: contextTasks, currentUser } = useTasks();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [directors, setDirectors] = useState([]);
   const [metrics, setMetrics] = useState({
@@ -53,8 +51,8 @@ export default function SecretarioDashboardScreen({ navigation }) {
   const [selectedDirector, setSelectedDirector] = useState(null);
 
   useEffect(() => {
-    loadInitialData();
-  }, []);
+    if (currentUser) loadInitialData();
+  }, [currentUser?.email]);
 
   // Recalcular métricas cuando cambian las tareas del context o los directores
   useEffect(() => {
@@ -88,10 +86,8 @@ export default function SecretarioDashboardScreen({ navigation }) {
   const loadInitialData = async () => {
     setLoadError(false);
     try {
-      const session = await getCurrentSession();
-      if (session.success && session.session.role === 'secretario') {
-        setCurrentUser(session.session);
-        await loadDirectors(session.session);
+      if (currentUser && currentUser.role === 'secretario') {
+        await loadDirectors(currentUser);
       }
     } catch (error) {
       if (__DEV__) console.error('Error loading data:', error);

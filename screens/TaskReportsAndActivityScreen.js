@@ -18,8 +18,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { subscribeToTaskReports, subscribeToTaskActivity, rateTaskReport, deleteTaskReport } from '../services/reportsService';
-import { getCurrentSession } from '../services/authFirestore';
 import ReportFormModal from '../components/ReportFormModal';
+import { useTasks } from '../contexts/TasksContext';
 import ExportReportModal from '../components/ExportReportModal';
 import { useNotification } from '../contexts/NotificationContext';
 import ShimmerEffect from '../components/ShimmerEffect';
@@ -30,6 +30,7 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
   const { taskId, taskTitle } = route.params;
   const { theme, isDark } = useTheme();
   const { showSuccess, showError } = useNotification();
+  const { currentUser } = useTasks();
   const [reports, setReports] = useState([]);
   const [activities, setActivities] = useState([]);
   const [tab, setTab] = useState('reports'); // 'reports' or 'activity'
@@ -37,7 +38,6 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
   const [showReportForm, setShowReportForm] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
   const [expandedReportId, setExpandedReportId] = useState(null);
   const [hoverRating, setHoverRating] = useState({});  // Para feedback visual de estrellas
   const [refreshing, setRefreshing] = useState(false);
@@ -289,15 +289,9 @@ const TaskReportsAndActivityScreen = ({ route, navigation }) => {
     let mounted = true;
     const loadData = async () => {
       try {
-        const result = await getCurrentSession();
-        if (result.success && result.session && mounted) {
-          setCurrentUser(result.session);
-        }
         if (!mounted) return;
-
         unsubReportsRef.current = subscribeToTaskReports(taskId, setReports);
         unsubActivityRef.current = subscribeToTaskActivity(taskId, setActivities);
-
         if (mounted) setLoading(false);
       } catch (error) {
         if (__DEV__) console.error('Error loading data:', error);

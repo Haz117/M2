@@ -8,7 +8,6 @@ const LineChart = React.lazy(() => import('react-native-chart-kit').then(module 
 const BarChart = React.lazy(() => import('react-native-chart-kit').then(module => ({ default: module.BarChart })));
 const PieChart = React.lazy(() => import('react-native-chart-kit').then(module => ({ default: module.PieChart })));
 import { useTheme } from '../contexts/ThemeContext';
-import { getCurrentSession } from '../services/authFirestore';
 import { getGeneralMetrics, getTrendData, getAreaStats, getTopPerformers, formatCompletionTime } from '../services/analytics';
 import { useTasks } from '../contexts/TasksContext';
 import { exportTasksToCSV, exportStatsToCSV } from '../services/export';
@@ -51,12 +50,11 @@ export default function DashboardScreen({ navigation }) {
   const [trendData, setTrendData] = useState([]);
   const [areaStats, setAreaStats] = useState({});
   const [performers, setPerformers] = useState([]);
-  const [currentUser, setCurrentUser] = useState(null);
   const [selectedPeriod, setSelectedPeriod] = useState('week');
   const [expandAreas, setExpandAreas] = useState(false);
   
   // Usar el contexto global de tareas (evita suscripción duplicada a Firestore)
-  const { tasks } = useTasks();
+  const { tasks, currentUser } = useTasks();
   const [isExporting, setIsExporting] = useState(false);
   const [heatmapData, setHeatmapData] = useState([]);
   const [weeklyData, setWeeklyData] = useState([]);
@@ -89,8 +87,8 @@ export default function DashboardScreen({ navigation }) {
   const useNativeDriver = Platform.OS !== 'web';
 
   useEffect(() => {
-    loadAllData();
-  }, []);
+    if (currentUser) loadAllData();
+  }, [currentUser?.email]);
 
   // Suscribirse al progreso de tareas — solo re-suscribir cuando cambian los IDs (no en cada update)
   const taskIdsKey = useMemo(() => tasks.map(t => t.id).sort().join(','), [tasks]);
@@ -133,30 +131,21 @@ export default function DashboardScreen({ navigation }) {
   }, [loading]);
 
   const loadAllData = useCallback(async () => {
+    if (!currentUser) return;
     try {
-      const session = await getCurrentSession();
-      if (session.success) {
-        setCurrentUser(session.session);
-        
-        const [metricsRes, trendRes, areasRes, performersRes] = await Promise.all([
-          getGeneralMetrics(session.session.userId, session.session.role),
-          getTrendData(session.session.userId, session.session.role),
-          session.session.role === 'admin' ? getAreaStats() : Promise.resolve({ success: true, areas: {} }),
-          session.session.role === 'admin' ? getTopPerformers() : Promise.resolve({ success: true, performers: [] }),
+      const [metricsRes, trendRes, areasRes, performersRes] = await Promise.all([
+          getGeneralMetrics(currentUser.userId, currentUser.role),
+          getTrendData(currentUser.userId, currentUser.role),
+          currentUser.role === 'admin' ? getAreaStats() : Promise.resolve({ success: true, areas: {} }),
+          currentUser.role === 'admin' ? getTopPerformers() : Promise.resolve({ success: true, performers: [] }),
         ]);
 
-        if (metricsRes.success) {
-          setMetrics(metricsRes.metrics);
-        }
-        if (trendRes.success) {
-          setTrendData(trendRes.data);
-        }
-        if (areasRes.success) setAreaStats(areasRes.areas);
-        if (performersRes.success) setPerformers(performersRes.performers);
+      if (metricsRes.success) setMetrics(metricsRes.metrics);
+      if (trendRes.success) setTrendData(trendRes.data);
+      if (areasRes.success) setAreaStats(areasRes.areas);
+      if (performersRes.success) setPerformers(performersRes.performers);
 
-        // Cargar métricas avanzadas
-        loadAdvancedMetrics(session.session.email);
-      }
+      loadAdvancedMetrics(currentUser.email);
     } catch (err) {
       if (__DEV__) console.error('❌ [Dashboard] Error cargando datos:', err);
       setError('No se pudo cargar el dashboard. Verifica tu conexión.');
@@ -164,7 +153,7 @@ export default function DashboardScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [currentUser?.email]);
 
   const loadAdvancedMetrics = async (userEmail) => {
     setLoadingAdvanced(true);

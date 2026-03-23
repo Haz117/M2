@@ -101,32 +101,27 @@ async function waitForSession(maxRetries = 30, initialDelay = 100) {
 
 /**
  * Suscribirse a cambios en tiempo real de las tareas del usuario autenticado
- * ⚠️ OFFLINE-FIRST: Carga primero del cache, luego sincroniza con Firebase
- * @param {Function} callback - Función que recibe el array de tareas actualizado
- * @returns {Function} Función para cancelar la suscripción
+ * SIMPLE VERSION: Solo Firestore, sin caché
  */
 export async function subscribeToTasks(callback) {
   try {
     activeSubscriptions++;
 
-    // 🔍 PASO 1: Esperar a que la sesión esté disponible
     const session = await waitForSession();
     
     if (!session) {
       activeSubscriptions--;
       callback([]);
-      return () => {};
+      return () => { activeSubscriptions--; };
     }
     
     const userRole = session.role;
     const userEmail = session.email;
-    const userArea = session.area || '';
-    const userDirecciones = session.direcciones || [];
 
-    // Construir lista de áreas permitidas usando config/areas.js como fuente de verdad
-    // (misma lógica que SecretarioDashboardScreen, MyInboxScreen, ReportsScreen)
-    const secAreaCanonical = resolveAreaName(userArea);
+    // Construir lista de áreas permitidas
+    const secAreaCanonical = resolveAreaName(session.area || '');
     const oficiales = getDireccionesBySecretaria(secAreaCanonical);
+    const userDirecciones = session.direcciones || [];
     const allowedAreas = new Set(
       [secAreaCanonical, ...oficiales, ...userDirecciones]
         .filter(Boolean)
@@ -135,128 +130,57 @@ export async function subscribeToTasks(callback) {
 
     // Función para filtrar tareas según rol
     const filterTasksByRole = (tasks) => {
-      let filtered = tasks;
+      if (userRole === 'admin') {
+        return tasks; // Admin ve todas
+      }
 
       if (userRole === 'secretario') {
-        // Secretario ve: tareas asignadas a su email + tareas cuya área pertenece
-        // a su secretaría o a alguna de sus direcciones adscritas
-        filtered = tasks.filter(task => {
+        return tasks.filter(task => {
           if (isTaskAssignedToUser(task, userEmail)) return true;
+          if ((task.createdBy || '').toLowerCase().trim() === userEmail) return true;
           const taskArea = (task.area || (Array.isArray(task.areas) ? task.areas[0] : '') || '').toLowerCase().trim();
           return taskArea && allowedAreas.has(taskArea);
         });
-
-      } else if (userRole === 'director') {
-        // Director ve SOLO tareas asignadas directamente a él
-        // (directamente por admin o delegadas por su secretario — ambas van con su email en assignedTo)
-        filtered = tasks.filter(task => isTaskAssignedToUser(task, userEmail));
-
       }
-      
-      // Deduplicación
-      const seenIds = new Set();
-      const uniqueTasks = [];
-      for (const task of filtered) {
-        if (!seenIds.has(task.id)) {
-          seenIds.add(task.id);
-          uniqueTasks.push(task);
-        }
+
+      if (userRole === 'director') {
+        return tasks.filter(task => isTaskAssignedToUser(task, userEmail));
       }
-      
-      return uniqueTasks;
+
+      return [];
     };
 
-    // 🧹 Migración única: eliminar cache global contaminado entre sesiones
-    // La nueva implementación usa claves por usuario, el global ya no se necesita
-    try {
-      const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
-      await AsyncStorage.removeItem('@offline_tasks');
-    } catch (_) {}
+    // Crear query y suscribirse
+    const tasksQuery = query(
+      collection(db, COLLECTION_NAME),
+      orderBy('createdAt', 'desc')
+    );
 
-    // 📦 PASO 2: Cargar del cache local del usuario actual (clave por email)
-    // Cada usuario tiene su propia clave → no se contamina entre sesiones
-    const cachedTasks = await getCachedTasks(userEmail);
-    if (cachedTasks.length > 0) {
-      log('📦 Cargando', cachedTasks.length, 'tareas del cache de', userEmail);
-      callback(filterTasksByRole(cachedTasks));
-    }
-
-    // 🌐 PASO 3: Si hay conexión, suscribirse a Firebase
-    let unsubscribeListener = null;
     let isSubscribed = true;
-
-    if (getConnectionState()) {
-      // Esperar un poco para asegurar que Firestore está listo
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      let tasksQuery;
-
-      // Construir query según el rol del usuario
-      if (userRole === 'admin') {
-        tasksQuery = query(
-          collection(db, COLLECTION_NAME),
-          orderBy('createdAt', 'desc')
-        );
-      } else if (userRole === 'secretario') {
-        tasksQuery = query(
-          collection(db, COLLECTION_NAME),
-          orderBy('createdAt', 'desc')
-        );
-      } else if (userRole === 'director') {
-        tasksQuery = query(
-          collection(db, COLLECTION_NAME),
-          orderBy('createdAt', 'desc')
-        );
-      } else {
-        return () => {};
-      }
-
-      unsubscribeListener = onSnapshot(
-        tasksQuery,
-        (snapshot) => {
-          if (!isSubscribed) return;
-          
-          let tasks = snapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              ...data,
-              createdAt: toMs(data.createdAt) || Date.now(),
-              updatedAt: toMs(data.updatedAt) || Date.now(),
-              dueAt: toMs(data.dueAt) || Date.now()
+    const unsubscribeListener = onSnapshot(
+      tasksQuery,
+      (snapshot) => {
+        if (!isSubscribed) return;
+        
+        const tasks = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            createdAt: toMs(data.createdAt) || Date.now(),
+            updatedAt: toMs(data.updatedAt) || Date.now(),
+            dueAt: toMs(data.dueAt) || Date.now()
           };
         });
         
         const filteredTasks = filterTasksByRole(tasks);
-
-        // 💾 Guardar en cache local del usuario actual (clave por email)
-        cacheTasksLocally(filteredTasks, userEmail);
-        
         callback(filteredTasks);
       },
       (error) => {
-        console.error('❌ Error en listener de tareas:', error);
-        // En caso de error, usar cache del usuario
-        getCachedTasks(userEmail).then(cached => {
-          if (cached.length > 0) {
-            callback(filterTasksByRole(cached));
-          }
-        });
+        console.error('❌ Error en listener:', error);
+        callback([]);
       }
     );
-    } else {
-      log('📴 Sin conexión - usando solo cache local');
-    }
-
-    // 🔄 Suscribirse a cambios de conexión para logging (sin reiniciar suscripción)
-    // Firestore maneja la reconexión automáticamente
-    const unsubscribeConnection = subscribeToConnectionState((online) => {
-      if (online) {
-        log('🔄 Conexión restaurada - Firestore se reconectará automáticamente');
-      } else {
-        log('📴 Conexión perdida - usando cache local');
-      }
-    });
 
     // Retornar función de cleanup
     return () => {
@@ -265,16 +189,11 @@ export async function subscribeToTasks(callback) {
       if (unsubscribeListener) {
         unsubscribeListener();
       }
-      unsubscribeConnection();
     };
   } catch (error) {
     console.error('❌ Error crítico en subscribeToTasks:', error);
     activeSubscriptions--;
-    
-    // Intentar cargar del cache en caso de error
-    const cached = await getCachedTasks();
-    callback(cached);
-    
+    callback([]);
     return () => {};
   }
 }
@@ -381,29 +300,29 @@ export async function createTask(task) {
     } else {
       // MODO OFFLINE: Guardar localmente y encolar para sincronización
       log('📴 Creando tarea offline');
-      
+
       const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const offlineTask = {
         ...taskData,
         id: tempId,
         isOffline: true
       };
-      
-      // Agregar al cache local
-      const cached = await getCachedTasks();
+
+      // Agregar al cache local (con clave por usuario)
+      const cached = await getCachedTasks(currentUserEmail);
       cached.unshift(offlineTask);
-      await cacheTasksLocally(cached);
-      
+      await cacheTasksLocally(cached, currentUserEmail);
+
       // Encolar para sincronización
       await queueOperation(OPERATION_TYPES.CREATE, taskData, tempId);
-      
+
       productionLogger.logInfo('Task queued offline', { tempId });
       return tempId;
     }
   } catch (error) {
     // Si falla por cualquier razón, intentar modo offline
     log('⚠️ Error creando tarea, guardando offline:', error.message);
-    
+
     const tempId = `temp_${Date.now()}`;
     const taskData = {
       ...task,
@@ -412,7 +331,7 @@ export async function createTask(task) {
       createdAt: Date.now(),
       updatedAt: Date.now()
     };
-    
+
     const cached = await getCachedTasks();
     cached.unshift(taskData);
     await cacheTasksLocally(cached);
@@ -472,17 +391,24 @@ export async function updateTask(taskId, updates) {
       }
     }
     
+    // Obtener email del usuario para usar cache por usuario
+    let cacheUserEmail;
+    try {
+      const sess = await getCurrentSession();
+      cacheUserEmail = sess.success ? sess.session?.email : undefined;
+    } catch (_) {}
+
     // Actualizar cache local primero
-    const cached = await getCachedTasks();
+    const cached = await getCachedTasks(cacheUserEmail);
     const taskIndex = cached.findIndex(t => t.id === taskId);
-    
+
     if (taskIndex !== -1) {
       cached[taskIndex] = {
         ...cached[taskIndex],
         ...updates,
         updatedAt: Date.now()
       };
-      await cacheTasksLocally(cached);
+      await cacheTasksLocally(cached, cacheUserEmail);
     }
 
     // Si es una tarea temporal (offline), solo encolar
@@ -577,12 +503,19 @@ export async function deleteTask(taskId) {
   if (!taskId) {
     throw new Error('taskId es requerido para eliminar');
   }
-  
+
+  // Obtener email del usuario para usar cache por usuario
+  let cacheUserEmail;
+  try {
+    const sess = await getCurrentSession();
+    cacheUserEmail = sess.success ? sess.session?.email : undefined;
+  } catch (_) {}
+
   try {
     // Eliminar del cache local primero
-    const cached = await getCachedTasks();
+    const cached = await getCachedTasks(cacheUserEmail);
     const filtered = cached.filter(t => t.id !== taskId);
-    await cacheTasksLocally(filtered);
+    await cacheTasksLocally(filtered, cacheUserEmail);
 
     // Si es una tarea temporal, solo eliminar del cache
     if (taskId.startsWith('temp_')) {
