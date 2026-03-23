@@ -13,7 +13,6 @@ import { getGestureHandlerRootView } from '../utils/platformComponents';
 //   withSpring,
 //   runOnJS,
 // } from 'react-native-reanimated';
-import FilterBar from '../components/FilterBar';
 import EmptyState from '../components/EmptyState';
 import ShimmerEffect from '../components/ShimmerEffect';
 import SpringCard from '../components/SpringCard';
@@ -59,15 +58,12 @@ export default function KanbanScreen({ navigation }) {
   const [dimensions, setDimensions] = useState(Dimensions.get('window'));
   const [compactView, setCompactView] = useState(false);
   const [sortBy, setSortBy] = useState('date'); // 'date' o 'priority'
-  const [showFilters, setShowFilters] = useState(false);
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [contextMenu, setContextMenu] = useState({ visible: false, task: null, position: { x: 0, y: 0 } });
   
   // Animaciones
   const headerSlide = useRef(new Animated.Value(-50)).current;
   const columnsSlide = useRef(new Animated.Value(100)).current;
-  const filterHeightAnim = useRef(new Animated.Value(1)).current;
-  
   // Animaciones para cada columna (entrada escalonada)
   const columnAnimations = useRef({
     pendiente: new Animated.Value(0),
@@ -180,15 +176,6 @@ export default function KanbanScreen({ navigation }) {
   useEffect(() => {
     // Ya no necesitamos suscribirse, el TasksContext se encarga
   }, []);
-
-  // Animación para colapso/expansión de filtros
-  useEffect(() => {
-    Animated.timing(filterHeightAnim, {
-      toValue: showFilters ? 1 : 0,
-      duration: 300,
-      useNativeDriver: false,
-    }).start();
-  }, [showFilters, filterHeightAnim]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -940,9 +927,7 @@ export default function KanbanScreen({ navigation }) {
                     <View style={styles.searchInputWrapper}>
                       <TouchableOpacity
                         style={styles.searchInputTouchable}
-                        onPress={() => {
-                          // Enfocar el FilterBar cuando se toca
-                        }}
+                        onPress={() => {}}
                       >
                         <Text style={[styles.searchInputPlaceholder, { color: filters.searchText ? theme.text : theme.textSecondary }]}>
                           {filters.searchText || 'Buscar tareas...'}
@@ -1185,9 +1170,6 @@ export default function KanbanScreen({ navigation }) {
             </View>
           </View>
         </Modal>
-        
-        {/* FilterBar solo para búsqueda avanzada - oculto por defecto */}
-        <FilterBar onFilterChange={setFilters} />
         
         {/* Wrapper para las columnas - diferente layout en web vs mobile */}
         {Platform.OS === 'web' ? (
@@ -1829,16 +1811,6 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
     fontSize: dimensions.width > 768 ? 13 : 12,
     fontWeight: '600',
     letterSpacing: 0.2
-  },
-  unifiedFilterBarContainer: {
-    flexDirection: 'row'
-  },
-  unifiedFilterBar: {
-    paddingHorizontal: dimensions.width > 768 ? 16 : 12,
-    paddingVertical: dimensions.width > 768 ? 6 : 4,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
-    width: '100%'
   },
   quickFiltersRow: {
     flexDirection: 'row',

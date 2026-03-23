@@ -552,7 +552,7 @@ export default function App() {
         {isAuthenticated && <OfflineSyncIndicator compact={true} />}
         
         <NotificationProvider>
-        <TasksProvider>
+        <TasksProvider key={forceUpdate}>
         <NavigationContainer ref={navigationRef} key={`navigation-${forceUpdate}`}>
           <Stack.Navigator
             screenOptions={{

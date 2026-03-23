@@ -138,10 +138,17 @@ const TaskItem = memo(function TaskItem({
 
   const handleLongPress = (event) => {
     hapticMedium();
-    event.nativeEvent.target.measure((fx, fy, width, height, px, py) => {
-      setMenuPosition({ x: px + 10, y: py + height + 5 });
+    if (Platform.OS === 'web') {
+      // En web, .measure() no está disponible — usar posición del evento
+      const { pageX = 0, pageY = 0 } = event.nativeEvent || {};
+      setMenuPosition({ x: pageX + 10, y: pageY + 10 });
       setShowContextMenu(true);
-    });
+    } else {
+      event.nativeEvent.target.measure((fx, fy, width, height, px, py) => {
+        setMenuPosition({ x: px + 10, y: py + height + 5 });
+        setShowContextMenu(true);
+      });
+    }
   };
 
   // Construir acciones del menú basadas en permisos disponibles

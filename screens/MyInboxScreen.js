@@ -51,7 +51,6 @@ export default function MyInboxScreen({ navigation }) {
     overdue: false,
   });
   const [deletingTaskIds, setDeletingTaskIds] = useState(new Set());
-  const [quickStatusFilter, setQuickStatusFilter] = useState('todas'); // Filtro rápido por estado
   const [compactView, setCompactView] = useState(false); // Vista compacta
 
   // Animation refs for stagger effect
@@ -213,14 +212,6 @@ export default function MyInboxScreen({ navigation }) {
       // Si no hay usuario, no mostrar nada
       if (!currentUser) return false;
       
-      // Quick status filter (chips rápidos)
-      if (quickStatusFilter !== 'todas') {
-        if (quickStatusFilter === 'en-progreso' && task.status !== 'en-progreso' && task.status !== 'en_progreso') return false;
-        if (quickStatusFilter === 'revision' && task.status !== 'revision' && task.status !== 'en_revision') return false;
-        if (quickStatusFilter === 'pendiente' && task.status !== 'pendiente') return false;
-        if (quickStatusFilter === 'cerrada' && task.status !== 'cerrada') return false;
-      }
-      
       // Filtraje basado en rol
       const userRole = currentUser.role;
       const userEmail = currentUser.email?.toLowerCase();
@@ -325,14 +316,6 @@ export default function MyInboxScreen({ navigation }) {
     return isTaskAssignedToUser(task, userEmail);
   });
   
-  const statusCounts = {
-    todas: baseFilteredTasks.length,
-    pendiente: baseFilteredTasks.filter(t => t.status === 'pendiente').length,
-    'en-progreso': baseFilteredTasks.filter(t => t.status === 'en-progreso' || t.status === 'en_progreso').length,
-    revision: baseFilteredTasks.filter(t => t.status === 'revision' || t.status === 'en_revision').length,
-    cerrada: baseFilteredTasks.filter(t => t.status === 'cerrada').length,
-  };
-
   // Ref para evitar programar notificaciones múltiples veces
   const lastScheduledRef = useRef(null);
 
@@ -1394,67 +1377,8 @@ export default function MyInboxScreen({ navigation }) {
         </View>
       )}
 
-      {/* Chips de filtro rápido por estado */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false} 
-        style={[styles.quickFiltersScroll, { backgroundColor: theme.background }]}
-        contentContainerStyle={styles.quickFiltersContent}
-      >
-        {[
-          { key: 'todas', label: 'Todas', icon: 'apps' },
-          { key: 'pendiente', label: 'Pendiente', icon: 'time-outline' },
-          { key: 'en-progreso', label: 'En progreso', icon: 'play-circle' },
-          { key: 'revision', label: 'Revisión', icon: 'eye' },
-          { key: 'cerrada', label: 'Cerradas', icon: 'checkmark-circle' },
-        ].map(filter => (
-          <TouchableOpacity
-            key={filter.key}
-            style={[
-              styles.quickFilterChip,
-              {
-                backgroundColor: quickStatusFilter === filter.key
-                  ? theme.primary
-                  : (isDark ? '#2a2a2a' : '#f0f0f0'),
-                borderColor: quickStatusFilter === filter.key
-                  ? theme.primary
-                  : (isDark ? '#444' : '#ddd'),
-              }
-            ]}
-            onPress={() => {
-              hapticLight();
-              setQuickStatusFilter(filter.key);
-            }}
-            accessibilityLabel={`Filtrar por ${filter.label}`}
-            accessibilityRole="button"
-            accessibilityState={{ selected: quickStatusFilter === filter.key }}
-          >
-            <Ionicons 
-              name={filter.icon} 
-              size={14} 
-              color={quickStatusFilter === filter.key ? '#fff' : theme.textSecondary} 
-            />
-            <Text style={[
-              styles.quickFilterLabel,
-              { color: quickStatusFilter === filter.key ? '#fff' : theme.text }
-            ]}>
-              {filter.label}
-            </Text>
-            <View style={[
-              styles.quickFilterBadge,
-              { backgroundColor: quickStatusFilter === filter.key ? 'rgba(255,255,255,0.3)' : (isDark ? '#444' : '#ddd') }
-            ]}>
-              <Text style={[
-                styles.quickFilterBadgeText,
-                { color: quickStatusFilter === filter.key ? '#fff' : theme.textSecondary }
-              ]}>
-                {statusCounts[filter.key]}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        ))}
-        
-        {/* Toggle vista compacta */}
+      {/* Toggle vista compacta */}
+      <View style={[styles.compactToggleRow, { backgroundColor: theme.background }]}>
         <TouchableOpacity
           style={[
             styles.compactToggleBtn,
@@ -1473,8 +1397,11 @@ export default function MyInboxScreen({ navigation }) {
             size={16}
             color={compactView ? '#fff' : theme.text}
           />
+          <Text style={{ color: compactView ? '#fff' : theme.text, fontSize: 12, marginLeft: 4 }}>
+            {compactView ? 'Normal' : 'Compacto'}
+          </Text>
         </TouchableOpacity>
-      </ScrollView>
+      </View>
 
       {/* Modal de mensajes */}
       <Modal

@@ -5,7 +5,7 @@
 const __DEV__ = false; // Cambiar a true para depuración
 const log = __DEV__ ? console.log : () => {};
 import { toMs } from '../utils/dateUtils';
-import { isTaskAssignedToUser } from '../utils/taskHelpers';
+import { isTaskAssignedToUser, normalizeStatus } from '../utils/taskHelpers';
 import { getDireccionesBySecretaria, resolveAreaName } from '../config/areas';
 
 import { 
@@ -167,6 +167,7 @@ export async function subscribeToTasks(callback) {
           return {
             id: doc.id,
             ...data,
+            status: normalizeStatus(data.status),
             createdAt: toMs(data.createdAt) || Date.now(),
             updatedAt: toMs(data.updatedAt) || Date.now(),
             dueAt: toMs(data.dueAt) || Date.now()

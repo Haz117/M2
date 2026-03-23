@@ -5,6 +5,31 @@
  */
 
 /**
+ * Normaliza el campo status de una tarea al valor canónico.
+ * Firestore puede tener datos con variantes históricas (en_progreso, en-progreso).
+ * Canónico: en_proceso | en_revision | pendiente | cerrada
+ * @param {string} status
+ * @returns {string}
+ */
+export function normalizeStatus(status) {
+  if (!status) return 'pendiente';
+  switch (status.toLowerCase().replace(/[\s-]/g, '_')) {
+    case 'en_progreso':
+    case 'en_proceso':
+      return 'en_proceso';
+    case 'en_revision':
+      return 'en_revision';
+    case 'cerrada':
+    case 'cerrado':
+    case 'completada':
+    case 'completado':
+      return 'cerrada';
+    default:
+      return status;
+  }
+}
+
+/**
  * Check if a task is assigned to a specific user
  * Supports both string (old format) and array (new standard) for assignedTo field
  * @param {Object} task - Task object

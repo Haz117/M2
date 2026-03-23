@@ -11,27 +11,22 @@ import EmptyState from '../components/EmptyState';
 import ConfettiCelebration from '../components/ConfettiCelebration';
 import { useNotification } from '../contexts/NotificationContext';
 import { deleteManager } from '../utils/deleteManager';
-import AnimatedBadge from '../components/AnimatedBadge';
 import QuickActionButton from '../components/QuickActionButton';
-import { isOverdue, toMs } from '../utils/dateUtils';
+import { toMs } from '../utils/dateUtils';
 import ShimmerEffect from '../components/ShimmerEffect';
 import SkeletonLoader from '../components/SkeletonLoader';
 import OverdueAlert from '../components/OverdueAlert';
 import OnboardingTour from '../components/OnboardingTour';
 import LoadingIndicator from '../components/LoadingIndicator';
-import Button from '../components/Button';
-import Card from '../components/Card';
 import SyncIndicator from '../components/SyncIndicator';
-import ProgressBar from '../components/ProgressBar';
-import PersonalWeeklyStats from '../components/PersonalWeeklyStats';
 import QuickTip, { TIPS } from '../components/QuickTip';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTasks } from '../contexts/TasksContext';
 import { deleteTask as deleteTaskFirebase, updateTask, createTask } from '../services/tasks';
 import { hapticLight, hapticMedium, hapticHeavy } from '../utils/haptics';
 import { useResponsive } from '../utils/responsive';
-import { SPACING, TYPOGRAPHY, RADIUS, SHADOWS, MAX_WIDTHS } from '../theme/tokens';
-import { canChangeTaskStatus, canDeleteTask, ROLES } from '../services/permissions';
+import { SPACING, RADIUS, SHADOWS, MAX_WIDTHS } from '../theme/tokens';
+import { canChangeTaskStatus, canDeleteTask } from '../services/permissions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Swipeable = getSwipeable();
@@ -40,56 +35,36 @@ const Swipeable = getSwipeable();
 
 export default function HomeScreen({ navigation }) {
   const { theme, isDark } = useTheme();
-  const { width, isDesktop, isTablet, columns, padding } = useResponsive();
+  const { width, isDesktop, isTablet, padding } = useResponsive();
   const { showSuccess, showError, showWarning, showInfo, showNotification } = useNotification();
 
   // 🌍 USAR EL CONTEXT GLOBAL DE TAREAS
   const { tasks, setTasks, isLoading: tasksLoading, currentUser } = useTasks();
   const isLoading = tasksLoading; // Derivado directo, sin estado duplicado
-  const [title, setTitle] = useState('');
   const [searchText, setSearchText] = useState('');
   const [quickStatusFilter, setQuickStatusFilter] = useState('todas'); // 'todas', 'pendiente', 'en-progreso', 'revision', 'cerrada'
-  const [compactView, setCompactView] = useState(false);
-  const [advancedFilters, setAdvancedFilters] = useState({
-    areas: [],
-    responsible: [],
-    priorities: [],
-    statuses: [],
-    tags: [],
-    overdue: false,
-  });
-  
-  // 💾 Cargar filtros guardados al iniciar
+
+  // 💾 Cargar búsqueda guardada — clave por usuario para evitar contaminación entre sesiones
   useEffect(() => {
-    const loadSavedFilters = async () => {
+    if (!currentUser?.email) return;
+    const userKey = currentUser.email.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const loadSavedSearch = async () => {
       try {
-        const savedFilters = await AsyncStorage.getItem('@home_filters');
-        const savedSearch = await AsyncStorage.getItem('@home_search');
-        if (savedFilters) {
-          setAdvancedFilters(JSON.parse(savedFilters));
-        }
-        if (savedSearch) {
-          setSearchText(savedSearch);
-        }
+        const savedSearch = await AsyncStorage.getItem(`@home_search_${userKey}`);
+        if (savedSearch) setSearchText(savedSearch);
       } catch (error) {
         // Ignorar errores de carga
       }
     };
-    loadSavedFilters();
-  }, []);
-  
-  // 💾 Guardar filtros cuando cambian
+    loadSavedSearch();
+  }, [currentUser?.email]);
+
+  // 💾 Guardar búsqueda cuando cambia — clave por usuario
   useEffect(() => {
-    const saveFilters = async () => {
-      try {
-        await AsyncStorage.setItem('@home_filters', JSON.stringify(advancedFilters));
-        await AsyncStorage.setItem('@home_search', searchText);
-      } catch (error) {
-        // Ignorar errores de guardado
-      }
-    };
-    saveFilters();
-  }, [advancedFilters, searchText]);
+    if (!currentUser?.email) return;
+    const userKey = currentUser.email.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    AsyncStorage.setItem(`@home_search_${userKey}`, searchText).catch(() => {});
+  }, [searchText, currentUser?.email]);
   const [refreshing, setRefreshing] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
 
@@ -162,8 +137,6 @@ export default function HomeScreen({ navigation }) {
       clearTimeout(t2);
     };
   }, []);
-  const [showScrollTop, setShowScrollTop] = useState(false);
-  const [savingProgress, setSavingProgress] = useState(null);
   const [showUrgentModal, setShowUrgentModal] = useState(false);
   const [isUndoing, setIsUndoing] = useState(false);
 
@@ -213,27 +186,8 @@ export default function HomeScreen({ navigation }) {
     }
   }, [tasksLoading]);
 
-  // Navegar a pantalla para crear nueva tarea (admin)
-  const goToCreate = useCallback(() => {
-    if (currentUser && (currentUser.role === 'admin')) {
-      navigation.navigate('TaskDetail');
-    } else {
-      Alert.alert('Sin permisos', 'Solo administradores pueden crear tareas');
-    }
-  }, [currentUser, navigation]);
-
   const openDetail = useCallback((task) => {
-    // Todos pueden ver los detalles de las tareas
     navigation.navigate('TaskDetail', { task });
-  }, [navigation]);
-
-  const openChat = useCallback((task) => {
-    navigation.navigate('TaskChat', { taskId: task.id, taskTitle: task.title });
-  }, [navigation]);
-
-  const openProgress = useCallback((task) => {
-    // Abrir pantalla de progreso detallado
-    navigation.navigate('TaskProgress', { taskId: task.id, task });
   }, [navigation]);
 
   const deleteTask = useCallback((taskId) => {
@@ -420,18 +374,19 @@ export default function HomeScreen({ navigation }) {
 
   const duplicateTask = useCallback((task) => {
     hapticMedium();
-    navigation.navigate('TaskDetail', { 
+    // No pasar id para que TaskDetailScreen lo trate como tarea nueva
+    navigation.navigate('TaskDetail', {
       task: {
         title: `${task.title} (copia)`,
         description: task.description || '',
         status: 'pendiente',
         priority: task.priority || 'media',
         area: task.area || '',
+        areas: task.areas || [],
         department: task.department || '',
         assignedTo: task.assignedTo || '',
-        dueAt: task.dueAt || new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        id: `temp-${Date.now()}`
+        dueAt: task.dueAt || Date.now(),
+        tags: task.tags || [],
       }
     });
     showInfo('Editando copia de la tarea');
@@ -439,7 +394,8 @@ export default function HomeScreen({ navigation }) {
 
   const shareTask = useCallback(async (task) => {
     hapticLight();
-    const shareText = `Tarea: ${task.title}\nVence: ${new Date(toMs(task.dueAt)).toLocaleDateString()}\nAsignado: ${task.assignedTo || 'Sin asignar'}\nÁrea: ${task.area || 'Sin área'}\nPrioridad: ${task.priority || 'media'}\nEstado: ${task.status || 'pendiente'}`;
+    const assigned = Array.isArray(task.assignedTo) ? task.assignedTo.join(', ') : (task.assignedTo || 'Sin asignar');
+    const shareText = `Tarea: ${task.title}\nVence: ${new Date(toMs(task.dueAt)).toLocaleDateString()}\nAsignado: ${assigned}\nÁrea: ${task.area || 'Sin área'}\nPrioridad: ${task.priority || 'media'}\nEstado: ${task.status || 'pendiente'}`;
     
     try {
       await Clipboard.setStringAsync(shareText);
@@ -498,7 +454,7 @@ export default function HomeScreen({ navigation }) {
   const statusCounts = useMemo(() => ({
     todas: tasks.length,
     pendiente: tasks.filter(t => t.status === 'pendiente').length,
-    'en-progreso': tasks.filter(t => t.status === 'en_progreso' || t.status === 'en_proceso' || t.status === 'en-progreso').length,
+    'en-progreso': tasks.filter(t => t.status === 'en_proceso').length,
     revision: tasks.filter(t => t.status === 'en_revision' || t.status === 'revision').length,
     cerrada: tasks.filter(t => t.status === 'cerrada').length,
   }), [tasks]);
@@ -532,100 +488,20 @@ export default function HomeScreen({ navigation }) {
         if (!matchTitle && !matchDescription && !matchAssigned && !matchTags) return false;
       }
       
-      // Advanced filters
-      // Filter by areas (multi-select)
-      if (advancedFilters.areas.length > 0 && !advancedFilters.areas.includes(task.area)) return false;
-      
-      // Filter by responsible (multi-select) - handle both string and array assignedTo
-      if (advancedFilters.responsible.length > 0) {
-        const assignedToArray = Array.isArray(task.assignedTo) ? task.assignedTo : (task.assignedTo ? [task.assignedTo] : []);
-        const hasMatchingResponsible = advancedFilters.responsible.some(responsible => assignedToArray.includes(responsible));
-        if (!hasMatchingResponsible) return false;
-      }
-      
-      // Filter by priorities (multi-select)
-      if (advancedFilters.priorities.length > 0 && !advancedFilters.priorities.includes(task.priority)) return false;
-      
-      // Filter by statuses (multi-select)
-      if (advancedFilters.statuses.length > 0 && !advancedFilters.statuses.includes(task.status)) return false;
-      
-      // Filter by tags (multi-select)
-      if (advancedFilters.tags && advancedFilters.tags.length > 0) {
-        const hasMatchingTag = advancedFilters.tags.some(filterTag => task.tags?.includes(filterTag));
-        if (!hasMatchingTag) return false;
-      }
-      
-      // Filter by overdue
-      if (advancedFilters.overdue && !isOverdue(task)) return false;
-      
       return true;
     });
-  }, [tasks, searchText, advancedFilters, quickStatusFilter]);
+  }, [tasks, searchText, quickStatusFilter]);
 
-  // Estadísticas Bento con memoización
-  const statistics = useMemo(() => {
-    const todayTasks = filteredTasks.filter(t => {
-      const today = new Date().setHours(0,0,0,0);
-      const dueDate = t.dueAt ? new Date(toMs(t.dueAt)).setHours(0,0,0,0) : null;
-      return dueDate === today;
-    });
-
-    const highPriorityTasks = filteredTasks.filter(t => t.priority === 'alta' && t.status !== 'cerrada');
-    const overdueTasks = filteredTasks.filter(t => isOverdue(t));
-    const myTasks = filteredTasks.filter(t => t.assignedTo && t.status !== 'cerrada');
-    
-    const tasksByArea = filteredTasks.reduce((acc, task) => {
-      const area = task.area || 'Sin área';
-      acc[area] = (acc[area] || 0) + 1;
-      return acc;
-    }, {});
-
-    const topAreas = Object.entries(tasksByArea)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3);
-      
-    return {
-      todayTasks,
-      highPriorityTasks,
-      overdueTasks,
-      myTasks,
-      topAreas
-    };
-  }, [filteredTasks]);
-
-  const { todayTasks, highPriorityTasks, overdueTasks, myTasks, topAreas } = statistics;
-
-  // Extract unique areas and users for filter options
-  const uniqueAreas = useMemo(() => {
-    const areas = new Set(tasks.map(t => t.area).filter(Boolean));
-    return Array.from(areas).sort();
-  }, [tasks]);
-
-  const uniqueUsers = useMemo(() => {
-    const users = new Set(tasks.map(t => t.assignedTo).filter(Boolean));
-    return Array.from(users).sort();
-  }, [tasks]);
 
   // Callbacks
   const handleSearch = useCallback((text) => {
     setSearchText(text);
   }, []);
 
-  const handleApplyFilters = useCallback((newFilters) => {
-    setAdvancedFilters(newFilters);
-  }, []);
 
-  const handleScroll = useCallback((event) => {
-    const offsetY = event.nativeEvent.contentOffset.y;
-    setShowScrollTop(offsetY > 300);
-  }, []);
-
-  const scrollToTop = useCallback(() => {
-    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
-  }, []);
 
   // Create theme-aware and responsive styles
-  const styles = React.useMemo(() => createStyles(theme, isDark, isDesktop, isTablet, width, padding, columns), [theme, isDark, isDesktop, isTablet, width, padding, columns]);
+  const styles = React.useMemo(() => createStyles(theme, isDark, isDesktop, isTablet, width, padding), [theme, isDark, isDesktop, isTablet, width, padding]);
 
   // Show shimmer loading state
   if (isLoading) {
@@ -743,7 +619,7 @@ export default function HomeScreen({ navigation }) {
                           {task.title}
                         </Text>
                         <Text style={[styles.urgentTaskArea, { color: theme.textSecondary }]}>
-                          {task.area} • {task.assignedTo}
+                          {task.area} • {Array.isArray(task.assignedTo) ? task.assignedTo.join(', ') : (task.assignedTo || 'Sin asignar')}
                         </Text>
                       </View>
                     </View>
@@ -798,9 +674,7 @@ export default function HomeScreen({ navigation }) {
           data={filteredTasks}
           keyExtractor={(i) => i.id}
           showsVerticalScrollIndicator={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          getItemLayout={(data, index) => ({
+          getItemLayout={(_, index) => ({
             length: 120,
             offset: 120 * index,
             index,
@@ -827,37 +701,6 @@ export default function HomeScreen({ navigation }) {
           ) : (
           <View style={styles.bentoGrid}>
 
-            {/* Fila 1: Estadísticas principales - REMOVIDA para reducir alertas
-            <View style={styles.bentoRow}>
-              <View style={[styles.bentoCard, styles.bentoLarge]}>
-                <View style={[styles.bentoGradient, { backgroundColor: theme.primary }]}>
-                  <View style={styles.bentoContent}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Text style={styles.bentoTitleLarge}>Tareas Activas</Text>
-                      <AnimatedBadge 
-                        count={filteredTasks.length} 
-                        color="rgba(255, 255, 255, 0.3)"
-                        textColor="#FFFFFF"
-                        size={28}
-                        showZero
-                      />
-                    </View>
-                    <Text style={styles.bentoNumberLarge}>{filteredTasks.length}</Text>
-                    <View style={styles.statsRow}>
-                      <View style={styles.statItemContainer}>
-                        <Ionicons name="flame" size={14} color="#FFFFFF" />
-                        <Text style={styles.statItem}>{highPriorityTasks.length} urgentes</Text>
-                      </View>
-                      <View style={styles.statItemContainer}>
-                        <Ionicons name="time" size={14} color="#FFFFFF" />
-                        <Text style={styles.statItem}>{overdueTasks.length} vencidas</Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            </View>
-            */}
 
             {/* Chips de filtro rápido por estado */}
             <ScrollView 
@@ -931,7 +774,7 @@ export default function HomeScreen({ navigation }) {
             <TaskItem 
               task={item}
               index={index}
-              compact={compactView}
+              compact={false}
               onPress={() => openDetail(item)} // 👈 Abre detalle de tarea consistente con otras pantallas
               // Solo admin puede eliminar tareas
               onDelete={isAdmin ? () => deleteTask(item.id) : undefined}
@@ -966,7 +809,7 @@ export default function HomeScreen({ navigation }) {
             <EmptyState
               icon="checkbox-outline"
               title="Sin tareas"
-              message={searchText || advancedFilters.areas.length > 0 || advancedFilters.responsible.length > 0 || advancedFilters.priorities.length > 0 || advancedFilters.statuses.length > 0 || advancedFilters.overdue
+              message={searchText || quickStatusFilter !== 'todas'
                 ? "No hay tareas que coincidan con los filtros aplicados"
                 : "No tienes tareas pendientes. ¡Toca el botón + para crear una nueva!"
               }
@@ -1067,7 +910,7 @@ export default function HomeScreen({ navigation }) {
   );
 }
 
-const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding, columns) => StyleSheet.create({
+const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) => StyleSheet.create({
   container: { 
     flex: 1, 
     backgroundColor: theme.background
