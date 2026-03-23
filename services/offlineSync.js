@@ -122,15 +122,16 @@ export const OPERATION_TYPES = {
 };
 
 // Agregar operación a la cola
-export const queueOperation = async (type, data, taskId = null) => {
+export const queueOperation = async (type, data, taskId = null, userEmail = null) => {
   try {
     const pendingOps = await getPendingOperations();
-    
+
     const operation = {
       id: `op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       type,
       data,
       taskId,
+      userEmail,
       timestamp: Date.now(),
       retries: 0
     };
@@ -294,7 +295,7 @@ const syncCreateOperation = async (op) => {
   
   // 🧹 Actualizar caché local: reemplazar tarea temporal con la tarea sincronizada
   try {
-    const cached = await getCachedTasks();
+    const cached = await getCachedTasks(op.userEmail);
     // Eliminar la tarea temporal
     const filtered = cached.filter(t => t.id !== op.taskId);
     // Agregar la tarea sincronizada con el nuevo ID de Firebase
@@ -308,7 +309,7 @@ const syncCreateOperation = async (op) => {
       syncedAt: Date.now()
     };
     filtered.unshift(syncedTask);
-    await cacheTasksLocally(filtered);
+    await cacheTasksLocally(filtered, op.userEmail);
     log('✅ Caché actualizado: tarea temporal reemplazada por tarea sincronizada');
   } catch (cacheError) {
     console.error('Error actualizando caché después de sincronizar:', cacheError);
@@ -353,7 +354,7 @@ const syncUpdateOperation = async (op) => {
   
   // 🧹 Actualizar caché local: remover isOffline
   try {
-    const cached = await getCachedTasks();
+    const cached = await getCachedTasks(op.userEmail);
     const taskIndex = cached.findIndex(t => t.id === op.taskId);
     if (taskIndex !== -1) {
       cached[taskIndex] = {
@@ -363,7 +364,7 @@ const syncUpdateOperation = async (op) => {
         updatedAt: Date.now(),
         syncedAt: Date.now()
       };
-      await cacheTasksLocally(cached);
+      await cacheTasksLocally(cached, op.userEmail);
       log('✅ Caché actualizado: isOffline removido para tarea', op.taskId);
     }
   } catch (cacheError) {

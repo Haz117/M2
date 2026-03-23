@@ -315,7 +315,7 @@ export async function createTask(task) {
       await cacheTasksLocally(cached, currentUserEmail);
 
       // Encolar para sincronización
-      await queueOperation(OPERATION_TYPES.CREATE, taskData, tempId);
+      await queueOperation(OPERATION_TYPES.CREATE, taskData, tempId, currentUserEmail);
 
       productionLogger.logInfo('Task queued offline', { tempId });
       return tempId;
@@ -435,12 +435,12 @@ export async function updateTask(taskId, updates) {
     } else {
       // MODO OFFLINE: Encolar para sincronización
       log('📴 Actualizando tarea offline');
-      await queueOperation(OPERATION_TYPES.UPDATE, updates, taskId);
+      await queueOperation(OPERATION_TYPES.UPDATE, updates, taskId, cacheUserEmail);
     }
   } catch (error) {
     // Si falla Firebase, encolar para después
     log('⚠️ Error actualizando, encolando para después:', error.message);
-    await queueOperation(OPERATION_TYPES.UPDATE, updates, taskId);
+    await queueOperation(OPERATION_TYPES.UPDATE, updates, taskId, cacheUserEmail);
   }
 }
 
@@ -532,14 +532,14 @@ export async function deleteTask(taskId) {
     } else {
       // MODO OFFLINE: Encolar para sincronización
       log('📴 Eliminación encolada para sincronización');
-      await queueOperation(OPERATION_TYPES.DELETE, {}, taskId);
+      await queueOperation(OPERATION_TYPES.DELETE, {}, taskId, cacheUserEmail);
     }
     return;
-    
+
   } catch (error) {
     // Si falla Firebase, encolar para después
     log('⚠️ Error eliminando, encolando para después:', error.message);
-    await queueOperation(OPERATION_TYPES.DELETE, {}, taskId);
+    await queueOperation(OPERATION_TYPES.DELETE, {}, taskId, cacheUserEmail);
   }
 }
 

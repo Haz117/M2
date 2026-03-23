@@ -2,7 +2,7 @@
 // Tablero Kanban con columnas por estado. Implementa Drag & Drop para cambiar estado de tareas.
 // Estados: pendiente, en_proceso, en_revision, cerrada - Compatible con web
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, RefreshControl, Animated, Dimensions, Platform, Modal, InteractionManager } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, RefreshControl, Animated, Dimensions, Platform, Modal, InteractionManager, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getGestureHandlerRootView } from '../utils/platformComponents';
@@ -933,21 +933,20 @@ export default function KanbanScreen({ navigation }) {
                   </View>
                   <View style={[styles.searchInputContainer, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
                     <Ionicons name="search-outline" size={20} color={theme.textSecondary} />
-                    <View style={styles.searchInputWrapper}>
-                      <TouchableOpacity
-                        style={styles.searchInputTouchable}
-                        onPress={() => {}}
-                      >
-                        <Text style={[styles.searchInputPlaceholder, { color: filters.searchText ? theme.text : theme.textSecondary }]}>
-                          {filters.searchText || 'Buscar tareas...'}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                    {filters.searchText && (
-                      <TouchableOpacity onPress={() => setFilters({ ...filters, searchText: '' })}>
+                    <TextInput
+                      style={[styles.searchInputWrapper, { color: theme.text, flex: 1 }]}
+                      placeholder="Buscar tareas..."
+                      placeholderTextColor={theme.textSecondary}
+                      value={filters.searchText}
+                      onChangeText={text => setFilters(prev => ({ ...prev, searchText: text }))}
+                      returnKeyType="search"
+                      autoCorrect={false}
+                    />
+                    {filters.searchText ? (
+                      <TouchableOpacity onPress={() => setFilters(prev => ({ ...prev, searchText: '' }))}>
                         <Ionicons name="close-circle" size={20} color={theme.textSecondary} />
                       </TouchableOpacity>
-                    )}
+                    ) : null}
                   </View>
                 </View>
 
@@ -2208,9 +2207,6 @@ const createStyles = (theme, isDark, columnWidth = 300, dimensions = { width: 12
     gap: 10,
   },
   searchInputWrapper: {
-    flex: 1,
-  },
-  searchInputTouchable: {
     flex: 1,
   },
   searchInputPlaceholder: {

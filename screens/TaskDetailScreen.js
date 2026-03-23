@@ -1268,8 +1268,8 @@ export default function TaskDetailScreen({ route, navigation }) {
                 <Ionicons name="copy-outline" size={16} color="#F59E0B" style={{ marginTop: 2 }} />
                 <View style={{ flex: 1, marginLeft: 8 }}>
                   <Text style={[styles.aiWarningTitle, { color: '#F59E0B' }]}>Posible duplicado detectado</Text>
-                  {similarTasks.slice(0, 2).map((r, i) => (
-                    <TouchableOpacity key={i} onPress={() => navigation.navigate('TaskDetail', { task: r.task })}>
+                  {similarTasks.slice(0, 2).map((r) => (
+                    <TouchableOpacity key={r.task.id} onPress={() => navigation.navigate('TaskDetail', { task: r.task })}>
                       <Text style={[styles.aiWarningItem, { color: theme.textSecondary }]} numberOfLines={1}>
                         • "{r.task.title}" ({Math.round(r.score * 100)}% similar)
                       </Text>
@@ -1336,13 +1336,13 @@ export default function TaskDetailScreen({ route, navigation }) {
                   <Ionicons name="sparkles" size={15} color="#6366F1" />
                   <Text style={[styles.aiSubtasksBtnText, { color: '#6366F1' }]}>Sugerir subtareas con IA</Text>
                 </TouchableOpacity>
-                {aiPendingSubtasks.length > 0 && (
+                {!editingTask && aiPendingSubtasks.length > 0 && (
                   <View style={[styles.aiPendingChips, { backgroundColor: isDark ? '#1A1A2E' : '#F5F3FF' }]}>
                     <Text style={[styles.aiPendingLabel, { color: theme.textSecondary }]}>
                       Se crearán {aiPendingSubtasks.length} subtarea{aiPendingSubtasks.length > 1 ? 's' : ''} al guardar:
                     </Text>
                     {aiPendingSubtasks.map((st, i) => (
-                      <View key={i} style={[styles.aiPendingChip, { backgroundColor: isDark ? '#2D2B5E' : '#E0E7FF' }]}>
+                      <View key={`pending-${st}-${i}`} style={[styles.aiPendingChip, { backgroundColor: isDark ? '#2D2B5E' : '#E0E7FF' }]}>
                         <Text style={{ fontSize: 12, color: '#6366F1', flex: 1 }} numberOfLines={1}>{st}</Text>
                         <TouchableOpacity onPress={() => setAiPendingSubtasks(prev => prev.filter((_, j) => j !== i))}>
                           <Ionicons name="close-circle" size={14} color="#6366F1" />
@@ -2117,7 +2117,7 @@ export default function TaskDetailScreen({ route, navigation }) {
             <ScrollView style={{ maxHeight: 360 }} showsVerticalScrollIndicator={false}>
               {aiSubtaskOptions.map((opt, i) => (
                 <TouchableOpacity
-                  key={i}
+                  key={opt.title}
                   style={[styles.aiSubtaskRow, { backgroundColor: opt.checked ? (isDark ? '#1E1B4B' : '#EEF2FF') : (isDark ? '#2A2A2A' : '#F9F9F9'), borderColor: opt.checked ? '#6366F1' : theme.border }]}
                   onPress={() => setAiSubtaskOptions(prev => prev.map((o, j) => j === i ? { ...o, checked: !o.checked } : o))}
                 >
@@ -2137,10 +2137,23 @@ export default function TaskDetailScreen({ route, navigation }) {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.aiSubtasksConfirm, { backgroundColor: '#6366F1' }]}
-                onPress={() => {
+                onPress={async () => {
                   const selected = aiSubtaskOptions.filter(o => o.checked).map(o => o.title);
-                  setAiPendingSubtasks(selected);
                   setShowAiSubtasksModal(false);
+                  if (editingTask) {
+                    // Modo edición: crear subtareas directamente
+                    try {
+                      await Promise.all(
+                        selected.map(st => addSubtask(editingTask.id, { title: st, description: '' }))
+                      );
+                      showSuccess(`${selected.length} subtarea${selected.length !== 1 ? 's' : ''} creada${selected.length !== 1 ? 's' : ''}`);
+                    } catch (_) {
+                      showError('No se pudieron crear las subtareas');
+                    }
+                  } else {
+                    // Modo creación: guardar para crear al guardar la tarea
+                    setAiPendingSubtasks(selected);
+                  }
                 }}
               >
                 <Ionicons name="add-circle" size={16} color="#FFF" />
