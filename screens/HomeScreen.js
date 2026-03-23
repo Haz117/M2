@@ -975,8 +975,8 @@ export default function HomeScreen({ navigation }) {
         />
       )}
       
-      {/* Loading Indicator */}
-      {savingProgress !== null && (
+      {/* Loading Indicator — removed (savingProgress no longer used) */}
+      {false && (
         <View style={{
           position: 'absolute',
           top: 0,
@@ -996,7 +996,7 @@ export default function HomeScreen({ navigation }) {
           }}>
             <LoadingIndicator type="spinner" color={theme.primary} size={12} />
             <Text style={{ fontSize: 16, fontWeight: '600', color: '#1A1A1A' }}>
-              {savingProgress === 100 ? 'Completado!' : 'Guardando...'}
+              Guardando...
             </Text>
           </View>
         </View>
