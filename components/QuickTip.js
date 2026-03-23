@@ -195,13 +195,13 @@ export const resetAllTips = async () => {
 export const TIPS = {
   HOME_SWIPE: {
     tipId: 'home_swipe',
-    title: '💡 Filtra rápidamente',
+    title: 'Filtra rápidamente',
     message: 'Usa los chips de estado en la parte superior para filtrar tus tareas por estado.',
     icon: 'funnel',
   },
   HOME_CREATE: {
     tipId: 'home_create',
-    title: '✨ Crea tu primera tarea',
+    title: 'Crea tu primera tarea',
     message: 'Toca el botón + para crear una nueva tarea y empezar a organizar tu trabajo.',
     icon: 'add-circle',
   },

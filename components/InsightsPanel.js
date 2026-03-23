@@ -99,9 +99,9 @@ const InsightsPanel = React.memo(function InsightsPanel({
                 }
               ]}
             >
-              {monthlyComparative.trend === 'improving' ? '📈 Mejorando' :
-               monthlyComparative.trend === 'declining' ? '📉 Declinando' :
-               monthlyComparative.trend === 'accelerating' ? '🚀 Acelerando' : ''}
+              {monthlyComparative.trend === 'improving' ? 'Mejorando' :
+               monthlyComparative.trend === 'declining' ? 'Declinando' :
+               monthlyComparative.trend === 'accelerating' ? 'Acelerando' : ''}
             </Text>
           </View>
         </SpringCard>

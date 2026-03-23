@@ -134,7 +134,7 @@ const STEPS_SECRETARIO = [
   {
     id: 'ai_subtasks',
     title: 'IA: Genera subtareas al instante',
-    description: 'Al crear o editar una tarea, el botón "✨ Sugerir subtareas con IA" analiza el título y sugiere los pasos necesarios. Selecciona los que quieras y se crean automáticamente.',
+    description: 'Al crear o editar una tarea, el botón "Sugerir subtareas con IA" analiza el título y sugiere los pasos necesarios. Selecciona los que quieras y se crean automáticamente.',
     icon: 'sparkles-outline',
     color: '#6366F1',
   },

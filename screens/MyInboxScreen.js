@@ -484,7 +484,7 @@ export default function MyInboxScreen({ navigation }) {
     await saveDeletingTasks(deletingTasksRef.current);
     
     // ✅ MOSTRAR TOAST INMEDIATAMENTE
-    showInfo('🔴 ¡BORRANDO TAREA! Espera un momento...');
+    showInfo('Eliminando tarea, espera un momento...');
 
     // Esperar 600ms para que el usuario vea el INDICADOR ROJO
     // Luego remover de la lista UI

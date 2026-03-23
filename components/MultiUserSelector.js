@@ -112,20 +112,20 @@ export default function MultiUserSelector({
 
   const getRoleLabel = (role) => {
     const labels = {
-      admin: '🛡️ Admin',
-      secretario: '💼 Secretario',
-      director: '🏢 Director'
+      admin: 'Admin',
+      secretario: 'Secretario',
+      director: 'Director'
     };
-    return labels[role] || '👥 Funcionario';
+    return labels[role] || 'Funcionario';
   };
 
   // Organizar usuarios por secciones de rol
   const sections = useMemo(() => {
     const roleConfig = [
-      { role: 'secretario', title: '💼 Secretarios', color: '#9F2241' },
-      { role: 'director', title: '🏢 Directores', color: '#235B4E' },
-      { role: 'otros', title: '👥 Otros Funcionarios', color: '#6B7280' },
-      { role: 'admin', title: '🛡️ Admins', color: '#DC2626' },
+      { role: 'secretario', title: 'Secretarios', color: '#9F2241' },
+      { role: 'director', title: 'Directores', color: '#235B4E' },
+      { role: 'otros', title: 'Otros Funcionarios', color: '#6B7280' },
+      { role: 'admin', title: 'Admins', color: '#DC2626' },
     ];
     
     return roleConfig

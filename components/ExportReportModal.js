@@ -195,7 +195,7 @@ const ExportReportModal = ({ visible, onClose, report, task, allReports = [] }) 
           report.images || [],
           task
         );
-        showSuccess('✅ PDF generado exitosamente');
+        showSuccess('PDF generado exitosamente');
       } else if (exportType === 'all' && allReports.length > 0) {
         // Export all reports
         pdfUri = await exportReportToPDF(
@@ -203,7 +203,7 @@ const ExportReportModal = ({ visible, onClose, report, task, allReports = [] }) 
           allReports[0].images || [],
           task
         );
-        showSuccess('✅ Reportes exportados');
+        showSuccess('Reportes exportados');
       }
 
       // Ask user what to do with PDF

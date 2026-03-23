@@ -45,6 +45,7 @@ export default function HomeScreen({ navigation }) {
   const [searchText, setSearchText] = useState('');
   const [quickStatusFilter, setQuickStatusFilter] = useState('todas'); // 'todas', 'pendiente', 'en-progreso', 'revision', 'cerrada'
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showBriefingModal, setShowBriefingModal] = useState(false);
 
   // 💾 Cargar búsqueda guardada — clave por usuario para evitar contaminación entre sesiones
   useEffect(() => {
@@ -201,13 +202,13 @@ export default function HomeScreen({ navigation }) {
     // Verificar permisos usando el nuevo sistema
     const taskToDelete = tasks.find(t => t.id === taskId);
     if (!taskToDelete) {
-      showError('❌ Tarea no encontrada');
+      showError('Tarea no encontrada');
       return;
     }
 
     const deletePermission = canDeleteTask(currentUser, taskToDelete);
     if (!deletePermission.canDelete) {
-      showError(`❌ ${deletePermission.reason}`);
+      showError(deletePermission.reason);
       return;
     }
 
@@ -221,7 +222,7 @@ export default function HomeScreen({ navigation }) {
 
     // ✅ MOSTRAR TOAST DE ÉXITO AL INSTANTE (toca para deshacer)
     showNotification({
-      message: '✅ Tarea eliminada · Toca para deshacer',
+      message: 'Tarea eliminada · Toca para deshacer',
       type: 'success',
       duration: 8000,
       onPress: async () => {
@@ -234,10 +235,10 @@ export default function HomeScreen({ navigation }) {
           if (taskToDelete) {
             const { id, ...taskWithoutId } = taskToDelete;
             await createTask(taskWithoutId);
-            showInfo('✅ Tarea restaurada');
+            showInfo('Tarea restaurada');
           }
         } catch (error) {
-          showError('❌ Error al restaurar');
+          showError('Error al restaurar');
         } finally {
           setIsUndoing(false);
         }
@@ -283,7 +284,7 @@ export default function HomeScreen({ navigation }) {
           hapticHeavy(); // Extra haptic for urgent tasks
         }
         showNotification({
-          message: '✅ Tarea completada · Toca para deshacer',
+          message: 'Tarea completada · Toca para deshacer',
           type: 'success',
           duration: 5000,
           onPress: async () => {
@@ -337,7 +338,7 @@ export default function HomeScreen({ navigation }) {
       }
 
       showNotification({
-        message: `✅ Estado: ${statusLabels[newStatus]} · Toca para deshacer`,
+        message: `Estado: ${statusLabels[newStatus]} · Toca para deshacer`,
         type: 'success',
         duration: 5000,
         onPress: previousStatus ? async () => {
@@ -453,7 +454,6 @@ export default function HomeScreen({ navigation }) {
   }, [tasks]);
 
   // IA Feature 1: Resumen inteligente del día
-  const [showBriefing, setShowBriefing] = useState(true);
   const smartBriefing = useMemo(
     () => generateDailySummary(tasks, currentUser),
     [tasks, currentUser]
@@ -553,6 +553,16 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.heading}>Mis Tareas</Text>
               </View>
               <View style={styles.headerActions}>
+                <TouchableOpacity
+                  style={styles.notificationButton}
+                  onPress={() => { hapticLight(); setShowBriefingModal(true); }}
+                >
+                  <Ionicons
+                    name={smartBriefing.overdueCount > 0 ? 'warning-outline' : smartBriefing.urgentCount > 0 ? 'time-outline' : 'sparkles-outline'}
+                    size={22}
+                    color={smartBriefing.overdueCount > 0 ? '#FCA5A5' : smartBriefing.urgentCount > 0 ? '#FCD34D' : '#FFFFFF'}
+                  />
+                </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.notificationButton}
                   onPress={() => { hapticLight(); setShowHelpModal(true); }}
@@ -716,53 +726,6 @@ export default function HomeScreen({ navigation }) {
           ) : (
           <View style={styles.bentoGrid}>
 
-            {/* IA Feature 1: Resumen inteligente del día */}
-            {showBriefing && (
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={() => setShowBriefing(false)}
-                style={[
-                  styles.briefingCard,
-                  {
-                    backgroundColor: smartBriefing.overdueCount > 0
-                      ? (isDark ? '#2D1515' : '#FFF5F5')
-                      : smartBriefing.urgentCount > 0
-                        ? (isDark ? '#2D2215' : '#FFFBF0')
-                        : (isDark ? '#152015' : '#F0FFF4'),
-                    borderColor: smartBriefing.overdueCount > 0 ? '#EF4444'
-                      : smartBriefing.urgentCount > 0 ? '#F59E0B' : '#10B981',
-                  }
-                ]}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
-                  <View style={[
-                    styles.briefingIconWrap,
-                    {
-                      backgroundColor: smartBriefing.overdueCount > 0 ? '#EF444420'
-                        : smartBriefing.urgentCount > 0 ? '#F59E0B20' : '#10B98120'
-                    }
-                  ]}>
-                    <Ionicons
-                      name={smartBriefing.overdueCount > 0 ? 'warning' : smartBriefing.urgentCount > 0 ? 'time' : 'sparkles'}
-                      size={18}
-                      color={smartBriefing.overdueCount > 0 ? '#EF4444' : smartBriefing.urgentCount > 0 ? '#F59E0B' : '#10B981'}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.briefingHeadline, { color: theme.text }]}>
-                      {smartBriefing.headline}
-                    </Text>
-                    {smartBriefing.details.slice(0, 2).map((detail, i) => (
-                      <Text key={i} style={[styles.briefingDetail, { color: theme.textSecondary }]}>
-                        • {detail}
-                      </Text>
-                    ))}
-                  </View>
-                  <Ionicons name="close" size={16} color={theme.textSecondary} />
-                </View>
-              </TouchableOpacity>
-            )}
-
             {/* Chips de filtro rápido por estado */}
             <ScrollView 
               horizontal 
@@ -879,6 +842,36 @@ export default function HomeScreen({ navigation }) {
         />
         </Animated.View>
         
+        {/* Modal SmartBriefing compacto */}
+        <Modal visible={showBriefingModal} transparent animationType="fade" onRequestClose={() => setShowBriefingModal(false)}>
+          <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowBriefingModal(false)}>
+            <TouchableOpacity activeOpacity={1} style={[styles.briefingModal, { backgroundColor: theme.card }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <View style={{
+                  width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center',
+                  backgroundColor: smartBriefing.overdueCount > 0 ? '#EF444420' : smartBriefing.urgentCount > 0 ? '#F59E0B20' : '#10B98120'
+                }}>
+                  <Ionicons
+                    name={smartBriefing.overdueCount > 0 ? 'warning' : smartBriefing.urgentCount > 0 ? 'time' : 'sparkles'}
+                    size={20}
+                    color={smartBriefing.overdueCount > 0 ? '#EF4444' : smartBriefing.urgentCount > 0 ? '#F59E0B' : '#10B981'}
+                  />
+                </View>
+                <Text style={{ flex: 1, fontSize: 15, fontWeight: '700', color: theme.text }}>{smartBriefing.headline}</Text>
+                <TouchableOpacity onPress={() => setShowBriefingModal(false)}>
+                  <Ionicons name="close" size={20} color={theme.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              {smartBriefing.details.map((detail, i) => (
+                <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 5, borderTopWidth: i === 0 ? 1 : 0, borderTopColor: theme.border }}>
+                  <Ionicons name="ellipse" size={6} color={theme.textSecondary} style={{ marginTop: 5 }} />
+                  <Text style={{ fontSize: 13, color: theme.textSecondary, flex: 1, lineHeight: 19 }}>{detail}</Text>
+                </View>
+              ))}
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
+
         {/* Modal de Ayuda */}
         <Modal visible={showHelpModal} transparent animationType="fade" onRequestClose={() => setShowHelpModal(false)}>
           <View style={styles.modalOverlay}>
@@ -902,7 +895,7 @@ export default function HomeScreen({ navigation }) {
                   { icon: 'search', color: '#3B82F6', title: 'Búsqueda', desc: 'Escribe en la barra para buscar por título, descripción, responsable o etiqueta.' },
                   { icon: 'warning', color: '#F59E0B', title: 'Riesgo de retraso (IA)', desc: 'Las tareas con badge naranja o rojo tienen mayor probabilidad de retrasarse según patrones históricos.' },
                   { icon: 'hand-left', color: '#10B981', title: 'Swipe / Arrastrar', desc: 'En móvil arrastra una tarea hacia la izquierda para opciones rápidas (editar, borrar, duplicar).' },
-                  { icon: 'add-circle', color: theme.primary, title: 'Crear tarea (Admin)', desc: 'Usa el botón ✛ flotante en la esquina inferior derecha para crear nueva tarea, ver notificaciones o estadísticas.' },
+                  { icon: 'add-circle', color: theme.primary, title: 'Crear tarea (Admin)', desc: 'Usa el botón flotante (+) en la esquina inferior derecha para crear nueva tarea, ver notificaciones o estadísticas.' },
                 ].map((item, i) => (
                   <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 10, borderBottomWidth: i < 5 ? 1 : 0, borderBottomColor: theme.border }}>
                     <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: item.color + '20', justifyContent: 'center', alignItems: 'center' }}>
@@ -1002,7 +995,7 @@ export default function HomeScreen({ navigation }) {
         </View>
       )}
       
-      {/* 💡 Tip de ayuda para usuarios nuevos */}
+      {/* Tip de ayuda para usuarios nuevos */}
       <QuickTip
         {...TIPS.HOME_SWIPE}
         position="bottom"
@@ -1687,5 +1680,18 @@ const createStyles = (theme, isDark, isDesktop, isTablet, screenWidth, padding) 
     fontSize: 12,
     lineHeight: 17,
     marginTop: 1,
+  },
+  briefingModal: {
+    marginHorizontal: 20,
+    borderRadius: 16,
+    padding: 16,
+    maxWidth: 480,
+    alignSelf: 'center',
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 8,
   },
 });

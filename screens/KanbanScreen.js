@@ -201,7 +201,7 @@ export default function KanbanScreen({ navigation }) {
       
       hapticMedium();
       await updateTask(taskId, { status: newStatus });
-      showSuccess('✨ Estado actualizado correctamente');
+      showSuccess('Estado actualizado correctamente');
       
       // Haptic de éxito
       hapticSuccess();
