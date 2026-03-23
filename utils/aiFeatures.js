@@ -91,15 +91,15 @@ export function generateDailySummary(tasks, user) {
   // Headline según la situación más crítica
   let headline;
   if (overdue.length > 0) {
-    headline = `⚠️ Tienes ${overdue.length} tarea${overdue.length > 1 ? 's' : ''} vencida${overdue.length > 1 ? 's' : ''}`;
+    headline = `${overdue.length} tarea${overdue.length > 1 ? 's' : ''} vencida${overdue.length > 1 ? 's' : ''}`;
   } else if (urgent.length > 0) {
-    headline = `🔴 ${urgent.length} tarea${urgent.length > 1 ? 's' : ''} vence${urgent.length > 1 ? 'n' : ''} en menos de 6 horas`;
+    headline = `${urgent.length} tarea${urgent.length > 1 ? 's' : ''} vence${urgent.length > 1 ? 'n' : ''} en menos de 6 horas`;
   } else if (dueToday.length > 0) {
-    headline = `📅 ${dueToday.length} tarea${dueToday.length > 1 ? 's' : ''} vence${dueToday.length > 1 ? 'n' : ''} hoy`;
+    headline = `${dueToday.length} tarea${dueToday.length > 1 ? 's' : ''} vence${dueToday.length > 1 ? 'n' : ''} hoy`;
   } else if (inProgress.length > 0) {
-    headline = `✅ ${inProgress.length} tarea${inProgress.length > 1 ? 's' : ''} en progreso`;
+    headline = `${inProgress.length} tarea${inProgress.length > 1 ? 's' : ''} en progreso`;
   } else {
-    headline = `📋 ${tasks.length} tarea${tasks.length > 1 ? 's' : ''} en total`;
+    headline = `${tasks.length} tarea${tasks.length > 1 ? 's' : ''} en total`;
   }
 
   // Detalles secundarios

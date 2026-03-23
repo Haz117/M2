@@ -215,6 +215,16 @@ export default function AdminExecutiveDashboard({ navigation }) {
     }).sort((a, b) => b.completionRate - a.completionRate);
   }, [tasks, users]);
 
+  // Top áreas con más vencidas (para el overview)
+  const topOverdueAreas = useMemo(() => {
+    const now = Date.now();
+    const counts = {};
+    tasks.filter(t => t.status !== 'cerrada' && t.area && toMs(t.dueAt) < now).forEach(t => {
+      counts[t.area] = (counts[t.area] || 0) + 1;
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  }, [tasks]);
+
   // Métricas por secretaría
   const secretariaMetrics = useMemo(() => {
     const secretarios = users.filter(u => u.role === 'secretario');
@@ -349,124 +359,93 @@ export default function AdminExecutiveDashboard({ navigation }) {
   // Sección: Resumen General
   const renderOverview = () => (
     <View>
-      {/* KPIs en Grid */}
+      {/* Fila de KPIs principales — 4 cards en 2x2 */}
+      <View style={[styles.section, { backgroundColor: theme.card }]}>
+        <View style={styles.kpiGrid}>
+          {[
+            { label: 'Total', value: globalMetrics.totalTasks, color: theme.text, bg: isDark ? '#1E293B' : '#F8FAFC', icon: 'document-text', iconColor: '#3B82F6' },
+            { label: 'Completadas', value: globalMetrics.completedTasks, color: '#10B981', bg: isDark ? '#162118' : '#ECFDF5', icon: 'checkmark-circle', iconColor: '#10B981' },
+            { label: 'En progreso', value: globalMetrics.inProgressTasks, color: '#3B82F6', bg: isDark ? '#162030' : '#EFF6FF', icon: 'sync', iconColor: '#3B82F6' },
+            { label: 'Vencidas', value: globalMetrics.overdueTasks, color: '#EF4444', bg: isDark ? '#2D1515' : '#FEF2F2', icon: 'alert-circle', iconColor: '#EF4444' },
+          ].map(kpi => (
+            <View key={kpi.label} style={[styles.kpiCard, { backgroundColor: kpi.bg }]}>
+              <Ionicons name={kpi.icon} size={20} color={kpi.iconColor} style={{ marginBottom: 6 }} />
+              <Text style={[styles.kpiValue, { color: kpi.color }]}>{kpi.value}</Text>
+              <Text style={[styles.kpiLabel, { color: theme.textSecondary }]}>{kpi.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Tasas de cumplimiento */}
+        <View style={[styles.ratesContainer, { marginTop: 4 }]}>
+          {[
+            { label: 'Cumplimiento', value: globalMetrics.completionRate },
+            { label: 'A tiempo', value: globalMetrics.onTimeRate },
+          ].map(rate => (
+            <View key={rate.label} style={styles.rateItem}>
+              <View style={styles.rateHeader}>
+                <Text style={[styles.rateLabel, { color: theme.textSecondary }]}>{rate.label}</Text>
+                <Text style={[styles.rateValue, { color: getCompletionColor(rate.value) }]}>{rate.value}%</Text>
+              </View>
+              <ProgressBar progress={rate.value} color={getCompletionColor(rate.value)} size="medium" />
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* Comparativa rápida este mes vs anterior */}
       <View style={[styles.section, { backgroundColor: theme.card }]}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="speedometer" size={20} color={theme.primary} />
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Resumen General</Text>
-        </View>
-        
-        <View style={styles.kpiGrid}>
-          <View style={[styles.kpiCard, { backgroundColor: isDark ? '#1E293B' : '#EFF6FF' }]}>
-            <View style={[styles.kpiIcon, { backgroundColor: '#3B82F620' }]}>
-              <Ionicons name="document-text" size={22} color="#3B82F6" />
-            </View>
-            <Text style={[styles.kpiValue, { color: theme.text }]}>{globalMetrics.totalTasks}</Text>
-            <Text style={[styles.kpiLabel, { color: theme.textSecondary }]}>Total</Text>
-          </View>
-          
-          <View style={[styles.kpiCard, { backgroundColor: isDark ? '#1E293B' : '#ECFDF5' }]}>
-            <View style={[styles.kpiIcon, { backgroundColor: '#10B98120' }]}>
-              <Ionicons name="checkmark-circle" size={22} color="#10B981" />
-            </View>
-            <Text style={[styles.kpiValue, { color: '#10B981' }]}>{globalMetrics.completedTasks}</Text>
-            <Text style={[styles.kpiLabel, { color: theme.textSecondary }]}>Listas</Text>
-          </View>
-          
-          <View style={[styles.kpiCard, { backgroundColor: isDark ? '#1E293B' : '#DBEAFE' }]}>
-            <View style={[styles.kpiIcon, { backgroundColor: '#3B82F620' }]}>
-              <Ionicons name="sync" size={22} color="#3B82F6" />
-            </View>
-            <Text style={[styles.kpiValue, { color: '#3B82F6' }]}>{globalMetrics.inProgressTasks}</Text>
-            <Text style={[styles.kpiLabel, { color: theme.textSecondary }]}>Activas</Text>
-          </View>
-          
-          <View style={[styles.kpiCard, { backgroundColor: isDark ? '#1E293B' : '#FEF3C7' }]}>
-            <View style={[styles.kpiIcon, { backgroundColor: '#F59E0B20' }]}>
-              <Ionicons name="time" size={22} color="#F59E0B" />
-            </View>
-            <Text style={[styles.kpiValue, { color: '#F59E0B' }]}>{globalMetrics.pendingTasks}</Text>
-            <Text style={[styles.kpiLabel, { color: theme.textSecondary }]}>Espera</Text>
-          </View>
-          
-          <View style={[styles.kpiCard, { backgroundColor: isDark ? '#1E293B' : '#FEF2F2' }]}>
-            <View style={[styles.kpiIcon, { backgroundColor: '#EF444420' }]}>
-              <Ionicons name="alert-circle" size={22} color="#EF4444" />
-            </View>
-            <Text style={[styles.kpiValue, { color: '#EF4444' }]}>{globalMetrics.overdueTasks}</Text>
-            <Text style={[styles.kpiLabel, { color: theme.textSecondary }]}>Vencidas</Text>
+          <Ionicons name="trending-up" size={18} color="#9C27B0" />
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Este mes vs anterior</Text>
+          <View style={[styles.statusBadge, {
+            backgroundColor: monthlyComparison.improving ? '#10B98120' : '#EF444420',
+            marginLeft: 'auto',
+          }]}>
+            <Ionicons
+              name={monthlyComparison.improving ? 'arrow-up' : 'arrow-down'}
+              size={13} color={monthlyComparison.improving ? '#10B981' : '#EF4444'}
+            />
+            <Text style={{ color: monthlyComparison.improving ? '#10B981' : '#EF4444', fontWeight: '700', fontSize: 12 }}>
+              {monthlyComparison.change > 0 ? '+' : ''}{monthlyComparison.change}%
+            </Text>
           </View>
         </View>
-        
-        {/* Barras de tasa */}
-        <View style={styles.ratesContainer}>
-          <View style={styles.rateItem}>
-            <View style={styles.rateHeader}>
-              <Text style={[styles.rateLabel, { color: theme.textSecondary }]}>Tasa de Cumplimiento</Text>
-              <Text style={[styles.rateValue, { color: getCompletionColor(globalMetrics.completionRate) }]}>
-                {globalMetrics.completionRate}%
-              </Text>
-            </View>
-            <ProgressBar progress={globalMetrics.completionRate} color={getCompletionColor(globalMetrics.completionRate)} size="medium" />
+        <View style={styles.comparisonRow}>
+          <View style={styles.comparisonItem}>
+            <Text style={[styles.comparisonValue, { color: theme.text }]}>{monthlyComparison.thisMonth}</Text>
+            <Text style={[styles.comparisonLabel, { color: theme.textSecondary }]}>Este mes</Text>
           </View>
-          
-          <View style={styles.rateItem}>
-            <View style={styles.rateHeader}>
-              <Text style={[styles.rateLabel, { color: theme.textSecondary }]}>Entregadas a Tiempo</Text>
-              <Text style={[styles.rateValue, { color: getCompletionColor(globalMetrics.onTimeRate) }]}>
-                {globalMetrics.onTimeRate}%
-              </Text>
-            </View>
-            <ProgressBar progress={globalMetrics.onTimeRate} color={getCompletionColor(globalMetrics.onTimeRate)} size="medium" />
+          <View style={[styles.comparisonArrow, { backgroundColor: theme.border }]} />
+          <View style={styles.comparisonItem}>
+            <Text style={[styles.comparisonValue, { color: theme.textSecondary }]}>{monthlyComparison.lastMonth}</Text>
+            <Text style={[styles.comparisonLabel, { color: theme.textSecondary }]}>Mes anterior</Text>
           </View>
         </View>
       </View>
 
-      {/* Comparativa Mensual */}
-      <View style={[styles.section, { backgroundColor: theme.card }]}>
-        <View style={styles.sectionHeader}>
-          <Ionicons name="trending-up" size={20} color="#9C27B0" />
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Comparativa Mensual</Text>
-        </View>
-        
-        <View style={styles.comparisonRow}>
-          <View style={styles.comparisonItem}>
-            <Text style={[styles.comparisonLabel, { color: theme.textSecondary }]}>Este Mes</Text>
-            <Text style={[styles.comparisonValue, { color: theme.text }]}>{monthlyComparison.thisMonth}</Text>
+      {/* Áreas con más vencidas */}
+      {topOverdueAreas.length > 0 && (
+        <View style={[styles.section, { backgroundColor: theme.card }]}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="warning" size={18} color="#EF4444" />
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Áreas con más retrasos</Text>
           </View>
-          
-          <View style={[styles.comparisonArrow, { backgroundColor: monthlyComparison.improving ? '#10B98120' : '#EF444420' }]}>
-            <Ionicons 
-              name={monthlyComparison.improving ? 'arrow-up' : 'arrow-down'} 
-              size={20} 
-              color={monthlyComparison.improving ? '#10B981' : '#EF4444'} 
-            />
-            <Text style={{ 
-              color: monthlyComparison.improving ? '#10B981' : '#EF4444',
-              fontWeight: '700',
-              fontSize: 13,
-            }}>
-              {monthlyComparison.change > 0 ? '+' : ''}{monthlyComparison.change}%
-            </Text>
-          </View>
-          
-          <View style={styles.comparisonItem}>
-            <Text style={[styles.comparisonLabel, { color: theme.textSecondary }]}>Mes Anterior</Text>
-            <Text style={[styles.comparisonValue, { color: theme.textSecondary }]}>{monthlyComparison.lastMonth}</Text>
-          </View>
+          {topOverdueAreas.map(([area, count]) => (
+            <View key={area} style={[styles.rateItem, { marginTop: 8 }]}>
+              <View style={styles.rateHeader}>
+                <Text style={[styles.rateLabel, { color: theme.text }]} numberOfLines={1}>{area}</Text>
+                <Text style={[styles.rateValue, { color: '#EF4444' }]}>{count} vencida{count !== 1 ? 's' : ''}</Text>
+              </View>
+              <ProgressBar
+                progress={Math.min(100, (count / Math.max(globalMetrics.overdueTasks, 1)) * 100)}
+                color="#EF4444"
+                size="small"
+              />
+            </View>
+          ))}
         </View>
-        
-        <View style={[styles.statusBadge, { backgroundColor: monthlyComparison.improving ? '#10B98120' : '#EF444420' }]}>
-          <Ionicons 
-            name={monthlyComparison.improving ? 'checkmark-circle' : 'alert-circle'} 
-            size={16} 
-            color={monthlyComparison.improving ? '#10B981' : '#EF4444'} 
-          />
-          <Text style={{ color: monthlyComparison.improving ? '#10B981' : '#EF4444', fontWeight: '600', fontSize: 13 }}>
-            {monthlyComparison.improving ? 'Mejorando' : 'Necesita atención'}
-          </Text>
-        </View>
-      </View>
+      )}
     </View>
   );
 
@@ -932,11 +911,11 @@ const styles = StyleSheet.create({
   sectionSubtitle: { fontSize: 12, width: '100%', marginTop: 2 },
   
   // KPIs
-  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 18 },
-  kpiCard: { width: (width - 64 - 20) / 5, minWidth: 62, padding: 10, borderRadius: 12, alignItems: 'center' },
+  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
+  kpiCard: { width: '47%', flexGrow: 1, padding: 14, borderRadius: 14, alignItems: 'center' },
   kpiIcon: { width: 38, height: 38, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginBottom: 6 },
-  kpiValue: { fontSize: 20, fontWeight: '800' },
-  kpiLabel: { fontSize: 9, marginTop: 2, textAlign: 'center', fontWeight: '500' },
+  kpiValue: { fontSize: 26, fontWeight: '800' },
+  kpiLabel: { fontSize: 11, marginTop: 3, textAlign: 'center', fontWeight: '500' },
   
   // Rates
   ratesContainer: { gap: 12 },
@@ -946,11 +925,11 @@ const styles = StyleSheet.create({
   rateValue: { fontSize: 16, fontWeight: '700' },
   
   // Comparison
-  comparisonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  comparisonItem: { alignItems: 'center', flex: 1 },
-  comparisonLabel: { fontSize: 12, marginBottom: 4 },
-  comparisonValue: { fontSize: 28, fontWeight: '800' },
-  comparisonArrow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, gap: 4 },
+  comparisonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 32, marginTop: 12 },
+  comparisonItem: { alignItems: 'center' },
+  comparisonLabel: { fontSize: 12, marginTop: 4 },
+  comparisonValue: { fontSize: 32, fontWeight: '800' },
+  comparisonArrow: { width: 1, height: 40, alignSelf: 'center' },
   statusBadge: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8, borderRadius: 10, gap: 6 },
   
   // Chart
