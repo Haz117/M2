@@ -71,8 +71,10 @@ export const NotificationProvider = ({ children }) => {
     setCurrentNotification(notification);
 
     // Show with react-native-toast-message
+    // 'warning' no es un tipo nativo — se mapea a 'info'
+    const toastType = type === 'warning' ? 'info' : type;
     Toast.show({
-      type,
+      type: toastType,
       position,
       text1: message,
       duration,
